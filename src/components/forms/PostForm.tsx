@@ -9,10 +9,11 @@ import { submitPost } from "@/lib/actions/forums";
 import { useToast } from "@/hooks/use-toast";
 import { SubmitButton } from '@/components/SubmitButton';
 import type { Post } from '@/lib/types';
-import { MessageSquarePlus, Edit, UploadCloud, XCircle, Image as ImageIcon } from 'lucide-react';
+import { MessageSquarePlus, Edit, UploadCloud, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
 import { Input } from '../ui/input';
+import { RichTextToolbar } from './RichTextToolbar'; // Import the toolbar
 
 interface PostFormProps {
     topicId: string;
@@ -38,7 +39,8 @@ export function PostForm({ topicId, editingPost, onEditCancel }: PostFormProps) 
     const [imageFile, setImageFile] = useState<File | null>(null);
     const [isDragging, setIsDragging] = useState(false);
     const [removeCurrentImage, setRemoveCurrentImage] = useState(false);
-
+    // State to manage the textarea content directly for the toolbar
+    const [textContent, setTextContent] = useState(editingPost?.content || '');
 
     const isEditing = !!editingPost;
 
@@ -56,6 +58,7 @@ export function PostForm({ topicId, editingPost, onEditCancel }: PostFormProps) 
                 description: state.message,
             });
             formRef.current?.reset();
+            setTextContent(''); // Clear textarea state
             setImagePreview(null);
             setImageFile(null);
             setRemoveCurrentImage(false);
@@ -66,15 +69,18 @@ export function PostForm({ topicId, editingPost, onEditCancel }: PostFormProps) 
     }, [state, toast, isEditing, onEditCancel]);
 
     useEffect(() => {
+        // Update textContent when editingPost changes (start editing or cancel)
+        setTextContent(editingPost?.content || '');
+        setImagePreview(editingPost?.imageUrl || null);
+        setRemoveCurrentImage(false); // Reset removal flag
+
         if (isEditing) {
-            textareaRef.current?.focus();
-            // textareaRef.current?.select(); // Can be annoying if user just wants to add image
-            setImagePreview(editingPost?.imageUrl || null);
-            setRemoveCurrentImage(false); // Reset removal flag
+             // Focus after a short delay to ensure textarea is ready
+            setTimeout(() => textareaRef.current?.focus(), 50);
         } else {
             setImagePreview(null); // Clear preview for new posts
         }
-    }, [isEditing, editingPost]);
+    }, [editingPost, isEditing]);
 
     const handleFileChange = (files: FileList | null) => {
         if (files && files[0]) {
@@ -133,6 +139,9 @@ export function PostForm({ topicId, editingPost, onEditCancel }: PostFormProps) 
         }
     };
 
+     const handleTextChange = (newContent: string) => {
+        setTextContent(newContent);
+    };
 
     return (
         <Card className={`mt-6 mb-8 shadow-md border ${isEditing ? 'border-accent ring-1 ring-accent' : 'border-border'}`}>
@@ -143,6 +152,9 @@ export function PostForm({ topicId, editingPost, onEditCancel }: PostFormProps) 
             </CardHeader>
             <form
                 action={(formData) => {
+                    // Manually set the content from state
+                    formData.set('content', textContent);
+
                     if (imagePreview && imageFile) { // New image uploaded
                         formData.set('imageUrl', imagePreview);
                     } else if (removeCurrentImage) { // Existing image marked for removal
@@ -161,19 +173,27 @@ export function PostForm({ topicId, editingPost, onEditCancel }: PostFormProps) 
                 {isEditing && <input type="hidden" name="postId" value={editingPost.id} />}
 
                 <CardContent className="space-y-4 pt-0">
-                    <div className="space-y-2">
+                    <div className="space-y-1">
                         <Label htmlFor="content" className="sr-only">{isEditing ? 'Edit Content' : 'Reply Content'}</Label>
+                        {/* Rich Text Toolbar */}
+                         <RichTextToolbar
+                            textareaRef={textareaRef}
+                            onContentChange={handleTextChange}
+                            currentContent={textContent}
+                         />
                         <Textarea
                             id="content"
-                            name="content"
+                            name="content" // Keep name for potential non-JS fallback, though value is controlled
                             ref={textareaRef}
                             required
                             minLength={10}
-                            rows={isEditing ? 6 : 4}
-                            placeholder={isEditing ? "Update your post..." : "Write your reply here..."}
-                            defaultValue={isEditing ? editingPost.content : ""}
+                            rows={isEditing ? 8 : 6} // Slightly larger for editor
+                            placeholder={isEditing ? "Update your post..." : "Write your reply here... Use markdown for formatting."}
+                            value={textContent} // Controlled component
+                            onChange={(e) => handleTextChange(e.target.value)} // Update state on direct typing
                             aria-invalid={!!state?.errors?.content}
                             aria-describedby="content-error"
+                            className="rounded-t-none focus:z-10 focus:ring-offset-0 focus:ring-1" // Adjust styling for toolbar
                         />
                         {state?.errors?.content && (
                             <p id="content-error" className="text-sm font-medium text-destructive pt-1">
@@ -196,7 +216,7 @@ export function PostForm({ topicId, editingPost, onEditCancel }: PostFormProps) 
                         />
                         <label
                             htmlFor="post-image-upload"
-                            className={`mt-2 flex justify-center w-full h-32 px-6 pt-5 pb-6 border-2 border-dashed rounded-md cursor-pointer
+                            className={`mt-1 flex justify-center w-full h-32 px-6 pt-5 pb-6 border-2 border-dashed rounded-md cursor-pointer
                                 ${isDragging ? 'border-primary bg-primary/10' : 'border-border hover:border-muted-foreground/50'}`}
                             onDragEnter={handleDragEnter}
                             onDragLeave={handleDragLeave}
@@ -237,12 +257,11 @@ export function PostForm({ topicId, editingPost, onEditCancel }: PostFormProps) 
                             </div>
                         </div>
                     )}
-                    {/* Hidden input for actual image data URI to be submitted */}
+                     {/* Hidden input for actual image data URI to be submitted */}
                     {/* This is now handled in the formAction wrapper above */}
                     {/* <input type="hidden" name="imageUrl" value={imagePreview || ''} /> */}
                      {/* Hidden input to signal image removal */}
                     {/* <input type="hidden" name="removeImage" value={removeCurrentImage ? 'true' : 'false'} /> */}
-
 
                 </CardContent>
                 <CardFooter className="flex justify-between">
@@ -253,7 +272,12 @@ export function PostForm({ topicId, editingPost, onEditCancel }: PostFormProps) 
                         {isEditing ? 'Save Changes' : 'Post Reply'}
                     </SubmitButton>
                     {isEditing && onEditCancel && (
-                        <Button type="button" variant="outline" onClick={() => { onEditCancel(); setImagePreview(editingPost?.imageUrl || null); setImageFile(null); setRemoveCurrentImage(false);}}>
+                        <Button type="button" variant="outline" onClick={() => {
+                            onEditCancel();
+                            setImagePreview(editingPost?.imageUrl || null);
+                            setImageFile(null);
+                            setRemoveCurrentImage(false);
+                        }}>
                             Cancel Edit
                         </Button>
                     )}

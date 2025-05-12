@@ -9,10 +9,10 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { createTopic } from "@/lib/actions/forums";
 import { useToast } from "@/hooks/use-toast";
 import { SubmitButton } from '@/components/SubmitButton';
-import { PlusCircle, UploadCloud, XCircle, Image as ImageIcon } from 'lucide-react';
+import { PlusCircle, UploadCloud, XCircle } from 'lucide-react';
 import Image from 'next/image';
 import { Button } from '../ui/button';
-
+import { RichTextToolbar } from './RichTextToolbar'; // Import the toolbar
 
 interface TopicFormProps {
     categoryId: string;
@@ -30,10 +30,13 @@ export function TopicForm({ categoryId }: TopicFormProps) {
     const { toast } = useToast();
     const formRef = useRef<HTMLFormElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const textareaRef = useRef<HTMLTextAreaElement>(null); // Ref for the first post textarea
 
     const [imagePreview, setImagePreview] = useState<string | null>(null);
     const [imageFile, setImageFile] = useState<File | null>(null);
     const [isDragging, setIsDragging] = useState(false);
+    // State to manage the first post textarea content directly for the toolbar
+    const [firstPostTextContent, setFirstPostTextContent] = useState('');
 
     useEffect(() => {
         if (state?.message && !state.success) {
@@ -49,6 +52,7 @@ export function TopicForm({ categoryId }: TopicFormProps) {
                 description: state.message,
             });
             formRef.current?.reset();
+            setFirstPostTextContent(''); // Clear textarea state
             setImagePreview(null);
             setImageFile(null);
             // Redirect is handled by the server action
@@ -108,6 +112,11 @@ export function TopicForm({ categoryId }: TopicFormProps) {
         }
     };
 
+    const handleTextChange = (newContent: string) => {
+        setFirstPostTextContent(newContent);
+    };
+
+
     return (
         <Card className="mt-6 mb-8 shadow-md border border-border">
             <CardHeader className="pb-4">
@@ -116,6 +125,9 @@ export function TopicForm({ categoryId }: TopicFormProps) {
             </CardHeader>
             <form
                 action={(formData) => {
+                    // Manually set the firstPostContent from state
+                    formData.set('firstPostContent', firstPostTextContent);
+
                     if (imagePreview && imageFile) {
                         formData.set('firstPostImageUrl', imagePreview);
                     } else {
@@ -145,17 +157,27 @@ export function TopicForm({ categoryId }: TopicFormProps) {
                             </p>
                         )}
                     </div>
-                    <div className="space-y-2">
+                    <div className="space-y-1"> {/* Reduced bottom margin */}
                         <Label htmlFor="firstPostContent">Your First Post</Label>
+                         {/* Rich Text Toolbar */}
+                         <RichTextToolbar
+                            textareaRef={textareaRef}
+                            onContentChange={handleTextChange}
+                            currentContent={firstPostTextContent}
+                         />
                         <Textarea
                             id="firstPostContent"
-                            name="firstPostContent"
+                            name="firstPostContent" // Keep name for non-JS fallback
+                            ref={textareaRef}
                             required
                             minLength={10}
-                            rows={5}
-                            placeholder="Start the discussion here..."
+                            rows={7} // Slightly larger for editor
+                            placeholder="Start the discussion here... Use markdown for formatting."
+                            value={firstPostTextContent} // Controlled component
+                            onChange={(e) => handleTextChange(e.target.value)} // Update state on direct typing
                             aria-invalid={!!state?.errors?.firstPostContent}
                             aria-describedby="firstPostContent-error"
+                             className="rounded-t-none focus:z-10 focus:ring-offset-0 focus:ring-1" // Adjust styling for toolbar
                         />
                         {state?.errors?.firstPostContent && (
                             <p id="firstPostContent-error" className="text-sm font-medium text-destructive pt-1">
@@ -178,7 +200,7 @@ export function TopicForm({ categoryId }: TopicFormProps) {
                         />
                         <label
                             htmlFor="topic-image-upload"
-                            className={`mt-2 flex justify-center w-full h-32 px-6 pt-5 pb-6 border-2 border-dashed rounded-md cursor-pointer
+                            className={`mt-1 flex justify-center w-full h-32 px-6 pt-5 pb-6 border-2 border-dashed rounded-md cursor-pointer
                                 ${isDragging ? 'border-primary bg-primary/10' : 'border-border hover:border-muted-foreground/50'}`}
                             onDragEnter={handleDragEnter}
                             onDragLeave={handleDragLeave}
