@@ -1,4 +1,5 @@
 import type { User, Category, Topic, Post } from './types';
+import { revalidatePath } from 'next/cache';
 
 // Placeholder Users - Reset to empty
 let users: User[] = [];
@@ -19,6 +20,13 @@ let posts: Post[] = [];
 // --- Simulation Functions ---
 
 // Fetch Users
+export const getAllUsers = async (): Promise<User[]> => {
+    await new Promise(resolve => setTimeout(resolve, 100));
+    // Return a copy to prevent direct modification outside controlled functions
+    return [...users];
+};
+
+
 export const findUserByEmail = async (email: string): Promise<User | null> => {
   await new Promise(resolve => setTimeout(resolve, 100)); // Simulate network delay
   return users.find(u => u.email === email) || null;
@@ -56,6 +64,45 @@ export const createUser = async (userData: CreateUserParams): Promise<User> => {
   return newUser;
 };
 
+// Admin Actions for Users
+export const setUserAdminStatus = async (userId: string, isAdmin: boolean): Promise<User | null> => {
+    await new Promise(resolve => setTimeout(resolve, 150));
+    const userIndex = users.findIndex(u => u.id === userId);
+    if (userIndex === -1) {
+        console.error("Set Admin Status failed: User not found.");
+        return null;
+    }
+    users[userIndex].isAdmin = isAdmin;
+    console.log(`Set admin status for user ${userId} to ${isAdmin}`);
+    revalidatePath('/admin/users'); // Revalidate user list
+    return users[userIndex];
+}
+
+export const deleteUser = async (userId: string): Promise<boolean> => {
+    await new Promise(resolve => setTimeout(resolve, 200));
+    const initialLength = users.length;
+    // Filter out the user to delete
+    users = users.filter(u => u.id !== userId);
+
+    // Optional: Handle orphaned content (posts/topics)
+    // This placeholder doesn't automatically delete user content,
+    // but in a real app you'd decide how to handle this (e.g., anonymize, delete, keep).
+     console.log(`Deleted user ${userId}. Posts/Topics remain under original authorId.`);
+
+    if (users.length < initialLength) {
+        console.log(`User ${userId} deleted.`);
+        revalidatePath('/admin/users'); // Revalidate user list
+        // Also revalidate pages where user counts/details might appear
+        revalidatePath('/admin');
+        revalidatePath('/');
+        return true;
+    } else {
+        console.error(`Delete User failed: User ${userId} not found.`);
+        return false;
+    }
+}
+
+
 // Fetch Categories
 export const getCategories = async (): Promise<Category[]> => {
   await new Promise(resolve => setTimeout(resolve, 150));
@@ -83,15 +130,55 @@ export const createCategory = async (categoryData: Omit<Category, 'id' | 'create
     await new Promise(resolve => setTimeout(resolve, 200));
     const newCategory: Category = {
         ...categoryData,
-        id: `cat${categories.length + 1}`,
+        id: `cat${categories.length + 1}${Date.now()}`, // More uniqueness
         createdAt: new Date(),
         topicCount: 0,
         postCount: 0,
     };
     categories.push(newCategory);
     console.log("Created Category:", newCategory);
+    revalidatePath('/admin/categories');
+    revalidatePath('/');
     return newCategory;
 }
+
+// Admin Actions for Categories
+export const updateCategory = async (categoryId: string, data: { name: string; description?: string }): Promise<Category | null> => {
+    await new Promise(resolve => setTimeout(resolve, 150));
+    const catIndex = categories.findIndex(c => c.id === categoryId);
+    if (catIndex === -1) {
+        console.error("Update Category failed: Category not found.");
+        return null;
+    }
+    categories[catIndex] = { ...categories[catIndex], ...data };
+    console.log("Updated Category:", categories[catIndex]);
+    revalidatePath('/admin/categories');
+    revalidatePath('/');
+    revalidatePath(`/categories/${categoryId}`);
+    return categories[catIndex];
+}
+
+export const deleteCategory = async (categoryId: string): Promise<boolean> => {
+    await new Promise(resolve => setTimeout(resolve, 200));
+    const initialLength = categories.length;
+    // In a real app, decide how to handle topics/posts within the category (e.g., delete them, move them to an archive category)
+    // For placeholder: Just delete the category itself. Topics/posts become orphaned (their categoryId points to nothing).
+    categories = categories.filter(c => c.id !== categoryId);
+    topics = topics.filter(t => t.categoryId !== categoryId); // Also remove topics in deleted category
+    posts = posts.filter(p => !topics.some(t => t.id === p.topicId && t.categoryId === categoryId)); // Remove posts within those topics
+
+    if (categories.length < initialLength) {
+        console.log(`Category ${categoryId} and its topics/posts deleted.`);
+        revalidatePath('/admin/categories');
+        revalidatePath('/');
+        // Revalidate specific category pages is difficult now it's gone
+        return true;
+    } else {
+        console.error(`Delete Category failed: Category ${categoryId} not found.`);
+        return false;
+    }
+}
+
 
 // Fetch Topics
 export const getTopicsByCategory = async (categoryId: string): Promise<Topic[]> => {
@@ -119,7 +206,7 @@ export const createTopic = async (topicData: Omit<Topic, 'id' | 'createdAt' | 'l
     const now = new Date();
     const newTopic: Topic = {
         ...topicData,
-        id: `topic${topics.length + 1}`,
+        id: `topic${topics.length + 1}${Date.now()}`, // More uniqueness
         createdAt: now,
         lastActivity: now,
         postCount: 1, // Start with 1 post (the initial one)
@@ -129,7 +216,7 @@ export const createTopic = async (topicData: Omit<Topic, 'id' | 'createdAt' | 'l
 
     // Automatically create the first post for the topic
     await createPost({
-        content: "Initial post content.", // Default initial content
+        content: "Initial post content placeholder.", // Default initial content - SHOULD BE OVERRIDDEN by form
         topicId: newTopic.id,
         authorId: topicData.authorId,
     });
@@ -138,6 +225,7 @@ export const createTopic = async (topicData: Omit<Topic, 'id' | 'createdAt' | 'l
     const catIndex = categories.findIndex(c => c.id === topicData.categoryId);
      if (catIndex !== -1) {
         categories[catIndex].topicCount = (categories[catIndex].topicCount || 0) + 1;
+        // Don't increment post count here, createPost handles it
     }
 
     return newTopic;
@@ -159,7 +247,7 @@ export const createPost = async (postData: Omit<Post, 'id' | 'createdAt' | 'upda
     const now = new Date();
     const newPost: Post = {
         ...postData,
-        id: `post${posts.length + 1}`,
+        id: `post${posts.length + 1}${Date.now()}`, // More uniqueness
         createdAt: now,
     };
     posts.push(newPost);
@@ -254,6 +342,10 @@ export const deletePost = async (postId: string, userId: string): Promise<boolea
 
 
     console.log("Deleted Post ID:", postId);
+     revalidatePath(`/topics/${deletedPost.topicId}`); // Revalidate topic page
+     revalidatePath('/admin'); // Revalidate admin dashboard counts
+     // May need to revalidate category page too if counts are shown there
+     if(topicIndex !== -1 && topics[topicIndex]) revalidatePath(`/categories/${topics[topicIndex].categoryId}`);
     return true;
 };
 
@@ -261,3 +353,24 @@ export const getSimulatedUser = async (): Promise<User | null> => {
    // Return null as there are no users initially after reset
    return null;
 }
+
+// --- Count Functions for Admin Dashboard ---
+export const getTotalUserCount = async (): Promise<number> => {
+    await new Promise(resolve => setTimeout(resolve, 20));
+    return users.length;
+};
+
+export const getTotalCategoryCount = async (): Promise<number> => {
+    await new Promise(resolve => setTimeout(resolve, 20));
+    return categories.length;
+};
+
+export const getTotalTopicCount = async (): Promise<number> => {
+    await new Promise(resolve => setTimeout(resolve, 20));
+    return topics.length;
+};
+
+export const getTotalPostCount = async (): Promise<number> => {
+    await new Promise(resolve => setTimeout(resolve, 20));
+    return posts.length;
+};

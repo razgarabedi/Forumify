@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { getCurrentUser, logout } from '@/lib/actions/auth';
-import { LogIn, LogOut, UserPlus, Home, ShieldCheck } from 'lucide-react';
+import { LogIn, LogOut, UserPlus, Home, ShieldCheck, Settings } from 'lucide-react'; // Added Settings for Admin
 
 export async function Header() {
   const user = await getCurrentUser();
@@ -27,6 +27,15 @@ export async function Header() {
             <Home className="inline-block h-4 w-4 mr-1" />
             Home
           </Link>
+           {user?.isAdmin && (
+              <Link
+                href="/admin"
+                 className="transition-colors hover:text-foreground/80 text-foreground/60"
+              >
+                 <Settings className="inline-block h-4 w-4 mr-1" />
+                Admin
+              </Link>
+           )}
            {/* Add more nav links here if needed */}
         </nav>
 
@@ -34,8 +43,8 @@ export async function Header() {
           {user ? (
             <>
              {user.isAdmin && (
-                 <span className="text-xs font-semibold text-destructive flex items-center mr-2">
-                    <ShieldCheck className="h-4 w-4 mr-1" /> Admin
+                 <span className="text-xs font-semibold text-destructive flex items-center mr-2 border border-destructive/50 rounded px-1.5 py-0.5 bg-destructive/10">
+                    <ShieldCheck className="h-3.5 w-3.5 mr-1" /> Admin
                  </span>
              )}
               <span className="text-sm font-medium mr-2 hidden sm:inline">
