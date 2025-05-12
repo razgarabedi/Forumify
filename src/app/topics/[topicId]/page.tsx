@@ -16,10 +16,12 @@ interface TopicPageProps {
 
 export default async function TopicPage({ params }: TopicPageProps) {
     const { topicId } = params;
-    const [topic, initialPosts, user] = await Promise.all([
+     // Fetch user first to ensure cookie context is reliably accessed
+    const user = await getCurrentUser();
+    const [topic, initialPosts] = await Promise.all([
         getTopicById(topicId),
         getPostsByTopic(topicId), // Fetch posts via action/server component logic
-        getCurrentUser()
+        // User fetch moved outside Promise.all
     ]);
 
     if (!topic) {

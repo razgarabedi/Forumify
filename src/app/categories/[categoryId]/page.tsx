@@ -15,10 +15,12 @@ interface CategoryPageProps {
 
 export default async function CategoryPage({ params }: CategoryPageProps) {
     const { categoryId } = params;
-    const [category, topics, user] = await Promise.all([
+    // Fetch user first to ensure cookie context is reliably accessed
+    const user = await getCurrentUser();
+    const [category, topics] = await Promise.all([
         getCategoryById(categoryId),
         getTopicsByCategory(categoryId),
-        getCurrentUser()
+        // User fetch moved outside Promise.all
     ]);
 
     if (!category) {
