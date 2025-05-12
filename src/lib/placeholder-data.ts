@@ -1,4 +1,3 @@
-
 import type { User, Category, Topic, Post } from './types';
 import { revalidatePath } from 'next/cache';
 
@@ -22,23 +21,25 @@ let posts: Post[] = [];
 
 // Fetch Users
 export const getAllUsers = async (): Promise<User[]> => {
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise(resolve => setTimeout(resolve, 10)); // Shorter delay
     // Return a copy to prevent direct modification outside controlled functions
     return [...users];
 };
 
 
 export const findUserByEmail = async (email: string): Promise<User | null> => {
-  await new Promise(resolve => setTimeout(resolve, 100)); // Simulate network delay
+  await new Promise(resolve => setTimeout(resolve, 10)); // Shorter delay
   // Find user and return the full object (including password for comparison) or null
   const user = users.find(u => u.email === email);
+   // console.log(`[DB findUserByEmail] Searching for ${email}, Found:`, user ? user.id : 'null');
   return user ? { ...user } : null; // Return a copy
 };
 
 export const findUserById = async (id: string): Promise<User | null> => {
-    await new Promise(resolve => setTimeout(resolve, 50));
+    await new Promise(resolve => setTimeout(resolve, 10)); // Shorter delay
     // Find user and return the full object (including password) or null
     const user = users.find(u => u.id === id);
+    // console.log(`[DB findUserById] Searching for ${id}, Found:`, user ? user.id : 'null');
     return user ? { ...user } : null; // Return a copy
 }
 
@@ -51,7 +52,7 @@ interface CreateUserParams {
 }
 
 export const createUser = async (userData: CreateUserParams): Promise<User> => {
-  await new Promise(resolve => setTimeout(resolve, 200));
+  await new Promise(resolve => setTimeout(resolve, 50)); // Shorter delay
   // **IMPORTANT**: In a real app, hash the password *before* saving!
   // const hashedPassword = await bcrypt.hash(userData.password, 10);
   const newUser: User = {
@@ -64,27 +65,28 @@ export const createUser = async (userData: CreateUserParams): Promise<User> => {
     createdAt: new Date(),
   };
   users.push(newUser);
-  console.log("Created User:", newUser.id, newUser.username, `isAdmin: ${newUser.isAdmin}`); // Log new user details including admin status
-  console.log("Current Users:", users.map(u => ({ id: u.id, username: u.username, email: u.email, isAdmin: u.isAdmin }))); // Log current state of users array
+  console.log("[DB createUser] Created User:", newUser.id, newUser.username, `isAdmin: ${newUser.isAdmin}`); // Log new user details including admin status
+  // console.log("Current Users:", users.map(u => ({ id: u.id, username: u.username, email: u.email, isAdmin: u.isAdmin }))); // Log current state of users array
   return { ...newUser }; // Return a copy
 };
 
 // Admin Actions for Users
 export const setUserAdminStatus = async (userId: string, isAdmin: boolean): Promise<User | null> => {
-    await new Promise(resolve => setTimeout(resolve, 150));
+    await new Promise(resolve => setTimeout(resolve, 50)); // Shorter delay
     const userIndex = users.findIndex(u => u.id === userId);
     if (userIndex === -1) {
-        console.error("Set Admin Status failed: User not found.");
+        console.error("[DB setUserAdminStatus] Set Admin Status failed: User not found.");
         return null;
     }
     users[userIndex].isAdmin = isAdmin;
-    console.log(`Set admin status for user ${userId} to ${isAdmin}`);
-    revalidatePath('/admin/users'); // Revalidate user list
+    console.log(`[DB setUserAdminStatus] Set admin status for user ${userId} to ${isAdmin}`);
+    // Revalidation is handled by the action calling this function
+    // revalidatePath('/admin/users');
     return { ...users[userIndex] }; // Return a copy
 }
 
 export const deleteUser = async (userId: string): Promise<boolean> => {
-    await new Promise(resolve => setTimeout(resolve, 200));
+    await new Promise(resolve => setTimeout(resolve, 50)); // Shorter delay
     const initialLength = users.length;
     // Filter out the user to delete
     users = users.filter(u => u.id !== userId);
@@ -92,17 +94,17 @@ export const deleteUser = async (userId: string): Promise<boolean> => {
     // Optional: Handle orphaned content (posts/topics)
     // This placeholder doesn't automatically delete user content,
     // but in a real app you'd decide how to handle this (e.g., anonymize, delete, keep).
-     console.log(`Deleted user ${userId}. Posts/Topics remain under original authorId.`);
+     console.log(`[DB deleteUser] User ${userId} deleted. Posts/Topics may remain under original authorId.`);
 
     if (users.length < initialLength) {
-        console.log(`User ${userId} deleted.`);
-        revalidatePath('/admin/users'); // Revalidate user list
-        // Also revalidate pages where user counts/details might appear
-        revalidatePath('/admin');
-        revalidatePath('/');
+        console.log(`[DB deleteUser] User ${userId} successfully deleted.`);
+         // Revalidation handled by action
+        // revalidatePath('/admin/users');
+        // revalidatePath('/admin');
+        // revalidatePath('/');
         return true;
     } else {
-        console.error(`Delete User failed: User ${userId} not found.`);
+        console.error(`[DB deleteUser] Delete User failed: User ${userId} not found.`);
         return false;
     }
 }
@@ -110,17 +112,17 @@ export const deleteUser = async (userId: string): Promise<boolean> => {
 
 // Fetch Categories
 export const getCategories = async (): Promise<Category[]> => {
-  await new Promise(resolve => setTimeout(resolve, 150));
+  await new Promise(resolve => setTimeout(resolve, 20)); // Shorter delay
    // Update counts based on current topics/posts
    return categories.map(cat => ({
     ...cat,
     topicCount: topics.filter(t => t.categoryId === cat.id).length,
     postCount: posts.filter(p => topics.some(t => t.id === p.topicId && t.categoryId === cat.id)).length
-  }));
+  })).sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime()); // Sort by creation date
 };
 
 export const getCategoryById = async (id: string): Promise<Category | null> => {
-    await new Promise(resolve => setTimeout(resolve, 50));
+    await new Promise(resolve => setTimeout(resolve, 10)); // Shorter delay
     const category = categories.find(c => c.id === id);
     if (!category) return null;
     // Update counts
@@ -132,55 +134,57 @@ export const getCategoryById = async (id: string): Promise<Category | null> => {
 }
 
 export const createCategory = async (categoryData: Omit<Category, 'id' | 'createdAt' | 'topicCount' | 'postCount'>): Promise<Category> => {
-    await new Promise(resolve => setTimeout(resolve, 200));
+    await new Promise(resolve => setTimeout(resolve, 50)); // Shorter delay
     const newCategory: Category = {
         ...categoryData,
-        id: `cat${categories.length + 1}${Date.now()}`, // More uniqueness
+        id: `cat${Date.now()}-${Math.random().toString(36).substring(2, 7)}`, // More unique ID
         createdAt: new Date(),
         topicCount: 0,
         postCount: 0,
     };
     categories.push(newCategory);
-    console.log("Created Category:", newCategory);
-    revalidatePath('/admin/categories');
-    revalidatePath('/');
+    console.log("[DB createCategory] Created Category:", newCategory.id, newCategory.name);
+     // Revalidation handled by action
+    // revalidatePath('/admin/categories');
+    // revalidatePath('/');
     return { ...newCategory }; // Return a copy
 }
 
 // Admin Actions for Categories
 export const updateCategory = async (categoryId: string, data: { name: string; description?: string }): Promise<Category | null> => {
-    await new Promise(resolve => setTimeout(resolve, 150));
+    await new Promise(resolve => setTimeout(resolve, 50)); // Shorter delay
     const catIndex = categories.findIndex(c => c.id === categoryId);
     if (catIndex === -1) {
-        console.error("Update Category failed: Category not found.");
+        console.error("[DB updateCategory] Update Category failed: Category not found.");
         return null;
     }
     categories[catIndex] = { ...categories[catIndex], ...data };
-    console.log("Updated Category:", categories[catIndex]);
-    revalidatePath('/admin/categories');
-    revalidatePath('/');
-    revalidatePath(`/categories/${categoryId}`);
+    console.log("[DB updateCategory] Updated Category:", categories[catIndex].id);
+     // Revalidation handled by action
+    // revalidatePath('/admin/categories');
+    // revalidatePath('/');
+    // revalidatePath(`/categories/${categoryId}`);
     return { ...categories[catIndex] }; // Return a copy
 }
 
 export const deleteCategory = async (categoryId: string): Promise<boolean> => {
-    await new Promise(resolve => setTimeout(resolve, 200));
+    await new Promise(resolve => setTimeout(resolve, 50)); // Shorter delay
     const initialLength = categories.length;
     // In a real app, decide how to handle topics/posts within the category (e.g., delete them, move them to an archive category)
-    // For placeholder: Just delete the category itself. Topics/posts become orphaned (their categoryId points to nothing).
+    // For placeholder: Delete the category, its topics, and their posts.
     const topicsToDelete = topics.filter(t => t.categoryId === categoryId).map(t => t.id);
     categories = categories.filter(c => c.id !== categoryId);
     topics = topics.filter(t => t.categoryId !== categoryId); // Also remove topics in deleted category
     posts = posts.filter(p => !topicsToDelete.includes(p.topicId)); // Remove posts within those topics
 
     if (categories.length < initialLength) {
-        console.log(`Category ${categoryId} and its topics/posts deleted.`);
-        revalidatePath('/admin/categories');
-        revalidatePath('/');
-        // Revalidate specific category pages is difficult now it's gone
+        console.log(`[DB deleteCategory] Category ${categoryId} and its topics/posts deleted.`);
+         // Revalidation handled by action
+        // revalidatePath('/admin/categories');
+        // revalidatePath('/');
         return true;
     } else {
-        console.error(`Delete Category failed: Category ${categoryId} not found.`);
+        console.error(`[DB deleteCategory] Delete Category failed: Category ${categoryId} not found.`);
         return false;
     }
 }
@@ -188,8 +192,11 @@ export const deleteCategory = async (categoryId: string): Promise<boolean> => {
 
 // Fetch Topics
 export const getTopicsByCategory = async (categoryId: string): Promise<Topic[]> => {
-  await new Promise(resolve => setTimeout(resolve, 150));
-  const categoryTopics = topics.filter(t => t.categoryId === categoryId);
+  await new Promise(resolve => setTimeout(resolve, 50)); // Shorter delay
+  const categoryTopics = topics
+    .filter(t => t.categoryId === categoryId)
+    .sort((a, b) => b.lastActivity.getTime() - a.lastActivity.getTime()); // Sort by last activity desc
+
   // Add author data and update counts
   return Promise.all(categoryTopics.map(async topic => {
     const author = await findUserById(topic.authorId);
@@ -197,8 +204,9 @@ export const getTopicsByCategory = async (categoryId: string): Promise<Topic[]> 
   }));
 };
 
+// Gets full topic details including author and category objects
 export const getTopicById = async (id: string): Promise<Topic | null> => {
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise(resolve => setTimeout(resolve, 20)); // Shorter delay
     const topic = topics.find(t => t.id === id);
     if (!topic) return null;
     const author = await findUserById(topic.authorId);
@@ -207,25 +215,33 @@ export const getTopicById = async (id: string): Promise<Topic | null> => {
     return { ...topic, author, category, postCount: posts.filter(p => p.topicId === id).length };
 }
 
+// Gets only the basic topic data (useful for simple lookups like getting categoryId)
+export const getTopicByIdSimple = async (id: string): Promise<Topic | null> => {
+    await new Promise(resolve => setTimeout(resolve, 10)); // Shorter delay
+    const topic = topics.find(t => t.id === id);
+    return topic ? { ...topic } : null; // Return copy or null
+}
+
+
 interface CreateTopicParams extends Omit<Topic, 'id' | 'createdAt' | 'lastActivity' | 'postCount'> {
     firstPostContent: string;
     firstPostImageUrl?: string;
 }
 
 export const createTopic = async (topicData: CreateTopicParams): Promise<Topic> => {
-    await new Promise(resolve => setTimeout(resolve, 250));
+    await new Promise(resolve => setTimeout(resolve, 50)); // Shorter delay
     const now = new Date();
     const newTopic: Topic = {
         title: topicData.title,
         categoryId: topicData.categoryId,
         authorId: topicData.authorId,
-        id: `topic${topics.length + 1}${Date.now()}`, // More uniqueness
+        id: `topic${Date.now()}-${Math.random().toString(36).substring(2, 7)}`, // More unique ID
         createdAt: now,
         lastActivity: now,
         postCount: 1, // Start with 1 post (the initial one)
     };
     topics.push(newTopic);
-    console.log("Created Topic:", newTopic);
+    console.log("[DB createTopic] Created Topic:", newTopic.id, newTopic.title);
 
     // Automatically create the first post for the topic
     await createPost({
@@ -247,7 +263,7 @@ export const createTopic = async (topicData: CreateTopicParams): Promise<Topic> 
 
 // Fetch Posts
 export const getPostsByTopic = async (topicId: string): Promise<Post[]> => {
-  await new Promise(resolve => setTimeout(resolve, 100));
+  await new Promise(resolve => setTimeout(resolve, 20)); // Shorter delay
   const topicPosts = posts.filter(p => p.topicId === topicId).sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
   // Add author data
   return Promise.all(topicPosts.map(async post => {
@@ -256,38 +272,42 @@ export const getPostsByTopic = async (topicId: string): Promise<Post[]> => {
   }));
 };
 
-interface CreatePostParams extends Omit<Post, 'id' | 'createdAt' | 'updatedAt'> {
+interface CreatePostParams extends Omit<Post, 'id' | 'createdAt' | 'updatedAt' | 'author' | 'topic'> {
     imageUrl?: string;
 }
 
 export const createPost = async (postData: CreatePostParams): Promise<Post> => {
-    await new Promise(resolve => setTimeout(resolve, 200));
+    await new Promise(resolve => setTimeout(resolve, 50)); // Shorter delay
     const now = new Date();
     const newPost: Post = {
         content: postData.content,
         topicId: postData.topicId,
         authorId: postData.authorId,
         imageUrl: postData.imageUrl,
-        id: `post${posts.length + 1}${Date.now()}`, // More uniqueness
+        id: `post${Date.now()}-${Math.random().toString(36).substring(2, 7)}`, // More unique ID
         createdAt: now,
     };
     posts.push(newPost);
+     console.log(`[DB createPost] Created Post: ${newPost.id} in Topic ${newPost.topicId}`);
 
     // Update topic's last activity and post count
     const topicIndex = topics.findIndex(t => t.id === postData.topicId);
     if (topicIndex !== -1) {
         topics[topicIndex].lastActivity = now;
         topics[topicIndex].postCount = (topics[topicIndex].postCount || 0) + 1;
+         console.log(`[DB createPost] Updated Topic ${topics[topicIndex].id} lastActivity and postCount`);
 
          // Update category post count via the topic
         const categoryId = topics[topicIndex].categoryId;
         const catIndex = categories.findIndex(c => c.id === categoryId);
         if (catIndex !== -1) {
             categories[catIndex].postCount = (categories[catIndex].postCount || 0) + 1;
+             console.log(`[DB createPost] Updated Category ${categories[catIndex].id} postCount`);
         }
+    } else {
+         console.warn(`[DB createPost] Topic ${postData.topicId} not found when trying to update counts/activity.`);
     }
 
-    console.log("Created Post:", newPost);
     // Populate author and topic details for the returned post
     const author = await findUserById(newPost.authorId);
     const topic = await getTopicById(newPost.topicId); // Use existing function
@@ -295,52 +315,55 @@ export const createPost = async (postData: CreatePostParams): Promise<Post> => {
 };
 
 export const updatePost = async (postId: string, content: string, userId: string, imageUrl?: string | null): Promise<Post | null> => {
-    await new Promise(resolve => setTimeout(resolve, 150));
+    await new Promise(resolve => setTimeout(resolve, 50)); // Shorter delay
     const postIndex = posts.findIndex(p => p.id === postId);
     if (postIndex === -1) {
-        console.error("Update failed: Post not found.");
+        console.error("[DB updatePost] Update failed: Post not found.");
         return null;
     }
 
     const post = posts[postIndex];
     const user = await findUserById(userId);
+    // Allow admin to edit any post, or author to edit their own
     const canModify = user?.isAdmin || post.authorId === userId;
 
     if (!canModify) {
-        console.error("Update failed: User not authorized.");
+        console.error("[DB updatePost] Update failed: User not authorized.");
         return null;
     }
 
     post.content = content;
     if (imageUrl === null) { // Explicitly removing image
         delete post.imageUrl;
-    } else if (imageUrl) { // Adding or changing image
+        console.log(`[DB updatePost] Removed image for Post ${postId}`);
+    } else if (imageUrl !== undefined) { // Adding or changing image (undefined means don't touch image)
         post.imageUrl = imageUrl;
+        console.log(`[DB updatePost] Updated image for Post ${postId}`);
     }
     // If imageUrl is undefined, do nothing to the existing imageUrl
 
     post.updatedAt = new Date();
-    console.log("Updated Post:", post);
+    console.log(`[DB updatePost] Updated Post ${postId} Content: ${content.substring(0,30)}...`);
     // Populate author and topic details for the returned post
     const author = await findUserById(post.authorId);
     const topic = await getTopicById(post.topicId);
     return { ...post, author: author ?? undefined, topic: topic ?? undefined };
 };
 
-export const deletePost = async (postId: string, userId: string): Promise<boolean> => {
-    await new Promise(resolve => setTimeout(resolve, 150));
+export const deletePost = async (postId: string, userId: string, isAdmin: boolean): Promise<boolean> => {
+    await new Promise(resolve => setTimeout(resolve, 50)); // Shorter delay
     const postIndex = posts.findIndex(p => p.id === postId);
      if (postIndex === -1) {
-         console.error("Delete failed: Post not found.");
+         console.error("[DB deletePost] Delete failed: Post not found.");
         return false; // Post not found
     }
 
     const postToDelete = posts[postIndex];
-    const user = await findUserById(userId);
-    const canDelete = user?.isAdmin || postToDelete.authorId === userId;
+    // Allow admin to delete any post, or author to delete their own
+    const canDelete = isAdmin || postToDelete.authorId === userId;
 
      if (!canDelete) {
-         console.error("Delete failed: User not authorized.");
+         console.error("[DB deletePost] Delete failed: User not authorized.");
         return false; // User not authorized
     }
 
@@ -351,12 +374,16 @@ export const deletePost = async (postId: string, userId: string): Promise<boolea
     if (topicIndex !== -1) {
         const currentTopic = topics[topicIndex];
         currentTopic.postCount = Math.max(0, (currentTopic.postCount || 1) - 1);
+         console.log(`[DB deletePost] Updated Topic ${currentTopic.id} postCount to ${currentTopic.postCount}`);
 
         // Update category post count via the topic
         const categoryId = currentTopic.categoryId;
         const catIndex = categories.findIndex(c => c.id === categoryId);
         if (catIndex !== -1) {
             categories[catIndex].postCount = Math.max(0, (categories[catIndex].postCount || 1) - 1);
+             console.log(`[DB deletePost] Updated Category ${categories[catIndex].id} postCount to ${categories[catIndex].postCount}`);
+        } else {
+             console.warn(`[DB deletePost] Category ${categoryId} not found when trying to update post count.`);
         }
 
         // Optional: Decide if topic should be deleted if empty
@@ -366,14 +393,16 @@ export const deletePost = async (postId: string, userId: string): Promise<boolea
         //          categories[catIndex].topicCount = Math.max(0, (categories[catIndex].topicCount || 1) - 1);
         //      }
         // }
+    } else {
+         console.warn(`[DB deletePost] Topic ${deletedPost.topicId} not found when trying to update counts.`);
     }
 
 
-    console.log("Deleted Post ID:", postId);
-     revalidatePath(`/topics/${deletedPost.topicId}`); // Revalidate topic page
-     revalidatePath('/admin'); // Revalidate admin dashboard counts
-     // May need to revalidate category page too if counts are shown there
-     if(topicIndex !== -1 && topics[topicIndex]) revalidatePath(`/categories/${topics[topicIndex].categoryId}`);
+    console.log("[DB deletePost] Deleted Post ID:", postId);
+     // Revalidation handled by action
+     // revalidatePath(`/topics/${deletedPost.topicId}`);
+     // revalidatePath('/admin');
+     // if(topicIndex !== -1 && topics[topicIndex]) revalidatePath(`/categories/${topics[topicIndex].categoryId}`);
     return true;
 };
 
@@ -384,21 +413,21 @@ export const getSimulatedUser = async (): Promise<User | null> => {
 
 // --- Count Functions for Admin Dashboard ---
 export const getTotalUserCount = async (): Promise<number> => {
-    await new Promise(resolve => setTimeout(resolve, 20));
+    await new Promise(resolve => setTimeout(resolve, 5)); // Shorter delay
     return users.length;
 };
 
 export const getTotalCategoryCount = async (): Promise<number> => {
-    await new Promise(resolve => setTimeout(resolve, 20));
+    await new Promise(resolve => setTimeout(resolve, 5)); // Shorter delay
     return categories.length;
 };
 
 export const getTotalTopicCount = async (): Promise<number> => {
-    await new Promise(resolve => setTimeout(resolve, 20));
+    await new Promise(resolve => setTimeout(resolve, 5)); // Shorter delay
     return topics.length;
 };
 
 export const getTotalPostCount = async (): Promise<number> => {
-    await new Promise(resolve => setTimeout(resolve, 20));
+    await new Promise(resolve => setTimeout(resolve, 5)); // Shorter delay
     return posts.length;
 };
