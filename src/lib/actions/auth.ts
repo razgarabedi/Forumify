@@ -42,12 +42,16 @@ export async function login(prevState: any, formData: FormData) {
   try {
     // Find user by email
     const user = await findUserByEmail(email);
+    // console.log('[Login Action] User found by email:', user ? user.id : 'null');
 
-    // **Placeholder Password Check**: Compare plain text passwords
-    const passwordMatch = user && user.password === password;
+    // **Placeholder Password Check**: Compare plain text passwords stored in placeholder data
+    // console.log('[Login Action] Provided Password:', password);
+    // console.log('[Login Action] Stored Password:', user?.password);
+    const passwordMatch = user && user.password === password; // Critical comparison
+    // console.log('[Login Action] Password Match:', passwordMatch);
 
     if (!user || !passwordMatch) {
-      console.log(`Login failed for ${email}. User found: ${!!user}, Password match: ${passwordMatch}`);
+      console.warn(`Login failed for ${email}. User found: ${!!user}, Password match: ${passwordMatch}`);
       return { message: "Invalid email or password.", success: false }; // Explicitly set success to false
     }
 
@@ -134,12 +138,16 @@ export async function logout() {
 // Helper to get the current user based on the session cookie
 export async function getCurrentUser(): Promise<User | null> {
     const userId = cookies().get(SESSION_COOKIE_NAME)?.value;
+    // console.log('[getCurrentUser] Cookie User ID:', userId); // Debug log
     if (!userId) {
+        // console.log('[getCurrentUser] No user ID in cookie.'); // Debug log
         return null;
     }
     try {
         // Fetch user from placeholder data store
         const user = await findUserById(userId);
+        // console.log('[getCurrentUser] User found by ID:', user ? user.id : 'null'); // Debug log
+        // Return the full user object if found, including the password (though usually sensitive data isn't passed around like this)
         return user;
     } catch (error) {
         console.error("Error fetching current user:", error);

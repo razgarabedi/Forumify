@@ -30,12 +30,16 @@ export const getAllUsers = async (): Promise<User[]> => {
 
 export const findUserByEmail = async (email: string): Promise<User | null> => {
   await new Promise(resolve => setTimeout(resolve, 100)); // Simulate network delay
-  return users.find(u => u.email === email) || null;
+  // Find user and return the full object (including password for comparison) or null
+  const user = users.find(u => u.email === email);
+  return user ? { ...user } : null; // Return a copy
 };
 
 export const findUserById = async (id: string): Promise<User | null> => {
     await new Promise(resolve => setTimeout(resolve, 50));
-    return users.find(u => u.id === id) || null;
+    // Find user and return the full object (including password) or null
+    const user = users.find(u => u.id === id);
+    return user ? { ...user } : null; // Return a copy
 }
 
 // Define the expected structure for userData passed to createUser
@@ -62,7 +66,7 @@ export const createUser = async (userData: CreateUserParams): Promise<User> => {
   users.push(newUser);
   console.log("Created User:", newUser.id, newUser.username, `isAdmin: ${newUser.isAdmin}`); // Log new user details including admin status
   console.log("Current Users:", users.map(u => ({ id: u.id, username: u.username, email: u.email, isAdmin: u.isAdmin }))); // Log current state of users array
-  return newUser;
+  return { ...newUser }; // Return a copy
 };
 
 // Admin Actions for Users
@@ -76,7 +80,7 @@ export const setUserAdminStatus = async (userId: string, isAdmin: boolean): Prom
     users[userIndex].isAdmin = isAdmin;
     console.log(`Set admin status for user ${userId} to ${isAdmin}`);
     revalidatePath('/admin/users'); // Revalidate user list
-    return users[userIndex];
+    return { ...users[userIndex] }; // Return a copy
 }
 
 export const deleteUser = async (userId: string): Promise<boolean> => {
@@ -107,7 +111,7 @@ export const deleteUser = async (userId: string): Promise<boolean> => {
 // Fetch Categories
 export const getCategories = async (): Promise<Category[]> => {
   await new Promise(resolve => setTimeout(resolve, 150));
-   // Update counts based on current topics/posts (which are now empty initially)
+   // Update counts based on current topics/posts
    return categories.map(cat => ({
     ...cat,
     topicCount: topics.filter(t => t.categoryId === cat.id).length,
@@ -140,7 +144,7 @@ export const createCategory = async (categoryData: Omit<Category, 'id' | 'create
     console.log("Created Category:", newCategory);
     revalidatePath('/admin/categories');
     revalidatePath('/');
-    return newCategory;
+    return { ...newCategory }; // Return a copy
 }
 
 // Admin Actions for Categories
@@ -156,7 +160,7 @@ export const updateCategory = async (categoryId: string, data: { name: string; d
     revalidatePath('/admin/categories');
     revalidatePath('/');
     revalidatePath(`/categories/${categoryId}`);
-    return categories[catIndex];
+    return { ...categories[catIndex] }; // Return a copy
 }
 
 export const deleteCategory = async (categoryId: string): Promise<boolean> => {
@@ -238,7 +242,7 @@ export const createTopic = async (topicData: CreateTopicParams): Promise<Topic> 
         // Post count for category is handled by createPost
     }
 
-    return newTopic;
+    return { ...newTopic }; // Return a copy
 }
 
 // Fetch Posts
@@ -398,6 +402,3 @@ export const getTotalPostCount = async (): Promise<number> => {
     await new Promise(resolve => setTimeout(resolve, 20));
     return posts.length;
 };
-
-// Ensure this file doesn't end prematurely
-// This comment prevents accidental truncation issues if the file ends with code.

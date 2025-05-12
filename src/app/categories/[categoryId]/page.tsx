@@ -17,6 +17,7 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
     const { categoryId } = params;
     // Fetch user first to ensure cookie context is reliably accessed
     const user = await getCurrentUser();
+    // console.log('[CategoryPage] Current User:', user?.id); // Debug log
     const [category, topics] = await Promise.all([
         getCategoryById(categoryId),
         getTopicsByCategory(categoryId),

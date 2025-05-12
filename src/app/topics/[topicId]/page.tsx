@@ -19,6 +19,7 @@ export default async function TopicPage({ params }: TopicPageProps) {
     const { topicId } = params;
      // Fetch user first to ensure cookie context is reliably accessed
     const user = await getCurrentUser();
+    // console.log('[TopicPage] Current User:', user?.id); // Debug log
     const [topic, initialPosts] = await Promise.all([
         getTopicById(topicId),
         getPostsByTopic(topicId),
