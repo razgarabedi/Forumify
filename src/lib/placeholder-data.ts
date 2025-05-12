@@ -2,9 +2,9 @@ import type { User, Category, Topic, Post } from './types';
 
 // Placeholder Users
 let users: User[] = [
-  { id: 'user1', username: 'AdminUser', email: 'admin@example.com', isAdmin: true, createdAt: new Date('2023-01-01T10:00:00Z') },
-  { id: 'user2', username: 'RegularJoe', email: 'joe@example.com', createdAt: new Date('2023-01-02T11:00:00Z') },
-  { id: 'user3', username: 'JaneDoe', email: 'jane@example.com', createdAt: new Date('2023-01-03T12:00:00Z') },
+  { id: 'user1', username: 'AdminUser', email: 'admin@example.com', password: 'password', isAdmin: true, createdAt: new Date('2023-01-01T10:00:00Z') },
+  { id: 'user2', username: 'RegularJoe', email: 'joe@example.com', password: 'password', createdAt: new Date('2023-01-02T11:00:00Z') },
+  { id: 'user3', username: 'JaneDoe', email: 'jane@example.com', password: 'password', createdAt: new Date('2023-01-03T12:00:00Z') },
 ];
 
 // Placeholder Categories
@@ -45,10 +45,21 @@ export const findUserById = async (id: string): Promise<User | null> => {
     return users.find(u => u.id === id) || null;
 }
 
-export const createUser = async (userData: Omit<User, 'id' | 'createdAt'>): Promise<User> => {
+// Define the expected structure for userData passed to createUser
+interface CreateUserParams {
+    username: string;
+    email: string;
+    password?: string; // Make password explicit here
+    isAdmin?: boolean;
+}
+
+export const createUser = async (userData: CreateUserParams): Promise<User> => {
   await new Promise(resolve => setTimeout(resolve, 200));
   const newUser: User = {
-    ...userData,
+    username: userData.username,
+    email: userData.email,
+    password: userData.password, // Store the provided password
+    isAdmin: userData.isAdmin ?? false, // Default isAdmin to false if not provided
     id: `user${users.length + 1}`,
     createdAt: new Date(),
   };
@@ -169,26 +180,43 @@ export const createPost = async (postData: Omit<Post, 'id' | 'createdAt' | 'upda
         }
     }
     console.log("Created Post:", newPost);
-    return newPost;
+    // Populate author and topic details for the returned post
+    const author = await findUserById(newPost.authorId);
+    const topic = await getTopicById(newPost.topicId);
+    return { ...newPost, author: author ?? undefined, topic: topic ?? undefined };
 };
 
 export const updatePost = async (postId: string, content: string, userId: string): Promise<Post | null> => {
     await new Promise(resolve => setTimeout(resolve, 150));
     const postIndex = posts.findIndex(p => p.id === postId);
-    if (postIndex === -1 || posts[postIndex].authorId !== userId) {
+
+     // Check if post exists and if the user is the author OR an admin
+    const user = await findUserById(userId);
+    const canModify = user?.isAdmin || posts[postIndex]?.authorId === userId;
+
+    if (postIndex === -1 || !canModify) {
         console.error("Update failed: Post not found or user not authorized.");
         return null; // Post not found or user not authorized
     }
+
     posts[postIndex].content = content;
     posts[postIndex].updatedAt = new Date();
     console.log("Updated Post:", posts[postIndex]);
-    return posts[postIndex];
+    // Populate author and topic details for the returned post
+    const author = await findUserById(posts[postIndex].authorId);
+    const topic = await getTopicById(posts[postIndex].topicId);
+    return { ...posts[postIndex], author: author ?? undefined, topic: topic ?? undefined };
 };
 
 export const deletePost = async (postId: string, userId: string): Promise<boolean> => {
     await new Promise(resolve => setTimeout(resolve, 150));
     const postIndex = posts.findIndex(p => p.id === postId);
-    if (postIndex === -1 || posts[postIndex].authorId !== userId) {
+
+     // Check if post exists and if the user is the author OR an admin
+    const user = await findUserById(userId);
+    const canDelete = user?.isAdmin || posts[postIndex]?.authorId === userId;
+
+     if (postIndex === -1 || !canDelete) {
          console.error("Delete failed: Post not found or user not authorized.");
         return false; // Post not found or user not authorized
     }
@@ -220,19 +248,11 @@ export const deletePost = async (postId: string, userId: string): Promise<boolea
 
 
 // --- Simple Session Simulation ---
-let currentUserId: string | null = null; // Simulate logged-in user
+// Removed - Session handled by cookies now
 
-export const getCurrentUserId = async (): Promise<string | null> => {
-    await new Promise(resolve => setTimeout(resolve, 10)); // Simulate async check
-    return currentUserId;
-}
-
-export const setCurrentUserId = (userId: string | null): void => {
-    currentUserId = userId;
-}
 
 export const getSimulatedUser = async (): Promise<User | null> => {
-    const userId = await getCurrentUserId();
-    if (!userId) return null;
-    return findUserById(userId);
+   // Placeholder - In a real app, this would involve session verification
+   // For now, let's return the first user if needed for testing elsewhere
+   return users[0];
 }

@@ -32,21 +32,22 @@ export async function login(prevState: any, formData: FormData) {
     return {
       errors: validatedFields.error.flatten().fieldErrors,
       message: "Login failed. Please check your inputs.",
+      success: false, // Ensure success is false on validation error
     };
   }
 
   const { email, password } = validatedFields.data;
 
   try {
-    // **IMPORTANT**: Replace with actual database lookup and password verification (e.g., bcrypt)
+    // Find user by email
     const user = await findUserByEmail(email);
 
-    // **IMPORTANT**: In a real app, compare hashed passwords!
-    // const passwordMatch = await bcrypt.compare(password, user.passwordHash);
-    const passwordMatch = user ? true : false; // Placeholder: Assume password matches if user exists
+    // **Placeholder Password Check**: Compare plain text passwords
+    const passwordMatch = user && user.password === password;
 
     if (!user || !passwordMatch) {
-      return { message: "Invalid email or password." };
+      console.log(`Login failed for ${email}. User found: ${!!user}, Password match: ${passwordMatch}`);
+      return { message: "Invalid email or password.", success: false }; // Explicitly set success to false
     }
 
     // Set session cookie
@@ -62,7 +63,7 @@ export async function login(prevState: any, formData: FormData) {
 
   } catch (error) {
     console.error("Login error:", error);
-    return { message: "An unexpected error occurred during login." };
+    return { message: "An unexpected error occurred during login.", success: false }; // Ensure success is false on error
   }
 }
 
@@ -77,6 +78,7 @@ export async function register(prevState: any, formData: FormData) {
     return {
       errors: validatedFields.error.flatten().fieldErrors,
       message: "Registration failed. Please check your inputs.",
+      success: false, // Ensure success is false on validation error
     };
   }
 
@@ -86,17 +88,18 @@ export async function register(prevState: any, formData: FormData) {
     // Check if user already exists
     const existingUser = await findUserByEmail(email);
     if (existingUser) {
-      return { message: "An account with this email already exists." };
+      return { message: "An account with this email already exists.", success: false }; // Explicitly set success to false
     }
 
-    // **IMPORTANT**: Hash the password before saving!
+    // **IMPORTANT**: In a real app, hash the password before saving!
     // const hashedPassword = await bcrypt.hash(password, 10);
 
     // Create user in the database (using placeholder)
     const newUser = await createUser({
       username,
       email,
-      // passwordHash: hashedPassword, // Store hashed password
+      password: password, // Pass plain text password for placeholder
+      // passwordHash: hashedPassword, // Store hashed password in real app
     });
 
      // Automatically log in the new user by setting the session cookie
@@ -112,7 +115,7 @@ export async function register(prevState: any, formData: FormData) {
 
   } catch (error) {
     console.error("Registration error:", error);
-    return { message: "An unexpected error occurred during registration." };
+    return { message: "An unexpected error occurred during registration.", success: false }; // Ensure success is false on error
   }
 }
 
@@ -129,11 +132,13 @@ export async function getCurrentUser(): Promise<User | null> {
         return null;
     }
     try {
-        // **IMPORTANT**: Fetch user from your actual database
+        // Fetch user from placeholder data store
         const user = await findUserById(userId);
         return user;
     } catch (error) {
         console.error("Error fetching current user:", error);
+        // Optionally clear the cookie if user fetch fails?
+        // cookies().delete(SESSION_COOKIE_NAME);
         return null;
     }
 }

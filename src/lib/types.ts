@@ -2,6 +2,7 @@ export type User = {
   id: string;
   username: string;
   email: string;
+  password?: string; // Add optional password for placeholder data
   isAdmin?: boolean; // Flag for admin users
   createdAt: Date;
 };
