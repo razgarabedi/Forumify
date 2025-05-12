@@ -163,9 +163,10 @@ export const deleteCategory = async (categoryId: string): Promise<boolean> => {
     const initialLength = categories.length;
     // In a real app, decide how to handle topics/posts within the category (e.g., delete them, move them to an archive category)
     // For placeholder: Just delete the category itself. Topics/posts become orphaned (their categoryId points to nothing).
+    const topicsToDelete = topics.filter(t => t.categoryId === categoryId).map(t => t.id);
     categories = categories.filter(c => c.id !== categoryId);
     topics = topics.filter(t => t.categoryId !== categoryId); // Also remove topics in deleted category
-    posts = posts.filter(p => !topics.some(t => t.id === p.topicId && t.categoryId === categoryId)); // Remove posts within those topics
+    posts = posts.filter(p => !topicsToDelete.includes(p.topicId)); // Remove posts within those topics
 
     if (categories.length < initialLength) {
         console.log(`Category ${categoryId} and its topics/posts deleted.`);
