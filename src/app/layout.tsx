@@ -4,7 +4,7 @@ import { Geist } from 'next/font/google'; // Use Geist Sans
 import './globals.css';
 import { Header } from '@/components/layout/Header';
 import { Toaster } from "@/components/ui/toaster"; // Import Toaster
-import { ThemeProvider } from "next-themes"; // Import ThemeProvider
+import { ThemeProvider } from "@/components/ThemeProvider"; // Correct import path for ThemeProvider
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -22,7 +22,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning> {/* Add suppressHydrationWarning */}
+    // Remove any whitespace between <html> and <body>
+    <html lang="en" suppressHydrationWarning>
       <body className={`${geistSans.variable} antialiased`}>
          <ThemeProvider
             attribute="class"
