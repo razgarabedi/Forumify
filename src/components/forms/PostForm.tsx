@@ -1,7 +1,6 @@
 "use client";
 
-import { useFormState } from 'react-dom';
-import { useEffect, useRef } from 'react';
+import { useActionState, useEffect, useRef } from 'react'; // Import useActionState from react
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { SubmitButton } from '@/components/SubmitButton';
 import type { Post } from '@/lib/types';
 import { MessageSquarePlus, Edit } from 'lucide-react';
+import { Button } from '@/components/ui/button'; // Added missing Button import
 
 interface PostFormProps {
     topicId: string;
@@ -25,7 +25,8 @@ const initialState = {
 };
 
 export function PostForm({ topicId, editingPost, onEditCancel }: PostFormProps) {
-    const [state, formAction] = useFormState(submitPost, initialState);
+    // Use useActionState from react instead of useFormState from react-dom
+    const [state, formAction] = useActionState(submitPost, initialState);
     const { toast } = useToast();
     const formRef = useRef<HTMLFormElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null); // Ref for focusing

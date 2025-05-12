@@ -1,7 +1,6 @@
 "use client";
 
-import { useFormState } from 'react-dom';
-import { useEffect, useRef } from 'react';
+import { useActionState, useEffect, useRef } from 'react'; // Import useActionState from react
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -25,7 +24,8 @@ const initialState = {
 };
 
 export function TopicForm({ categoryId }: TopicFormProps) {
-    const [state, formAction] = useFormState(createTopic, initialState);
+    // Use useActionState from react instead of useFormState from react-dom
+    const [state, formAction] = useActionState(createTopic, initialState);
     const { toast } = useToast();
     const formRef = useRef<HTMLFormElement>(null); // Ref to reset form
 

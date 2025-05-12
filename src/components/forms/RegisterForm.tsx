@@ -1,7 +1,6 @@
 "use client";
 
-import { useFormState } from 'react-dom';
-import { useEffect } from 'react';
+import { useActionState, useEffect } from 'react'; // Import useActionState from react
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Input } from "@/components/ui/input";
@@ -20,7 +19,8 @@ const initialState = {
 };
 
 export function RegisterForm() {
-    const [state, formAction] = useFormState(register, initialState);
+    // Use useActionState from react instead of useFormState from react-dom
+    const [state, formAction] = useActionState(register, initialState);
     const { toast } = useToast();
     const router = useRouter();
 

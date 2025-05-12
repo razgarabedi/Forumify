@@ -1,7 +1,6 @@
 "use client";
 
-import { useFormState } from 'react-dom';
-import { useEffect } from 'react';
+import { useActionState, useEffect } from 'react'; // Import useActionState from react
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -19,7 +18,8 @@ const initialState = {
 };
 
 export function CategoryForm() {
-    const [state, formAction] = useFormState(createCategory, initialState);
+    // Use useActionState from react instead of useFormState from react-dom
+    const [state, formAction] = useActionState(createCategory, initialState);
     const { toast } = useToast();
 
      useEffect(() => {
