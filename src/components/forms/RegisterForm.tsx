@@ -19,7 +19,6 @@ const initialState = {
 };
 
 export function RegisterForm() {
-    // Use useActionState from react instead of useFormState from react-dom
     const [state, formAction] = useActionState(register, initialState);
     const { toast } = useToast();
     const router = useRouter();
@@ -44,13 +43,14 @@ export function RegisterForm() {
 
 
     return (
-        <Card className="w-full max-w-md mx-auto shadow-lg">
-            <CardHeader>
+        <Card className="w-full max-w-md mx-auto shadow-lg border border-border"> {/* Added border */}
+            <CardHeader className="pb-4"> {/* Adjusted padding */}
                 <CardTitle className="text-2xl flex items-center"><UserPlus className="mr-2 h-5 w-5"/> Register</CardTitle>
                 <CardDescription>Create your ForumLite account.</CardDescription>
             </CardHeader>
             <form action={formAction}>
-                <CardContent className="space-y-4">
+                {/* Moved CardContent inside form */}
+                 <CardContent className="space-y-4 pt-0"> {/* Adjusted padding */}
                     <div className="space-y-2">
                         <Label htmlFor="username">Username</Label>
                         <Input
@@ -58,10 +58,11 @@ export function RegisterForm() {
                             name="username"
                             required
                              minLength={3}
+                             aria-invalid={!!state?.errors?.username}
                              aria-describedby="username-error"
                         />
                          {state?.errors?.username && (
-                            <p id="username-error" className="text-sm font-medium text-destructive">
+                            <p id="username-error" className="text-sm font-medium text-destructive pt-1">
                                 {state.errors.username[0]}
                             </p>
                         )}
@@ -74,10 +75,11 @@ export function RegisterForm() {
                             type="email"
                             placeholder="you@example.com"
                             required
+                             aria-invalid={!!state?.errors?.email}
                              aria-describedby="email-error"
                         />
                         {state?.errors?.email && (
-                            <p id="email-error" className="text-sm font-medium text-destructive">
+                            <p id="email-error" className="text-sm font-medium text-destructive pt-1">
                                 {state.errors.email[0]}
                             </p>
                         )}
@@ -90,24 +92,26 @@ export function RegisterForm() {
                             type="password"
                             required
                             minLength={6}
+                             aria-invalid={!!state?.errors?.password}
                              aria-describedby="password-error"
                         />
                          {state?.errors?.password && (
-                            <p id="password-error" className="text-sm font-medium text-destructive">
+                            <p id="password-error" className="text-sm font-medium text-destructive pt-1">
                                 {state.errors.password[0]}
                             </p>
                         )}
                     </div>
                      {state?.message && !state.success && !state.errors && (
-                         <p className="text-sm font-medium text-destructive">{state.message}</p>
+                         <p className="text-sm font-medium text-destructive pt-1">{state.message}</p>
                      )}
                 </CardContent>
                 <CardFooter className="flex flex-col items-start gap-4">
-                    <SubmitButton className="w-full bg-accent text-accent-foreground hover:bg-accent/90" pendingText="Registering...">Register</SubmitButton>
+                    {/* Use primary button for registration */}
+                    <SubmitButton className="w-full" pendingText="Registering...">Register</SubmitButton>
                      <p className="text-sm text-muted-foreground">
                         Already have an account?{' '}
-                        <Button variant="link" className="p-0 h-auto" asChild>
-                            <Link href="/login" className="text-primary font-medium hover:underline">Login here</Link>
+                         <Button variant="link" className="p-0 h-auto font-medium" asChild>
+                            <Link href="/login">Login here</Link>
                         </Button>
                     </p>
                 </CardFooter>

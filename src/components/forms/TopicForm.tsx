@@ -4,7 +4,6 @@ import { useActionState, useEffect, useRef } from 'react'; // Import useActionSt
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { createTopic } from "@/lib/actions/forums";
 import { useToast } from "@/hooks/use-toast";
@@ -24,7 +23,6 @@ const initialState = {
 };
 
 export function TopicForm({ categoryId }: TopicFormProps) {
-    // Use useActionState from react instead of useFormState from react-dom
     const [state, formAction] = useActionState(createTopic, initialState);
     const { toast } = useToast();
     const formRef = useRef<HTMLFormElement>(null); // Ref to reset form
@@ -50,14 +48,14 @@ export function TopicForm({ categoryId }: TopicFormProps) {
 
 
     return (
-        <Card className="mt-6 mb-8 shadow-md">
-            <CardHeader>
-                <CardTitle className="flex items-center"><PlusCircle className="mr-2 h-5 w-5" /> Start a New Topic</CardTitle>
+        <Card className="mt-6 mb-8 shadow-md border border-border"> {/* Added border */}
+             <CardHeader className="pb-4"> {/* Adjusted padding */}
+                <CardTitle className="flex items-center text-xl"><PlusCircle className="mr-2 h-5 w-5" /> Start a New Topic</CardTitle>
                 <CardDescription>Create a new discussion thread in this category.</CardDescription>
             </CardHeader>
             <form action={formAction} ref={formRef}>
                 <input type="hidden" name="categoryId" value={categoryId} />
-                <CardContent className="space-y-4">
+                 <CardContent className="space-y-4 pt-0"> {/* Adjusted padding */}
                      <div className="space-y-2">
                         <Label htmlFor="title">Topic Title</Label>
                         <Input
@@ -67,10 +65,11 @@ export function TopicForm({ categoryId }: TopicFormProps) {
                             minLength={5}
                             maxLength={150}
                             placeholder="Enter a descriptive title..."
+                            aria-invalid={!!state?.errors?.title}
                             aria-describedby="title-error"
                         />
                         {state?.errors?.title && (
-                            <p id="title-error" className="text-sm font-medium text-destructive">
+                            <p id="title-error" className="text-sm font-medium text-destructive pt-1">
                                 {state.errors.title[0]}
                             </p>
                         )}
@@ -84,16 +83,18 @@ export function TopicForm({ categoryId }: TopicFormProps) {
                             minLength={10}
                             rows={5}
                             placeholder="Start the discussion here..."
+                             aria-invalid={!!state?.errors?.firstPostContent}
                             aria-describedby="firstPostContent-error"
                         />
                          {state?.errors?.firstPostContent && (
-                            <p id="firstPostContent-error" className="text-sm font-medium text-destructive">
+                            <p id="firstPostContent-error" className="text-sm font-medium text-destructive pt-1">
                                 {state.errors.firstPostContent[0]}
                             </p>
                         )}
                     </div>
                 </CardContent>
                 <CardFooter>
+                     {/* Use primary button style */}
                     <SubmitButton pendingText="Creating Topic...">Create Topic</SubmitButton>
                 </CardFooter>
             </form>

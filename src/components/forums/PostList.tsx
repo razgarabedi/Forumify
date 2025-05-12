@@ -18,7 +18,7 @@ export function PostList({ initialPosts, topicId, currentUser }: PostListProps) 
     // Real-time updates would require client-side fetching or subscriptions.
 
      if (!initialPosts || initialPosts.length === 0) {
-        return <p className="text-muted-foreground mt-6">No posts found in this topic yet.</p>;
+        return <p className="text-muted-foreground mt-6 text-center py-10">No posts found in this topic yet.</p>;
     }
 
      const handleEdit = (post: PostType) => {
@@ -35,7 +35,7 @@ export function PostList({ initialPosts, topicId, currentUser }: PostListProps) 
 
     return (
         <div className="space-y-4">
-             {initialPosts.map((post) => (
+             {initialPosts.map((post, index) => ( // Add index here
                 // Conditionally render Post or PostForm based on editing state
                 editingPost?.id === post.id ? (
                      <div id="post-form-container" key={`edit-${post.id}`}> {/* Container for edit form */}
@@ -51,6 +51,7 @@ export function PostList({ initialPosts, topicId, currentUser }: PostListProps) 
                         post={post}
                         currentUser={currentUser}
                         onEdit={handleEdit} // Pass edit handler
+                        isFirstPost={index === 0} // Check if it's the first post
                     />
                 )
             ))}

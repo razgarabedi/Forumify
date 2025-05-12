@@ -19,7 +19,6 @@ const initialState = {
 };
 
 export function LoginForm() {
-    // Use useActionState from react instead of useFormState from react-dom
     const [state, formAction] = useActionState(login, initialState);
     const { toast } = useToast();
     const router = useRouter();
@@ -44,13 +43,14 @@ export function LoginForm() {
 
 
     return (
-        <Card className="w-full max-w-md mx-auto shadow-lg">
-            <CardHeader>
+        <Card className="w-full max-w-md mx-auto shadow-lg border border-border"> {/* Added border */}
+            <CardHeader className="pb-4"> {/* Adjusted padding */}
                 <CardTitle className="text-2xl flex items-center"><LogIn className="mr-2 h-5 w-5"/> Login</CardTitle>
                 <CardDescription>Access your ForumLite account.</CardDescription>
             </CardHeader>
             <form action={formAction}>
-                <CardContent className="space-y-4">
+                 {/* Moved CardContent inside form */}
+                 <CardContent className="space-y-4 pt-0"> {/* Adjusted padding */}
                      <div className="space-y-2">
                         <Label htmlFor="email">Email</Label>
                         <Input
@@ -59,10 +59,11 @@ export function LoginForm() {
                             type="email"
                             placeholder="you@example.com"
                             required
+                            aria-invalid={!!state?.errors?.email}
                             aria-describedby="email-error"
                         />
                          {state?.errors?.email && (
-                            <p id="email-error" className="text-sm font-medium text-destructive">
+                            <p id="email-error" className="text-sm font-medium text-destructive pt-1">
                                 {state.errors.email[0]}
                             </p>
                         )}
@@ -75,24 +76,25 @@ export function LoginForm() {
                             type="password"
                             required
                              minLength={6}
-                            aria-describedby="password-error"
+                             aria-invalid={!!state?.errors?.password}
+                             aria-describedby="password-error"
                         />
                          {state?.errors?.password && (
-                            <p id="password-error" className="text-sm font-medium text-destructive">
+                            <p id="password-error" className="text-sm font-medium text-destructive pt-1">
                                 {state.errors.password[0]}
                             </p>
                         )}
                     </div>
                      {state?.message && !state.success && !state.errors && (
-                         <p className="text-sm font-medium text-destructive">{state.message}</p>
+                         <p className="text-sm font-medium text-destructive pt-1">{state.message}</p>
                      )}
                 </CardContent>
                 <CardFooter className="flex flex-col items-start gap-4">
                     <SubmitButton className="w-full" pendingText="Logging in...">Login</SubmitButton>
                      <p className="text-sm text-muted-foreground">
                         Don't have an account?{' '}
-                        <Button variant="link" className="p-0 h-auto" asChild>
-                           <Link href="/register" className="text-accent font-medium hover:underline">Register here</Link>
+                        <Button variant="link" className="p-0 h-auto font-medium" asChild>
+                           <Link href="/register">Register here</Link>
                         </Button>
                     </p>
                 </CardFooter>

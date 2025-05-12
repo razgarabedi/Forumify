@@ -2,7 +2,7 @@ import type { Post as PostType, User } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from '@/components/ui/button';
-import { Edit, Trash2, Clock, UserCircle } from 'lucide-react';
+import { Edit, Trash2, Clock, UserCircle, ShieldCheck } from 'lucide-react'; // Added ShieldCheck
 import { formatDistanceToNow } from 'date-fns';
 import { deletePost } from '@/lib/actions/forums'; // Import delete action
 import {
@@ -17,14 +17,16 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from '@/lib/utils'; // Import cn for conditional classes
 
 interface PostProps {
     post: PostType;
     currentUser: User | null;
     onEdit: (post: PostType) => void; // Callback to trigger editing mode
+    isFirstPost?: boolean; // Optional flag for the first post in a topic
 }
 
-export function Post({ post, currentUser, onEdit }: PostProps) {
+export function Post({ post, currentUser, onEdit, isFirstPost = false }: PostProps) {
     const { toast } = useToast();
     const isAuthor = currentUser?.id === post.authorId;
     const canEditDelete = isAuthor || currentUser?.isAdmin; // Admins can also delete/edit
@@ -48,27 +50,38 @@ export function Post({ post, currentUser, onEdit }: PostProps) {
     };
 
     return (
-        <Card id={`post-${post.id}`} className="mb-4 border border-border shadow-sm">
-            <CardHeader className="flex flex-row items-start space-x-4 p-4 bg-secondary/50 border-b">
-                <Avatar className="h-10 w-10 border">
-                     <AvatarImage src={`https://avatar.vercel.sh/${post.author?.username || post.authorId}.png`} alt={post.author?.username} data-ai-hint="user avatar"/>
+         <Card id={`post-${post.id}`} className={cn(
+             "mb-4 border border-border shadow-sm",
+             isFirstPost && "border-primary/30 bg-primary/5" // Highlight first post subtly
+         )}>
+            <CardHeader className="flex flex-row items-start space-x-4 p-3 sm:p-4 bg-card border-b"> {/* Adjusted padding */}
+                <Avatar className="h-10 w-10 border flex-shrink-0">
+                     <AvatarImage src={`https://avatar.vercel.sh/${post.author?.username || post.authorId}.png?size=40`} alt={post.author?.username} data-ai-hint="user avatar"/>
                     <AvatarFallback>{post.author?.username?.charAt(0)?.toUpperCase() || 'U'}</AvatarFallback>
                 </Avatar>
-                <div className="flex-1">
-                    <CardTitle className="text-sm font-semibold flex items-center">
-                       <UserCircle className="h-4 w-4 mr-1 text-muted-foreground"/> {post.author?.username || 'Unknown User'}
-                       {post.author?.isAdmin && <span className="ml-2 text-xs font-bold text-destructive">(Admin)</span>}
-                    </CardTitle>
-                    <CardDescription className="text-xs text-muted-foreground flex items-center mt-1">
-                       <Clock className="h-3 w-3 mr-1"/> Posted: {formatDistanceToNow(new Date(post.createdAt), { addSuffix: true })}
-                        {post.updatedAt && (
-                             <span className="ml-2 flex items-center"><Edit className="h-3 w-3 mr-1"/> Edited: {formatDistanceToNow(new Date(post.updatedAt), { addSuffix: true })}</span>
+                <div className="flex-1 min-w-0"> {/* Ensure wrapping */}
+                    <div className="flex items-center flex-wrap gap-x-2">
+                        <CardTitle className="text-sm font-semibold flex items-center gap-1">
+                        <UserCircle className="h-4 w-4 text-muted-foreground"/> {post.author?.username || 'Unknown User'}
+                        </CardTitle>
+                        {post.author?.isAdmin && (
+                             <span className="text-xs font-bold text-destructive flex items-center gap-1">
+                                 <ShieldCheck className="h-3.5 w-3.5"/> Admin
+                             </span>
+                        )}
+                    </div>
+                    <CardDescription className="text-xs text-muted-foreground flex items-center flex-wrap gap-x-2 gap-y-1 mt-1">
+                       <span className="flex items-center gap-1">
+                            <Clock className="h-3 w-3"/> Posted: {formatDistanceToNow(new Date(post.createdAt), { addSuffix: true })}
+                       </span>
+                        {post.updatedAt && post.updatedAt.getTime() !== post.createdAt.getTime() && ( // Show edited only if different
+                             <span className="flex items-center gap-1"><Edit className="h-3 w-3"/> Edited: {formatDistanceToNow(new Date(post.updatedAt), { addSuffix: true })}</span>
                         )}
                     </CardDescription>
                 </div>
-                 {/* Edit/Delete Controls */}
+                 {/* Edit/Delete Controls - Move to right */}
                   {canEditDelete && (
-                    <div className="flex space-x-1">
+                    <div className="flex flex-col sm:flex-row space-y-1 sm:space-y-0 sm:space-x-1 ml-auto pl-2"> {/* Ensure controls are on right */}
                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(post)}>
                             <Edit className="h-4 w-4" />
                             <span className="sr-only">Edit Post</span>
@@ -101,13 +114,18 @@ export function Post({ post, currentUser, onEdit }: PostProps) {
                     </div>
                 )}
             </CardHeader>
-            <CardContent className="p-4 whitespace-pre-wrap text-sm leading-relaxed">
-                {post.content}
+             <CardContent className="p-3 sm:p-4 text-sm leading-relaxed prose prose-sm dark:prose-invert max-w-none"> {/* Use prose for basic markdown-like styling */}
+                 {/* Replace newline characters with <br /> for display */}
+                 {post.content.split('\n').map((line, index, arr) => (
+                    <React.Fragment key={index}>
+                        {line}
+                        {index < arr.length - 1 && <br />}
+                    </React.Fragment>
+                ))}
             </CardContent>
-            {/* CardFooter can be used for reactions, quotes, etc. later */}
-            {/* <CardFooter className="p-4 pt-2 text-xs text-muted-foreground">
-                Footer content if needed
-            </CardFooter> */}
         </Card>
     );
 }
+
+// Add React import needed for Fragment
+import React from 'react';

@@ -21,31 +21,32 @@ export default async function AdminUsersPage() {
       <h1 className="text-3xl font-bold">User Management</h1>
       <p className="text-muted-foreground">View and manage all registered users.</p>
 
-      <div className="border rounded-lg shadow-sm">
+      {/* Add overflow-x-auto for responsiveness */}
+      <div className="border rounded-lg shadow-sm overflow-x-auto">
         <Table>
           <TableCaption>A list of all registered users.</TableCaption>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[80px]">Avatar</TableHead>
+              <TableHead className="w-[80px] px-3">Avatar</TableHead> {/* Adjust padding */}
               <TableHead>Username</TableHead>
               <TableHead>Email</TableHead>
-              <TableHead>Joined</TableHead>
+              <TableHead className="whitespace-nowrap">Joined Date</TableHead> {/* Prevent wrap */}
               <TableHead>Role</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              <TableHead className="text-right px-3">Actions</TableHead> {/* Adjust padding */}
             </TableRow>
           </TableHeader>
           <TableBody>
             {users.map((user) => (
               <TableRow key={user.id}>
-                <TableCell>
+                <TableCell className="px-3"> {/* Adjust padding */}
                    <Avatar className="h-9 w-9">
-                    <AvatarImage src={`https://avatar.vercel.sh/${user.username}.png`} alt={user.username} data-ai-hint="user avatar"/>
+                    <AvatarImage src={`https://avatar.vercel.sh/${user.username}.png?size=36`} alt={user.username} data-ai-hint="user avatar"/>
                     <AvatarFallback>{user.username?.charAt(0)?.toUpperCase() ?? 'U'}</AvatarFallback>
                   </Avatar>
                 </TableCell>
                 <TableCell className="font-medium">{user.username}</TableCell>
-                <TableCell>{user.email}</TableCell>
-                <TableCell>{format(new Date(user.createdAt), 'PP')}</TableCell>
+                <TableCell className="text-muted-foreground">{user.email}</TableCell> {/* Muted color */}
+                <TableCell className="whitespace-nowrap">{format(new Date(user.createdAt), 'PP')}</TableCell> {/* Prevent wrap */}
                 <TableCell>
                   {user.isAdmin ? (
                     <Badge variant="destructive">Admin</Badge>
@@ -53,7 +54,7 @@ export default async function AdminUsersPage() {
                     <Badge variant="secondary">User</Badge>
                   )}
                 </TableCell>
-                <TableCell className="text-right">
+                <TableCell className="text-right px-3"> {/* Adjust padding */}
                   <UserActions user={user} />
                 </TableCell>
               </TableRow>

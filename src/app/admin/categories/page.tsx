@@ -24,28 +24,31 @@ export default async function AdminCategoriesPage() {
       <CategoryForm />
 
        <h2 className="text-xl font-semibold mt-8 pt-4 border-t">Existing Categories</h2>
-       <div className="border rounded-lg shadow-sm">
+       {/* Add overflow-x-auto for responsiveness */}
+       <div className="border rounded-lg shadow-sm overflow-x-auto">
             <Table>
             <TableCaption>A list of all forum categories.</TableCaption>
             <TableHeader>
                 <TableRow>
                 <TableHead>Name</TableHead>
                 <TableHead>Description</TableHead>
-                <TableHead className="w-[100px]">Topics</TableHead>
-                <TableHead className="w-[100px]">Posts</TableHead>
-                <TableHead className="w-[150px]">Created</TableHead>
-                <TableHead className="text-right w-[100px]">Actions</TableHead>
+                <TableHead className="w-[100px] text-center">Topics</TableHead> {/* Center align counts */}
+                <TableHead className="w-[100px] text-center">Posts</TableHead> {/* Center align counts */}
+                <TableHead className="w-[150px] whitespace-nowrap">Created Date</TableHead> {/* Prevent wrap */}
+                <TableHead className="text-right w-[100px] px-3">Actions</TableHead> {/* Adjust padding */}
                 </TableRow>
             </TableHeader>
             <TableBody>
                 {categories.map((category) => (
                 <TableRow key={category.id}>
                     <TableCell className="font-medium">{category.name}</TableCell>
-                    <TableCell className="text-muted-foreground">{category.description || '-'}</TableCell>
-                    <TableCell>{category.topicCount ?? 0}</TableCell>
-                    <TableCell>{category.postCount ?? 0}</TableCell>
-                    <TableCell>{format(new Date(category.createdAt), 'PP')}</TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-muted-foreground max-w-xs truncate" title={category.description}> {/* Truncate description */}
+                        {category.description || '-'}
+                    </TableCell>
+                    <TableCell className="text-center">{category.topicCount ?? 0}</TableCell> {/* Center align counts */}
+                    <TableCell className="text-center">{category.postCount ?? 0}</TableCell> {/* Center align counts */}
+                    <TableCell className="whitespace-nowrap">{format(new Date(category.createdAt), 'PP')}</TableCell> {/* Prevent wrap */}
+                    <TableCell className="text-right px-3"> {/* Adjust padding */}
                          <CategoryActions category={category} />
                     </TableCell>
                 </TableRow>

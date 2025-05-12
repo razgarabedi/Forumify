@@ -30,10 +30,13 @@ export default function RootLayout({
       <body className={`${geistSans.variable} antialiased`}>
         <div className="relative flex min-h-screen flex-col bg-background">
           <Header />
-          <main className="flex-1 container max-w-5xl mx-auto px-4 py-8">
+          <main className="flex-1 container max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8"> {/* Adjusted padding */}
              {children}
           </main>
            {/* Add a footer here if desired */}
+           {/* <footer className="mt-auto border-t py-4 text-center text-sm text-muted-foreground">
+               © {new Date().getFullYear()} ForumLite. All rights reserved.
+           </footer> */}
         </div>
          <Toaster /> {/* Add Toaster here */}
       </body>

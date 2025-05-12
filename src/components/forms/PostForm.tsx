@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { SubmitButton } from '@/components/SubmitButton';
 import type { Post } from '@/lib/types';
 import { MessageSquarePlus, Edit } from 'lucide-react';
-import { Button } from '@/components/ui/button'; // Added missing Button import
+import { Button } from '@/components/ui/button';
 
 interface PostFormProps {
     topicId: string;
@@ -25,7 +25,6 @@ const initialState = {
 };
 
 export function PostForm({ topicId, editingPost, onEditCancel }: PostFormProps) {
-    // Use useActionState from react instead of useFormState from react-dom
     const [state, formAction] = useActionState(submitPost, initialState);
     const { toast } = useToast();
     const formRef = useRef<HTMLFormElement>(null);
@@ -63,16 +62,17 @@ export function PostForm({ topicId, editingPost, onEditCancel }: PostFormProps) 
 
 
     return (
-        <Card className={`mt-6 mb-8 shadow-md ${isEditing ? 'border-accent ring-1 ring-accent' : ''}`}>
+        // Use accent border when editing
+        <Card className={`mt-6 mb-8 shadow-md border ${isEditing ? 'border-accent ring-1 ring-accent' : 'border-border'}`}>
             <CardHeader className="pb-4">
                 <CardTitle className="text-lg flex items-center">
-                    {isEditing ? <><Edit className="mr-2 h-5 w-5"/> Edit Post</> : <><MessageSquarePlus className="mr-2 h-5 w-5"/> Add a Reply</>}
+                    {isEditing ? <><Edit className="mr-2 h-5 w-5 text-accent"/> Edit Post</> : <><MessageSquarePlus className="mr-2 h-5 w-5 text-primary"/> Add a Reply</>}
                 </CardTitle>
             </CardHeader>
             <form action={formAction} ref={formRef}>
                 <input type="hidden" name="topicId" value={topicId} />
                  {isEditing && <input type="hidden" name="postId" value={editingPost.id} />}
-                <CardContent>
+                 <CardContent className="pt-0"> {/* Adjust padding */}
                      <div className="space-y-2">
                         <Label htmlFor="content" className="sr-only">{isEditing ? 'Edit Content' : 'Reply Content'}</Label>
                         <Textarea
@@ -84,10 +84,11 @@ export function PostForm({ topicId, editingPost, onEditCancel }: PostFormProps) 
                             rows={isEditing ? 6 : 4}
                             placeholder={isEditing ? "Update your post..." : "Write your reply here..."}
                             defaultValue={isEditing ? editingPost.content : ""}
+                            aria-invalid={!!state?.errors?.content}
                             aria-describedby="content-error"
                         />
                          {state?.errors?.content && (
-                            <p id="content-error" className="text-sm font-medium text-destructive">
+                            <p id="content-error" className="text-sm font-medium text-destructive pt-1">
                                 {state.errors.content[0]}
                             </p>
                         )}
@@ -96,6 +97,7 @@ export function PostForm({ topicId, editingPost, onEditCancel }: PostFormProps) 
                 <CardFooter className="flex justify-between">
                     <SubmitButton
                         pendingText={isEditing ? "Saving..." : "Posting..."}
+                        // Use accent color for Save Changes button
                         className={isEditing ? 'bg-accent text-accent-foreground hover:bg-accent/90' : ''}
                     >
                         {isEditing ? 'Save Changes' : 'Post Reply'}
