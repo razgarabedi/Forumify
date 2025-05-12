@@ -1,3 +1,4 @@
+
 import type { User, Category, Topic, Post } from './types';
 import { revalidatePath } from 'next/cache';
 
@@ -42,7 +43,7 @@ interface CreateUserParams {
     username: string;
     email: string;
     password?: string; // Password from form
-    isAdmin?: boolean;
+    isAdmin?: boolean; // Accept isAdmin flag
 }
 
 export const createUser = async (userData: CreateUserParams): Promise<User> => {
@@ -54,13 +55,13 @@ export const createUser = async (userData: CreateUserParams): Promise<User> => {
     email: userData.email,
     // password: hashedPassword, // Store hashed password in real app
     password: userData.password, // Storing plain text for placeholder
-    isAdmin: userData.isAdmin ?? false,
+    isAdmin: userData.isAdmin ?? false, // Use provided isAdmin flag or default to false
     id: `user${Date.now()}-${Math.random().toString(36).substring(2, 7)}`, // More unique ID
     createdAt: new Date(),
   };
   users.push(newUser);
-  console.log("Created User:", newUser.id, newUser.username); // Log new user details
-  console.log("Current Users:", users.map(u => ({ id: u.id, username: u.username, email: u.email }))); // Log current state of users array
+  console.log("Created User:", newUser.id, newUser.username, `isAdmin: ${newUser.isAdmin}`); // Log new user details including admin status
+  console.log("Current Users:", users.map(u => ({ id: u.id, username: u.username, email: u.email, isAdmin: u.isAdmin }))); // Log current state of users array
   return newUser;
 };
 

@@ -1,9 +1,10 @@
+
 "use server";
 
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { cookies } from 'next/headers';
-import { findUserByEmail, createUser, findUserById } from "@/lib/placeholder-data"; // Using placeholder
+import { findUserByEmail, createUser, findUserById, getAllUsers } from "@/lib/placeholder-data"; // Using placeholder
 import type { User } from "@/lib/types";
 
 const SESSION_COOKIE_NAME = 'forum_session';
@@ -91,6 +92,10 @@ export async function register(prevState: any, formData: FormData) {
       return { message: "An account with this email already exists.", success: false }; // Explicitly set success to false
     }
 
+    // Check if this is the first user
+    const allUsers = await getAllUsers();
+    const isFirstUser = allUsers.length === 0;
+
     // **IMPORTANT**: In a real app, hash the password before saving!
     // const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -100,6 +105,7 @@ export async function register(prevState: any, formData: FormData) {
       email,
       password: password, // Pass plain text password for placeholder
       // passwordHash: hashedPassword, // Store hashed password in real app
+      isAdmin: isFirstUser, // Set isAdmin to true if this is the first user
     });
 
      // Automatically log in the new user by setting the session cookie
@@ -111,7 +117,7 @@ export async function register(prevState: any, formData: FormData) {
     });
 
     revalidatePath('/', 'layout');
-    return { message: `Registration successful! Welcome, ${newUser.username}!`, success: true, user: newUser };
+    return { message: `Registration successful! Welcome, ${newUser.username}!${isFirstUser ? ' You have been granted admin privileges.' : ''}`, success: true, user: newUser };
 
   } catch (error) {
     console.error("Registration error:", error);
