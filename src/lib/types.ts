@@ -35,6 +35,8 @@ export type Post = {
   authorId: string;
   createdAt: Date;
   updatedAt?: Date;
+  imageUrl?: string; // For uploaded images as data URIs
   author?: User; // Optional: include author details
   topic?: Topic;   // Optional: include topic details
 };
+

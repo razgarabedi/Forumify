@@ -1,3 +1,4 @@
+
 "use server";
 
 import { z } from "zod";
@@ -21,13 +22,15 @@ const CategorySchema = z.object({
 const TopicSchema = z.object({
     title: z.string().min(5, { message: "Topic title must be at least 5 characters." }).max(150),
     categoryId: z.string().min(1, {message: "Category is required."}),
-    // Content for the first post is handled separately or implicitly
+    firstPostContent: z.string().min(10, { message: "First post content must be at least 10 characters." }),
+    firstPostImageUrl: z.string().optional(), // Optional: For image in the first post
 });
 
 const PostSchema = z.object({
     content: z.string().min(10, { message: "Post content must be at least 10 characters." }),
     topicId: z.string().min(1, {message: "Topic ID is required."}),
     postId: z.string().optional(), // For editing existing posts
+    imageUrl: z.string().optional(), // Optional: For image in the post
 });
 
 
@@ -74,37 +77,29 @@ export async function createTopic(prevState: any, formData: FormData) {
      const validatedFields = TopicSchema.safeParse({
         title: formData.get("title"),
         categoryId: formData.get("categoryId"),
+        firstPostContent: formData.get("firstPostContent"),
+        firstPostImageUrl: formData.get("firstPostImageUrl") || undefined, // Handle empty string as undefined
     });
 
-    const firstPostContent = formData.get("firstPostContent") as string | null; // Get content for the first post
 
      if (!validatedFields.success) {
         return {
             errors: validatedFields.error.flatten().fieldErrors,
-            message: "Failed to create topic. Check title and category.",
-        };
-    }
-    // Validate first post content separately if needed
-     if (!firstPostContent || firstPostContent.length < 10) {
-        return {
-            errors: { firstPostContent: ["First post content must be at least 10 characters."] },
-            message: "Failed to create topic. Check first post content.",
+            message: "Failed to create topic. Check title, category, and first post content.",
         };
     }
 
-
-    const { title, categoryId } = validatedFields.data;
+    const { title, categoryId, firstPostContent, firstPostImageUrl } = validatedFields.data;
 
     try {
         // dbCreateTopic now also creates the first post internally in placeholder
-        const newTopic = await dbCreateTopic({ title, categoryId, authorId: user.id });
-
-        // Update the initial post created by dbCreateTopic with actual content
-        const posts = await getPostsByTopic(newTopic.id);
-        if (posts.length > 0) {
-            await dbUpdatePost(posts[0].id, firstPostContent, user.id);
-        }
-
+        const newTopic = await dbCreateTopic({
+            title,
+            categoryId,
+            authorId: user.id,
+            firstPostContent,
+            firstPostImageUrl: firstPostImageUrl === "" ? undefined : firstPostImageUrl,
+        });
 
         revalidatePath(`/categories/${categoryId}`); // Revalidate the category page
         revalidatePath('/'); // Revalidate home potentially for counts
@@ -128,6 +123,7 @@ export async function submitPost(prevState: any, formData: FormData) {
         content: formData.get("content"),
         topicId: formData.get("topicId"),
         postId: formData.get("postId"), // Optional: For editing
+        imageUrl: formData.get("imageUrl") || undefined, // Optional: For image, handle empty string
     });
 
     if (!validatedFields.success) {
@@ -137,13 +133,16 @@ export async function submitPost(prevState: any, formData: FormData) {
         };
     }
 
-    const { content, topicId, postId } = validatedFields.data;
+    const { content, topicId, postId, imageUrl } = validatedFields.data;
+    const finalImageUrl = imageUrl === "" ? undefined : imageUrl; // Ensure empty string becomes undefined
+    const removeImage = formData.get("removeImage") === "true";
+
 
     try {
         let savedPost;
         if (postId) {
             // Editing existing post
-            savedPost = await dbUpdatePost(postId, content, user.id);
+            savedPost = await dbUpdatePost(postId, content, user.id, removeImage ? null : finalImageUrl);
             if (!savedPost) {
                  return { message: "Error: Failed to update post. Post not found or permission denied." };
             }
@@ -151,7 +150,7 @@ export async function submitPost(prevState: any, formData: FormData) {
             return { message: "Post updated successfully.", success: true, post: savedPost };
         } else {
             // Creating new post
-            savedPost = await dbCreatePost({ content, topicId, authorId: user.id });
+            savedPost = await dbCreatePost({ content, topicId, authorId: user.id, imageUrl: finalImageUrl });
             revalidatePath(`/topics/${topicId}`); // Revalidate the topic page
             revalidatePath(`/categories/${savedPost.topic?.categoryId}`); // Revalidate category page (counts)
              revalidatePath('/'); // Revalidate home (counts)

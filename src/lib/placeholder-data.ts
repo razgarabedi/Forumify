@@ -203,11 +203,18 @@ export const getTopicById = async (id: string): Promise<Topic | null> => {
     return { ...topic, author, category, postCount: posts.filter(p => p.topicId === id).length };
 }
 
-export const createTopic = async (topicData: Omit<Topic, 'id' | 'createdAt' | 'lastActivity' | 'postCount'>): Promise<Topic> => {
+interface CreateTopicParams extends Omit<Topic, 'id' | 'createdAt' | 'lastActivity' | 'postCount'> {
+    firstPostContent: string;
+    firstPostImageUrl?: string;
+}
+
+export const createTopic = async (topicData: CreateTopicParams): Promise<Topic> => {
     await new Promise(resolve => setTimeout(resolve, 250));
     const now = new Date();
     const newTopic: Topic = {
-        ...topicData,
+        title: topicData.title,
+        categoryId: topicData.categoryId,
+        authorId: topicData.authorId,
         id: `topic${topics.length + 1}${Date.now()}`, // More uniqueness
         createdAt: now,
         lastActivity: now,
@@ -218,16 +225,17 @@ export const createTopic = async (topicData: Omit<Topic, 'id' | 'createdAt' | 'l
 
     // Automatically create the first post for the topic
     await createPost({
-        content: "Initial post content placeholder.", // Default initial content - SHOULD BE OVERRIDDEN by form
+        content: topicData.firstPostContent,
         topicId: newTopic.id,
         authorId: topicData.authorId,
+        imageUrl: topicData.firstPostImageUrl, // Pass imageUrl for the first post
     });
 
     // Update category topic count
     const catIndex = categories.findIndex(c => c.id === topicData.categoryId);
      if (catIndex !== -1) {
         categories[catIndex].topicCount = (categories[catIndex].topicCount || 0) + 1;
-        // Don't increment post count here, createPost handles it
+        // Post count for category is handled by createPost
     }
 
     return newTopic;
@@ -244,11 +252,18 @@ export const getPostsByTopic = async (topicId: string): Promise<Post[]> => {
   }));
 };
 
-export const createPost = async (postData: Omit<Post, 'id' | 'createdAt' | 'updatedAt'>): Promise<Post> => {
+interface CreatePostParams extends Omit<Post, 'id' | 'createdAt' | 'updatedAt'> {
+    imageUrl?: string;
+}
+
+export const createPost = async (postData: CreatePostParams): Promise<Post> => {
     await new Promise(resolve => setTimeout(resolve, 200));
     const now = new Date();
     const newPost: Post = {
-        ...postData,
+        content: postData.content,
+        topicId: postData.topicId,
+        authorId: postData.authorId,
+        imageUrl: postData.imageUrl,
         id: `post${posts.length + 1}${Date.now()}`, // More uniqueness
         createdAt: now,
     };
@@ -275,7 +290,7 @@ export const createPost = async (postData: Omit<Post, 'id' | 'createdAt' | 'upda
     return { ...newPost, author: author ?? undefined, topic: topic ?? undefined };
 };
 
-export const updatePost = async (postId: string, content: string, userId: string): Promise<Post | null> => {
+export const updatePost = async (postId: string, content: string, userId: string, imageUrl?: string | null): Promise<Post | null> => {
     await new Promise(resolve => setTimeout(resolve, 150));
     const postIndex = posts.findIndex(p => p.id === postId);
     if (postIndex === -1) {
@@ -293,6 +308,13 @@ export const updatePost = async (postId: string, content: string, userId: string
     }
 
     post.content = content;
+    if (imageUrl === null) { // Explicitly removing image
+        delete post.imageUrl;
+    } else if (imageUrl) { // Adding or changing image
+        post.imageUrl = imageUrl;
+    }
+    // If imageUrl is undefined, do nothing to the existing imageUrl
+
     post.updatedAt = new Date();
     console.log("Updated Post:", post);
     // Populate author and topic details for the returned post
@@ -376,3 +398,6 @@ export const getTotalPostCount = async (): Promise<number> => {
     await new Promise(resolve => setTimeout(resolve, 20));
     return posts.length;
 };
+
+// Ensure this file doesn't end prematurely
+// This comment prevents accidental truncation issues if the file ends with code.

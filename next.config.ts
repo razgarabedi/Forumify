@@ -22,6 +22,20 @@ const nextConfig: NextConfig = {
         port: '',
         pathname: '/**',
       },
+      // Add other common image hosting domains if needed for rich media embedding
+      // For example:
+      // {
+      //   protocol: 'https',
+      //   hostname: 'i.imgur.com',
+      //   port: '',
+      //   pathname: '/**',
+      // },
+      // {
+      //   protocol: 'https',
+      //   hostname: 'img.youtube.com', // For YouTube thumbnails
+      //   port: '',
+      //   pathname: '/**',
+      // }
     ],
   },
   // Enable experimental server actions
