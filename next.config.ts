@@ -16,7 +16,17 @@ const nextConfig: NextConfig = {
         port: '',
         pathname: '/**',
       },
+       { // Add Vercel Avatars domain
+        protocol: 'https',
+        hostname: 'avatar.vercel.sh',
+        port: '',
+        pathname: '/**',
+      },
     ],
+  },
+  // Enable experimental server actions
+   experimental: {
+    serverActions: true,
   },
 };
 
