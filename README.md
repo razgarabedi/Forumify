@@ -142,13 +142,126 @@ This command starts the Next.js development server, typically on `http://localho
     *   Explore sending messages, viewing conversation lists, and individual chats.
 7.  **Account Settings:** Visit `/settings` to change your password or navigate to your messages/notifications.
 
-## Important Notes
+## Important Notes & Production Considerations
 
-*   **Placeholder Data:** This application uses in-memory arrays (`src/lib/placeholder-data.ts`) to simulate a database. **All data will be lost when the development server restarts.** For persistent storage, you would need to integrate a real database (e.g., PostgreSQL, MongoDB, Firebase Firestore).
 *   **Password Handling:** For simplicity, passwords are currently stored and compared in plain text within the placeholder data. **This is insecure and should NEVER be done in a production application.** In a real-world scenario, always hash passwords securely (e.g., using `bcrypt`) before storing them.
 *   **Error Handling:** Basic error handling is implemented, with messages displayed using toasts. More robust error logging and reporting would be needed for production.
 *   **Image Storage:** Uploaded images (avatars, post images) are handled as Base64 data URIs and stored in the in-memory placeholder data. In a production environment, these should be uploaded to a dedicated file storage service (like Cloudinary, AWS S3, Firebase Storage).
 *   **Notification & Message Polling:** The notification and private message counts in the header use simple client-side polling for updates. For a production application, a more robust solution like WebSockets or Server-Sent Events would be preferable for real-time updates.
+
+## Data Persistence: Migrating from Placeholder Data to PostgreSQL
+
+This application currently uses in-memory placeholder data (`src/lib/placeholder-data.ts`). **This data is not persistent and will be lost on server restarts.** To enable persistent data storage, you should integrate a real database. The following steps outline how to migrate to PostgreSQL.
+
+### 1. Install Dependencies:
+Install the necessary Node.js PostgreSQL client library:
+```bash
+npm install pg
+# If using TypeScript, also install the types:
+npm install --save-dev @types/pg
+```
+
+### 2. Set up PostgreSQL:
+*   **Install PostgreSQL:** If you don't have it already, download and install PostgreSQL from the [official website](https://www.postgresql.org/download/). Follow the instructions for your operating system.
+*   **Create a Database User (Recommended):** It's good practice to create a dedicated user for your application with appropriate permissions, rather than using the default superuser.
+*   **Create a Database:** Create a new database for your ForumLite application. You can use a tool like `psql` (PostgreSQL's command-line interface) or a GUI tool like pgAdmin.
+    Example using `psql`:
+    ```sql
+    CREATE USER forumlite_user WITH PASSWORD 'your_secure_password';
+    CREATE DATABASE forumlite_db OWNER forumlite_user;
+    ```
+
+### 3. Configure Environment Variables:
+Next.js applications typically use environment variables to store sensitive information like database credentials.
+
+*   **Create a `.env.local` file:** In the root of your project, create a file named `.env.local`. This file is for local development and should **not** be committed to version control (add it to your `.gitignore` file).
+    ```
+    .env.local
+    ```
+
+*   **Add your Database Connection URL:** Inside `.env.local`, add your PostgreSQL connection URL:
+    ```env
+    DATABASE_URL="postgresql://YOUR_USER:YOUR_PASSWORD@YOUR_HOST:YOUR_PORT/YOUR_DATABASE_NAME"
+    ```
+    **Breakdown of the `DATABASE_URL`:**
+    *   `postgresql://`: The protocol for PostgreSQL.
+    *   `YOUR_USER`: The username you created for your application (e.g., `forumlite_user`).
+    *   `YOUR_PASSWORD`: The password for that user. **Make sure this is strong and unique.**
+    *   `YOUR_HOST`: The hostname or IP address where your PostgreSQL server is running. For local development, this is usually `localhost`.
+    *   `YOUR_PORT`: The port PostgreSQL is listening on. The default is `5432`.
+    *   `YOUR_DATABASE_NAME`: The name of the database you created (e.g., `forumlite_db`).
+
+    **Example `.env.local` content:**
+    ```env
+    DATABASE_URL="postgresql://forumlite_user:your_secure_password@localhost:5432/forumlite_db"
+    ```
+
+*   **Accessing Environment Variables in Code:** Next.js automatically loads variables from `.env.local` into `process.env`. You can access `process.env.DATABASE_URL` in your server-side code.
+
+*   **Production Environment Variables:** For deployment (e.g., to Vercel, AWS, Heroku), you will need to configure these environment variables directly in your hosting provider's settings. **Do not commit `.env.local` with production credentials.**
+
+### 4. Define Database Schema and Create Tables:
+You'll need to define the structure of your database tables. This involves creating SQL statements for tables like `users`, `categories`, `topics`, `posts`, `notifications`, `conversations`, and `private_messages`, reflecting the structures in `src/lib/types.ts`. Consider using a migration tool (like `node-pg-migrate` or the migration features of an ORM) for managing schema changes over time.
+
+Example (simplified) table creation SQL:
+```sql
+CREATE TABLE users (
+    id TEXT PRIMARY KEY,
+    username TEXT NOT NULL UNIQUE,
+    email TEXT NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL, -- Store hashed passwords, not plain text!
+    is_admin BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    about_me TEXT,
+    location TEXT,
+    website_url TEXT,
+    social_media_url TEXT,
+    signature TEXT,
+    last_active TIMESTAMP WITH TIME ZONE,
+    avatar_url TEXT
+);
+
+-- Add other tables for categories, topics, posts, etc.
+-- Remember to include foreign keys and indexes for performance.
+```
+
+### 5. Update Data Access Logic:
+Modify the functions in `src/lib/placeholder-data.ts` (or create a new module like `src/lib/db.ts`) to interact with your PostgreSQL database instead of the in-memory arrays. You'll use the `pg` library to connect to the database and execute SQL queries.
+
+**Example of a database client setup (e.g., in `src/lib/db.ts`):**
+```typescript
+// src/lib/db.ts
+import { Pool } from 'pg';
+
+let pool: Pool;
+
+if (!process.env.DATABASE_URL) {
+  throw new Error('DATABASE_URL environment variable is not set');
+}
+
+pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  // Add SSL configuration for production if needed
+  // ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : undefined,
+});
+
+export const query = (text: string, params?: any[]) => pool.query(text, params);
+
+// Example function modification:
+// export async function findUserByEmail(email: string): Promise<User | null> {
+//   const res = await query('SELECT * FROM users WHERE email = $1', [email]);
+//   if (res.rows.length === 0) return null;
+//   // Map database row to User type (ensure column names match or alias them)
+//   const dbUser = res.rows[0];
+//   return { /* ... map properties ... */ } as User;
+// }
+```
+You will need to rewrite all functions in `src/lib/placeholder-data.ts` (like `createUser`, `getTopicsByCategory`, etc.) to use SQL queries against your PostgreSQL database.
+
+### 6. (Optional) Use an ORM:
+For more complex applications, consider using an Object-Relational Mapper (ORM) like Prisma or TypeORM. ORMs can simplify database interactions, provide type safety, and help with migrations.
+
+This provides a comprehensive guide to transitioning to a persistent PostgreSQL database. Remember that this is a significant change requiring careful implementation of database interactions and security best practices (especially password hashing).
 
 ## Project Structure
 
