@@ -1,4 +1,5 @@
 
+
 import { findUserByUsername, getUserPostCount } from '@/lib/placeholder-data';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -16,7 +17,8 @@ interface UserProfilePageProps {
 }
 
 export async function generateMetadata({ params }: UserProfilePageProps) {
-  const user = await findUserByUsername(params.username);
+  const decodedUsername = decodeURIComponent(params.username);
+  const user = await findUserByUsername(decodedUsername);
   return {
     title: user ? `${user.username}'s Profile - ForumLite` : 'User Not Found',
   };
@@ -24,11 +26,12 @@ export async function generateMetadata({ params }: UserProfilePageProps) {
 
 export default async function UserProfilePage({ params }: UserProfilePageProps) {
   const viewingUser = await getCurrentUser();
-  console.log(`[UserProfilePage] Attempting to fetch profile for username: "${params.username}"`);
-  const profileUser = await findUserByUsername(params.username);
+  const decodedUsername = decodeURIComponent(params.username);
+  console.log(`[UserProfilePage] Attempting to fetch profile for username: "${decodedUsername}" (original: "${params.username}")`);
+  const profileUser = await findUserByUsername(decodedUsername);
 
   if (!profileUser) {
-    console.error(`[UserProfilePage] User not found for username "${params.username}". Rendering 404 page.`);
+    console.error(`[UserProfilePage] User not found for username "${decodedUsername}". Rendering 404 page.`);
     notFound();
   }
   console.log(`[UserProfilePage] Successfully fetched profileUser: ${profileUser.id} - ${profileUser.username}`);
@@ -157,3 +160,4 @@ export default async function UserProfilePage({ params }: UserProfilePageProps) 
     </div>
   );
 }
+
