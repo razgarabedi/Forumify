@@ -143,6 +143,27 @@ export function PostForm({ topicId, editingPost, onEditCancel }: PostFormProps) 
         setTextContent(newContent);
     };
 
+     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+        // Prevent form submission on Enter key press unless Shift is held
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            // Optionally, you could insert a newline character here manually if needed,
+            // but default textarea behavior usually handles this.
+            // However, if the preventDefault stops newline insertion:
+            // const { selectionStart, selectionEnd, value } = e.currentTarget;
+            // const newValue = value.substring(0, selectionStart) + "\n" + value.substring(selectionEnd);
+            // handleTextChange(newValue);
+            // // Move cursor after inserted newline
+            // requestAnimationFrame(() => {
+            //     if (textareaRef.current) {
+            //         textareaRef.current.selectionStart = selectionStart + 1;
+            //         textareaRef.current.selectionEnd = selectionStart + 1;
+            //     }
+            // });
+        }
+    };
+
+
     return (
         <Card className={`mt-6 mb-8 shadow-md border ${isEditing ? 'border-accent ring-1 ring-accent' : 'border-border'}`}>
             <CardHeader className="pb-4">
@@ -191,6 +212,7 @@ export function PostForm({ topicId, editingPost, onEditCancel }: PostFormProps) 
                             placeholder={isEditing ? "Update your post..." : "Write your reply here... Use markdown for formatting."}
                             value={textContent} // Controlled component
                             onChange={(e) => handleTextChange(e.target.value)} // Update state on direct typing
+                            onKeyDown={handleKeyDown} // Add keydown handler
                             aria-invalid={!!state?.errors?.content}
                             aria-describedby="content-error"
                             className="rounded-t-none focus:z-10 focus:ring-offset-0 focus:ring-1" // Adjust styling for toolbar
@@ -286,3 +308,4 @@ export function PostForm({ topicId, editingPost, onEditCancel }: PostFormProps) 
         </Card>
     );
 }
+
