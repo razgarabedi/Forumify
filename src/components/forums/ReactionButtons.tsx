@@ -114,7 +114,7 @@ export function ReactionButtons({ postId, initialReactions, currentUser }: React
             <TooltipProvider key={type} delayDuration={100}>
               <Tooltip>
                 <TooltipTrigger asChild>
-                   <Button variant="ghost" size="sm" className="text-muted-foreground px-2 py-1 h-auto cursor-default" disabled>
+                   <Button variant="ghost" size="sm" className="text-muted-foreground px-2 py-1.5 h-auto cursor-default" disabled>
                      <Icon className="h-4 w-4 mr-1" /> {count > 0 ? count : ''}
                    </Button>
                 </TooltipTrigger>
@@ -148,7 +148,7 @@ export function ReactionButtons({ postId, initialReactions, currentUser }: React
                  variant={isActive ? "default" : "ghost"}
                  size="sm"
                  className={cn(
-                   "px-2 py-1 h-auto transition-all duration-150 ease-in-out rounded-full text-xs sm:text-sm",
+                   "px-2 py-1.5 h-auto transition-all duration-150 ease-in-out rounded-full text-xs sm:text-sm", // Changed py-1 to py-1.5
                    isActive ? "bg-primary/90 text-primary-foreground hover:bg-primary shadow-md" : "text-muted-foreground hover:text-primary hover:bg-primary/10",
                    isPending && state.message !== "Reaction updated." && "opacity-70 cursor-progress" // Show loading only if this button's action is pending
                  )}
@@ -172,3 +172,4 @@ export function ReactionButtons({ postId, initialReactions, currentUser }: React
     </div>
   );
 }
+
