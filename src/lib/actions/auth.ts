@@ -30,11 +30,41 @@ const RegisterSchema = z.object({
 });
 
 const ProfileUpdateSchema = z.object({
-    avatarUrl: z.string().url({ message: "Invalid URL format for avatar." }).optional().or(z.literal('')),
+    // avatarUrl can be an HTTP/S URL or a data URI, or empty for removal
+    avatarUrl: z.string().optional().refine(val => {
+        if (val === undefined || val === '') return true; // Optional or empty string (for removal) is fine
+        return val.startsWith('data:image/') || val.startsWith('http://') || val.startsWith('https://');
+    }, { message: "Avatar must be a valid image data URI or an HTTP(S) URL." }),
     aboutMe: z.string().max(500, { message: "About me cannot exceed 500 characters." }).optional(),
     location: z.string().max(100, { message: "Location cannot exceed 100 characters." }).optional(),
-    websiteUrl: z.string().url({ message: "Invalid URL format for website." }).optional().or(z.literal('')),
-    socialMediaUrl: z.string().url({ message: "Invalid URL format for social media." }).optional().or(z.literal('')),
+    websiteUrl: z.string().optional().transform(val => {
+        if (val && val.length > 0 && !val.startsWith('http://') && !val.startsWith('https://')) {
+            return `https://${val}`;
+        }
+        return val === '' ? undefined : val; // Ensure empty string becomes undefined if not a valid URL structure
+    }).refine(val => {
+        if (val === undefined || val === '') return true;
+        try {
+            new URL(val);
+            return true;
+        } catch {
+            return false;
+        }
+    }, { message: "Invalid URL format for website." }).optional(),
+    socialMediaUrl: z.string().optional().transform(val => {
+        if (val && val.length > 0 && !val.startsWith('http://') && !val.startsWith('https://')) {
+            return `https://${val}`;
+        }
+        return val === '' ? undefined : val; // Ensure empty string becomes undefined
+    }).refine(val => {
+        if (val === undefined || val === '') return true;
+        try {
+            new URL(val);
+            return true;
+        } catch {
+            return false;
+        }
+    }, { message: "Invalid URL format for social media." }).optional(),
     signature: z.string().max(150, { message: "Signature cannot exceed 150 characters." }).optional(),
 });
 
@@ -163,34 +193,38 @@ export async function updateUserProfileAction(prevState: ActionResponse | undefi
     if (!user) {
         return { success: false, message: "Unauthorized: You must be logged in to update your profile." };
     }
-
-    const validatedFields = ProfileUpdateSchema.safeParse({
-        avatarUrl: formData.get("avatarUrl") || undefined,
+    
+    const rawData = {
+        avatarUrl: formData.get("avatarUrl") || undefined, // This will be data URI or existing URL or empty string
         aboutMe: formData.get("aboutMe") || undefined,
         location: formData.get("location") || undefined,
         websiteUrl: formData.get("websiteUrl") || undefined,
         socialMediaUrl: formData.get("socialMediaUrl") || undefined,
         signature: formData.get("signature") || undefined,
-    });
+    };
+
+    const validatedFields = ProfileUpdateSchema.safeParse(rawData);
 
     if (!validatedFields.success) {
+        console.error("Profile Update Validation Errors:", validatedFields.error.flatten().fieldErrors);
         return {
             errors: validatedFields.error.flatten().fieldErrors,
             message: "Profile update failed. Please check your inputs.",
             success: false,
         };
     }
+    
+    // Use validatedFields.data which includes transformed values
+    const updateData = validatedFields.data;
 
     try {
-        const updatedUser = await updateUserProfile(user.id, validatedFields.data);
+        const updatedUser = await updateUserProfile(user.id, updateData);
         if (!updatedUser) {
             return { success: false, message: "Failed to update profile. User not found." };
         }
         
-        revalidatePath(`/users/${user.username}`); // Revalidate the user's profile page
-        revalidatePath(`/users/${user.username}/edit`); // Revalidate edit page
-        // Revalidate other paths where user info might be displayed (e.g., posts, topics)
-        // This can be broad for simplicity with placeholder data
+        revalidatePath(`/users/${user.username}`); 
+        revalidatePath(`/users/${user.username}/edit`); 
         revalidatePath('/', 'layout'); 
 
         return { success: true, message: "Profile updated successfully.", user: updatedUser };

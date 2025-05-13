@@ -1,9 +1,9 @@
 
 'use client';
-import { useEffect, useActionState, useState } from 'react';
+import React, { useEffect, useActionState, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
-import { getCurrentUser, updateUserProfileAction } from '@/lib/actions/auth'; // Create this action
+import { getCurrentUser, updateUserProfileAction } from '@/lib/actions/auth';
 import type { User, ActionResponse } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,8 +11,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { SubmitButton } from '@/components/SubmitButton';
-import { Loader2, UserCog } from 'lucide-react';
+import { Loader2, UserCog, UploadCloud, XCircle } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import Image from 'next/image'; // For image preview
 
 const initialState: ActionResponse = {
     success: false,
@@ -25,9 +26,15 @@ interface EditProfileFormProps {
 }
 
 function EditProfileForm({ user: initialUser }: EditProfileFormProps) {
-    const [state, formAction] = useActionState(updateUserProfileAction, initialState);
+    const [state, formAction, isPending] = useActionState(updateUserProfileAction, initialState);
     const { toast } = useToast();
     const router = useRouter();
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const [imagePreview, setImagePreview] = useState<string | null>(initialUser.avatarUrl || null);
+    const [imageFile, setImageFile] = useState<File | null>(null); // To store the actual file if needed for more complex logic
+    const [removeCurrentImage, setRemoveCurrentImage] = useState(false);
+
 
     useEffect(() => {
         if (state.message) {
@@ -36,17 +43,70 @@ function EditProfileForm({ user: initialUser }: EditProfileFormProps) {
                     title: 'Success',
                     description: state.message,
                 });
-                router.push(`/users/${initialUser.username}`); // Redirect to profile page on success
-                 router.refresh(); // Force refresh to get new data
+                router.push(`/users/${initialUser.username}`);
+                router.refresh(); 
             } else {
                 toast({
                     variant: 'destructive',
                     title: 'Error',
-                    description: state.message,
+                    description: state.message || 'An error occurred.',
                 });
             }
         }
     }, [state, toast, router, initialUser.username]);
+
+    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const files = event.target.files;
+        if (files && files[0]) {
+            const file = files[0];
+            if (file.size > 2 * 1024 * 1024) { // 2MB limit
+                toast({ variant: "destructive", title: "File too large", description: "Avatar image must be smaller than 2MB." });
+                return;
+            }
+            if (!['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(file.type)) {
+                toast({ variant: "destructive", title: "Invalid file type", description: "Please upload a JPG, PNG, GIF, or WEBP image." });
+                return;
+            }
+            setImageFile(file);
+            setRemoveCurrentImage(false);
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setImagePreview(reader.result as string);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const handleRemoveImage = () => {
+        setImagePreview(null);
+        setImageFile(null);
+        setRemoveCurrentImage(true);
+        if (fileInputRef.current) {
+            fileInputRef.current.value = ""; // Reset file input
+        }
+    };
+    
+    const wrappedFormAction = (formData: FormData) => {
+        // avatarUrl is the key expected by the server action's Zod schema
+        if (imagePreview && imagePreview !== initialUser.avatarUrl) { // New image or changed from existing
+            formData.set('avatarUrl', imagePreview);
+        } else if (removeCurrentImage) { // Marked for removal
+            formData.set('avatarUrl', '');
+        } else if (initialUser.avatarUrl && !imagePreview && !removeCurrentImage) { // No new image, not removed, but original existed and then preview was cleared (e.g. by mistake)
+             // This case means the user cleared a preview of a new image but didn't explicitly remove the original.
+             // We should resend the original image URL if it exists.
+             formData.set('avatarUrl', initialUser.avatarUrl);
+        } else if (!initialUser.avatarUrl && !imagePreview && !removeCurrentImage) {
+            // No initial avatar, no new preview, not marked for removal - send empty or undefined
+            formData.set('avatarUrl', '');
+        }
+        // If imagePreview matches initialUser.avatarUrl and not marked for removal,
+        // it means the existing avatar is kept. The defaultValue on other inputs handles sending it.
+        // But for avatar, since it's not a direct input, we ensure it's explicitly set or cleared.
+
+        formAction(formData);
+    };
+
 
     return (
         <Card className="w-full max-w-2xl mx-auto shadow-lg border border-border">
@@ -56,27 +116,39 @@ function EditProfileForm({ user: initialUser }: EditProfileFormProps) {
                 </CardTitle>
                 <CardDescription>Update your personal information. Click save when you're done.</CardDescription>
             </CardHeader>
-            <form action={formAction}>
+            <form action={wrappedFormAction}>
                 <CardContent className="space-y-6">
-                     <div className="flex items-center space-x-4">
-                        <Avatar className="h-20 w-20 border">
-                            <AvatarImage src={initialUser.avatarUrl || `https://avatar.vercel.sh/${initialUser.username}.png?size=80`} alt={initialUser.username} data-ai-hint="user avatar large"/>
-                            <AvatarFallback className="text-2xl">{initialUser.username?.charAt(0)?.toUpperCase()}</AvatarFallback>
-                        </Avatar>
-                        <div className="space-y-1 flex-1">
-                            <Label htmlFor="avatarUrl">Avatar URL (Optional)</Label>
-                            <Input
-                                id="avatarUrl"
-                                name="avatarUrl"
-                                type="url"
-                                defaultValue={initialUser.avatarUrl || ''}
-                                placeholder="https://example.com/avatar.png"
-                                aria-describedby="avatarUrl-error"
-                            />
-                            {state.errors?.avatarUrl && (
-                                <p id="avatarUrl-error" className="text-sm font-medium text-destructive">{state.errors.avatarUrl[0]}</p>
-                            )}
+                    <div className="space-y-2">
+                        <Label htmlFor="avatarFile">Avatar</Label>
+                        <div className="flex items-center space-x-4">
+                            <Avatar className="h-20 w-20 border">
+                                <AvatarImage src={imagePreview || undefined} alt={initialUser.username} data-ai-hint="avatar preview"/>
+                                <AvatarFallback className="text-2xl">{initialUser.username?.charAt(0)?.toUpperCase()}</AvatarFallback>
+                            </Avatar>
+                            <div className="flex flex-col space-y-2">
+                                <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
+                                    <UploadCloud className="mr-2 h-4 w-4" /> Change Avatar
+                                </Button>
+                                <Input
+                                    id="avatarFile"
+                                    name="avatarFile" // Not directly used by server action, but good for forms
+                                    type="file"
+                                    ref={fileInputRef}
+                                    onChange={handleFileChange}
+                                    accept="image/jpeg,image/png,image/gif,image/webp"
+                                    className="hidden"
+                                />
+                                {imagePreview && (
+                                    <Button type="button" variant="ghost" size="sm" onClick={handleRemoveImage} className="text-destructive hover:text-destructive/80">
+                                        <XCircle className="mr-2 h-4 w-4" /> Remove Avatar
+                                    </Button>
+                                )}
+                            </div>
                         </div>
+                        {state.errors?.avatarUrl && (
+                            <p id="avatarUrl-error" className="text-sm font-medium text-destructive">{state.errors.avatarUrl[0]}</p>
+                        )}
+                         <p className="text-xs text-muted-foreground">Max 2MB. JPG, PNG, GIF, WEBP accepted.</p>
                     </div>
                     
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -128,9 +200,9 @@ function EditProfileForm({ user: initialUser }: EditProfileFormProps) {
                             <Input
                                 id="websiteUrl"
                                 name="websiteUrl"
-                                type="url"
-                                defaultValue={initialUser.websiteUrl || ''}
-                                placeholder="https://yourwebsite.com"
+                                type="text" // Keep as text for prefixing logic, Zod handles URL validation
+                                defaultValue={initialUser.websiteUrl?.replace(/^https?:\/\//, '') || ''} // Show without prefix
+                                placeholder="yourwebsite.com"
                                 maxLength={200}
                                 aria-describedby="websiteUrl-error"
                             />
@@ -144,9 +216,9 @@ function EditProfileForm({ user: initialUser }: EditProfileFormProps) {
                         <Input
                             id="socialMediaUrl"
                             name="socialMediaUrl"
-                            type="url"
-                            defaultValue={initialUser.socialMediaUrl || ''}
-                            placeholder="https://socialmedia.com/yourprofile"
+                            type="text" // Keep as text
+                            defaultValue={initialUser.socialMediaUrl?.replace(/^https?:\/\//, '') || ''} // Show without prefix
+                            placeholder="socialmedia.com/yourprofile"
                             maxLength={200}
                             aria-describedby="socialMediaUrl-error"
                         />
@@ -171,7 +243,7 @@ function EditProfileForm({ user: initialUser }: EditProfileFormProps) {
                     </div>
                 </CardContent>
                 <CardFooter>
-                    <SubmitButton pendingText="Saving...">Save Changes</SubmitButton>
+                    <SubmitButton pendingText="Saving..." disabled={isPending}>Save Changes</SubmitButton>
                 </CardFooter>
             </form>
         </Card>
@@ -189,7 +261,7 @@ export default function EditUserProfilePage() {
             setLoading(true);
             const currentUser = await getCurrentUser();
             if (!currentUser) {
-                router.push('/login'); // Redirect if not logged in
+                router.push('/login'); 
             } else {
                 setUser(currentUser);
             }
@@ -208,7 +280,6 @@ export default function EditUserProfilePage() {
     }
 
     if (!user) {
-        // Should have been redirected, but as a fallback:
         return <p className="text-center text-destructive">Could not load user profile for editing.</p>;
     }
 
