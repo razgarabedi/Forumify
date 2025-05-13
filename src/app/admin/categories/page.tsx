@@ -1,3 +1,4 @@
+
 import { getCategories } from "@/lib/placeholder-data";
 import { CategoryForm } from "@/components/forms/CategoryForm";
 import {
@@ -39,7 +40,7 @@ export default async function AdminCategoriesPage() {
                 </TableRow>
             </TableHeader>
             <TableBody>
-                {categories.map((category) => (<TableRow key={category.id}>
+                {categories.map((category) => <TableRow key={category.id}>
                     <TableCell className="font-medium">{category.name}</TableCell>
                     <TableCell className="text-muted-foreground max-w-xs truncate" title={category.description || ''}>
                         {category.description || '-'}
@@ -50,15 +51,16 @@ export default async function AdminCategoriesPage() {
                     <TableCell className="text-right px-3">
                          <CategoryActions category={category} />
                     </TableCell>
-                </TableRow>))}
-                {categories.length === 0 && (<TableRow>
+                </TableRow>)}
+                {categories.length === 0 && <TableRow>
                         <TableCell colSpan={6} className="text-center text-muted-foreground h-24">
                             No categories found. Create one above.
                         </TableCell>
-                    </TableRow>)}
+                    </TableRow>}
             </TableBody>
             </Table>
        </div>
     </div>
   );
 }
+
