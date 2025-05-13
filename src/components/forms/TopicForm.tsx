@@ -46,16 +46,28 @@ export function TopicForm({ categoryId }: TopicFormProps) {
                 description: state.message,
             });
         }
-        if (state?.message && state.success) {
+        if (state?.message && state.success && state.topicId) { // Check for topicId for redirect
+             toast({
+                title: "Success",
+                description: state.message,
+            });
+            // Form reset is not strictly necessary due to redirect, but good practice
+            formRef.current?.reset();
+            setFirstPostTextContent(''); 
+            setImagePreview(null);
+            setImageFile(null);
+            // Redirect is handled by the server action using the `redirect()` function
+        } else if (state?.message && state.success && !state.topicId) {
+            // This case might occur if redirect fails or is not part of the success state
+            // For now, just show success toast and reset form as before
              toast({
                 title: "Success",
                 description: state.message,
             });
             formRef.current?.reset();
-            setFirstPostTextContent(''); // Clear textarea state
+            setFirstPostTextContent('');
             setImagePreview(null);
             setImageFile(null);
-            // Redirect is handled by the server action
         }
     }, [state, toast]);
 
@@ -116,15 +128,6 @@ export function TopicForm({ categoryId }: TopicFormProps) {
         setFirstPostTextContent(newContent);
     };
 
-    const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-        // Prevent form submission on Enter key press unless Shift is held
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            // See comment in PostForm.tsx about potentially needing manual newline insertion
-        }
-    };
-
-
     return (
         <Card className="mt-6 mb-8 shadow-md border border-border">
             <CardHeader className="pb-4">
@@ -183,7 +186,6 @@ export function TopicForm({ categoryId }: TopicFormProps) {
                             placeholder="Start the discussion here... Use markdown for formatting."
                             value={firstPostTextContent} // Controlled component
                             onChange={(e) => handleTextChange(e.target.value)} // Update state on direct typing
-                            onKeyDown={handleKeyDown} // Add keydown handler
                             aria-invalid={!!state?.errors?.firstPostContent}
                             aria-describedby="firstPostContent-error"
                              className="rounded-t-none focus:z-10 focus:ring-offset-0 focus:ring-1" // Adjust styling for toolbar
