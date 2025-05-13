@@ -502,7 +502,7 @@ export const getOrCreateConversation = async (userId1: string, userId2: string):
             id: conversationId,
             participantIds: [userId1, userId2],
             createdAt: now,
-            lastMessageAt: now, // Initially same as createdAt
+            lastMessageAt: now, 
         };
         conversations.push(conversation);
         console.log(`[DB getOrCreateConversation] Created new conversation: ${conversationId}`);
@@ -512,7 +512,7 @@ export const getOrCreateConversation = async (userId1: string, userId2: string):
 
 export const sendPrivateMessage = async (
     senderId: string,
-    receiverId: string, // Changed from conversationId to receiverId for clarity in this function
+    receiverId: string, 
     content: string
 ): Promise<PrivateMessage> => {
     await new Promise(resolve => setTimeout(resolve, 50));
@@ -525,11 +525,10 @@ export const sendPrivateMessage = async (
         senderId,
         content,
         createdAt: now,
-        readBy: [senderId], // Sender has "read" it by sending
+        readBy: [senderId], 
     };
     privateMessages.push(newMessage);
 
-    // Update conversation's lastMessageAt and snippet
     const convIndex = conversations.findIndex(c => c.id === conversation.id);
     if (convIndex !== -1) {
         conversations[convIndex].lastMessageAt = now;
@@ -548,23 +547,26 @@ export const getConversationsForUser = async (userId: string): Promise<Conversat
         .sort((a, b) => b.lastMessageAt.getTime() - a.lastMessageAt.getTime());
 };
 
-export const getMessagesForConversation = async (conversationId: string, currentUserId: string): Promise<PrivateMessage[]> => {
+export const getMessagesForConversation = async (conversationId: string, currentUserId: string, markAsRead: boolean = true): Promise<PrivateMessage[]> => {
     await new Promise(resolve => setTimeout(resolve, 20));
     const messagesInConv = privateMessages
         .filter(pm => pm.conversationId === conversationId)
         .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
 
-    // Mark messages as read by the current user
-    messagesInConv.forEach(msg => {
-        if (msg.senderId !== currentUserId && !msg.readBy.includes(currentUserId)) {
-            msg.readBy.push(currentUserId);
-            const pmIndex = privateMessages.findIndex(pm => pm.id === msg.id);
-            if (pmIndex !== -1) {
-                privateMessages[pmIndex] = msg;
+    if (markAsRead) {
+        messagesInConv.forEach(msg => {
+            if (msg.senderId !== currentUserId && !msg.readBy.includes(currentUserId)) {
+                msg.readBy.push(currentUserId);
+                const pmIndex = privateMessages.findIndex(pm => pm.id === msg.id);
+                if (pmIndex !== -1) {
+                    privateMessages[pmIndex] = msg;
+                }
             }
-        }
-    });
-    console.log(`[DB getMessagesForConversation] Fetched messages for ${conversationId} and marked as read for ${currentUserId}`);
+        });
+        console.log(`[DB getMessagesForConversation] Fetched messages for ${conversationId} and marked as read for ${currentUserId}`);
+    } else {
+        console.log(`[DB getMessagesForConversation] Fetched messages for ${conversationId} (read status not changed)`);
+    }
     return messagesInConv;
 };
 
