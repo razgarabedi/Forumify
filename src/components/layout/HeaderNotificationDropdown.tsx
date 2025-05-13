@@ -4,7 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Bell, CheckCheck, ExternalLink, Loader2 } from 'lucide-react';
+import { Bell, CheckCheck, ExternalLink, Loader2, MessageSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -46,7 +46,6 @@ export function HeaderNotificationDropdown({ user, initialUnreadCount }: HeaderN
       fetchNotificationsAction()
         .then(data => {
           setNotifications(data.slice(0, MAX_NOTIFICATIONS_IN_DROPDOWN));
-          // Update unread count based on fetched data in case it changed
           const currentUnread = data.filter(n => !n.isRead).length;
           setUnreadCount(currentUnread);
         })
@@ -58,8 +57,6 @@ export function HeaderNotificationDropdown({ user, initialUnreadCount }: HeaderN
     }
   }, [isOpen, user, toast]);
   
-  // Effect to poll for unread count periodically - simple polling example
-  // In a real app, WebSockets or server-sent events would be better.
   useEffect(() => {
     if (!user) return;
     const intervalId = setInterval(async () => {
@@ -69,7 +66,7 @@ export function HeaderNotificationDropdown({ user, initialUnreadCount }: HeaderN
       } catch (error) {
         console.error("Failed to poll unread notification count:", error);
       }
-    }, 30000); // Poll every 30 seconds
+    }, 30000); 
 
     return () => clearInterval(intervalId);
   }, [user]);
@@ -89,13 +86,49 @@ export function HeaderNotificationDropdown({ user, initialUnreadCount }: HeaderN
          toast({ title: "Error", description: "Could not mark as read.", variant: "destructive" });
       }
     }
-    router.push(`/topics/${notification.topicId}#post-${notification.postId}`);
-    setIsOpen(false); // Close dropdown after click
+    
+    if (notification.type === 'private_message' && notification.conversationId) {
+      router.push(`/messages/${notification.conversationId}`);
+    } else if (notification.type === 'mention' && notification.topicId && notification.postId) {
+      router.push(`/topics/${notification.topicId}#post-${notification.postId}`);
+    } else {
+      console.warn("HeaderNotificationDropdown: Could not determine navigation path for notification:", notification);
+    }
+    setIsOpen(false);
   };
 
   if (!user) {
-    return null; // Don't render anything if no user
+    return null;
   }
+
+  const getNotificationText = (notif: Notification) => {
+    if (notif.type === 'private_message') {
+      return (
+        <>
+          <span className="font-semibold">{notif.senderUsername}</span>
+          {' sent you a private message.'}
+          {notif.message && <span className="block text-xs text-muted-foreground italic truncate">"{notif.message}"</span>}
+        </>
+      );
+    }
+    // Default to mention
+    return (
+      <>
+        <span className="font-semibold">{notif.senderUsername}</span>
+        {' mentioned you in "'}
+        <span className="truncate font-medium text-primary">{notif.topicTitle || 'a topic'}</span>
+        {'"'}
+      </>
+    );
+  };
+  
+  const getNotificationIcon = (notif: Notification) => {
+    if (notif.type === 'private_message') {
+        return <MessageSquare className="h-4 w-4 text-primary" />;
+    }
+    return <Bell className="h-4 w-4 text-primary" />;
+  };
+
 
   return (
     <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
@@ -104,7 +137,6 @@ export function HeaderNotificationDropdown({ user, initialUnreadCount }: HeaderN
           <Bell className="h-5 w-5" />
           {unreadCount > 0 && (
             <span className="absolute top-1 right-1 flex h-2.5 w-2.5 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground font-bold">
-              {/* Small dot for count > 0, or show count if design allows */}
                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75"></span>
                <span className="relative inline-flex h-2 w-2 rounded-full bg-primary"></span>
             </span>
@@ -131,16 +163,16 @@ export function HeaderNotificationDropdown({ user, initialUnreadCount }: HeaderN
               !notif.isRead && "bg-primary/5 hover:bg-primary/10"
             )}
           >
-            <Avatar className="h-8 w-8 mt-0.5 flex-shrink-0">
-              <AvatarImage src={`https://avatar.vercel.sh/${notif.mentionerUsername}.png?size=32`} alt={notif.mentionerUsername} data-ai-hint="user avatar" />
-              <AvatarFallback>{notif.mentionerUsername.charAt(0).toUpperCase()}</AvatarFallback>
+            <div className="flex-shrink-0 mt-1">
+                {getNotificationIcon(notif)}
+            </div>
+            <Avatar className="h-8 w-8 flex-shrink-0">
+              <AvatarImage src={`https://avatar.vercel.sh/${notif.senderUsername}.png?size=32`} alt={notif.senderUsername} data-ai-hint="user avatar" />
+              <AvatarFallback>{notif.senderUsername.charAt(0).toUpperCase()}</AvatarFallback>
             </Avatar>
             <div className="flex-grow min-w-0">
               <p className="text-sm">
-                <span className="font-semibold">{notif.mentionerUsername}</span>
-                {' mentioned you in "'}
-                <span className="truncate font-medium text-primary">{notif.topicTitle}</span>
-                {'"'}
+                {getNotificationText(notif)}
               </p>
               <p className="text-xs text-muted-foreground">
                 {formatDistanceToNow(new Date(notif.createdAt), { addSuffix: true })}

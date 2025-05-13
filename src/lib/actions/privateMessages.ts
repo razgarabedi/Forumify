@@ -14,6 +14,7 @@ import {
     generateConversationId,
     getConversationById as dbGetConversationById,
     getOrCreateConversation,
+    createNotification, // Import createNotification
 } from "@/lib/placeholder-data";
 import { getCurrentUser } from "./auth";
 import type { ActionResponse, Conversation, PrivateMessage, User, ConversationListItem, PrivateMessageDisplay } from "@/lib/types";
@@ -54,16 +55,10 @@ export async function sendPrivateMessageAction(prevState: ActionResponse | undef
         return { success: false, message: "You cannot send a message to yourself." };
     }
 
-    // Fetch the existing conversation to get its subject (if any) and validate participants
     const existingConversation = await dbGetConversationById(formConversationId);
     if (!existingConversation) {
-        // This case should ideally not happen if the formConversationId is from a valid URL/context.
-        // If it can happen (e.g. first message to a "general" chat ID not yet in DB),
-        // then getOrCreateConversation in dbSendPrivateMessage will handle creation.
-        // For now, let's proceed, dbSendPrivateMessage will use getOrCreateConversation.
         console.warn(`[sendPrivateMessageAction] Conversation with ID ${formConversationId} not found. dbSendPrivateMessage will attempt to create it.`);
     } else {
-        // Security check: ensure current user and receiver from form are actual participants
         if (!existingConversation.participantIds.includes(currentUser.id) || !existingConversation.participantIds.includes(formReceiverId)) {
             console.error(`Security check failed: User ${currentUser.id} or receiver ${formReceiverId} not in conversation ${formConversationId}. Participants: ${existingConversation.participantIds.join(', ')}`);
             return { success: false, message: "Security check failed: You are not part of this conversation or receiver is incorrect." };
@@ -71,14 +66,22 @@ export async function sendPrivateMessageAction(prevState: ActionResponse | undef
     }
     
     try {
-        // Pass the original subject from the existing conversation (if any)
-        // dbSendPrivateMessage uses this subject with sender/receiver to call getOrCreateConversation,
-        // which generates the correct ID.
         const newMessage = await dbSendPrivateMessage(currentUser.id, formReceiverId, content, existingConversation?.subject);
+
+        // Create notification for the receiver
+        await createNotification({
+            type: 'private_message',
+            recipientUserId: receiverUser.id,
+            senderId: currentUser.id,
+            senderUsername: currentUser.username,
+            conversationId: newMessage.conversationId,
+            message: content.substring(0, 50) + (content.length > 50 ? '...' : ''), // Short snippet for notification
+        });
 
         revalidatePath(`/messages/${newMessage.conversationId}`);
         revalidatePath('/messages'); 
-        revalidatePath('/', 'layout'); 
+        revalidatePath('/', 'layout'); // Revalidate layout for header counts (notifications, messages)
+        revalidatePath('/notifications'); // Revalidate notifications page
 
         return { success: true, message: "Message sent successfully.", privateMessage: newMessage };
     } catch (error: any) {

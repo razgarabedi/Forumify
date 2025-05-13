@@ -1,3 +1,4 @@
+
 "use server";
 
 import { z } from "zod";
@@ -119,9 +120,10 @@ export async function createTopic(prevState: any, formData: FormData) {
                     const firstPostInTopic = (await getPostsByTopic(newTopic.id))[0];
                     if (firstPostInTopic) {
                         await createNotification({
-                            mentionedUserId: mentionedUser.id,
-                            mentionerId: user.id,
-                            mentionerUsername: user.username,
+                            type: 'mention',
+                            recipientUserId: mentionedUser.id,
+                            senderId: user.id,
+                            senderUsername: user.username,
                             postId: firstPostInTopic.id, 
                             topicId: newTopic.id,
                             topicTitle: newTopic.title,
@@ -199,9 +201,10 @@ export async function submitPost(prevState: any, formData: FormData) {
                 const mentionedUser = await findUserByUsername(username);
                 if (mentionedUser && mentionedUser.id !== user.id && !uniqueMentionedUserIds.has(mentionedUser.id)) {
                     await createNotification({
-                        mentionedUserId: mentionedUser.id,
-                        mentionerId: user.id,
-                        mentionerUsername: user.username,
+                        type: 'mention',
+                        recipientUserId: mentionedUser.id,
+                        senderId: user.id,
+                        senderUsername: user.username,
                         postId: savedPost.id,
                         topicId: topicId,
                         topicTitle: topicForNotification.title,
@@ -260,3 +263,4 @@ export const getPostsByTopic = async (topicId: string) => {
     const postsData = await import('@/lib/placeholder-data').then(mod => mod.getPostsByTopic(topicId));
     return postsData;
 }
+

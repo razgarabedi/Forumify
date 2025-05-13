@@ -50,14 +50,17 @@ export type Post = {
 
 export type Notification = {
   id: string;
-  mentionedUserId: string; // User who was mentioned
-  mentionerId: string; // User who made the mention
-  mentionerUsername: string; // Username of the mentioner
-  postId: string; // Post where the mention occurred
-  topicId: string; // Topic of the post
-  topicTitle: string; // Title of the topic for display
+  type: 'mention' | 'private_message'; // Type of notification
+  recipientUserId: string; // User who receives the notification (was mentionedUserId)
+  senderId: string; // User who triggered the notification (was mentionerId)
+  senderUsername: string; // Username of the sender (was mentionerUsername)
+  postId?: string; // Post where the mention occurred (optional for PM)
+  topicId?: string; // Topic of the post (optional for PM)
+  topicTitle?: string; // Title of the topic for display (optional for PM)
+  conversationId?: string; // Conversation ID if it's a private message notification
   createdAt: Date;
   isRead: boolean;
+  message?: string; // Optional: A short message for PM notifications e.g., "sent you a message."
 };
 
 

@@ -437,31 +437,39 @@ export const getTotalPostCount = async (): Promise<number> => {
 export const createNotification = async (data: Omit<Notification, 'id' | 'createdAt' | 'isRead'>): Promise<Notification> => {
     await new Promise(resolve => setTimeout(resolve, 10));
     const newNotification: Notification = {
-        ...data,
         id: `notif${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
         createdAt: new Date(),
         isRead: false,
+        type: data.type,
+        recipientUserId: data.recipientUserId,
+        senderId: data.senderId,
+        senderUsername: data.senderUsername,
+        postId: data.postId,
+        topicId: data.topicId,
+        topicTitle: data.topicTitle,
+        conversationId: data.conversationId,
+        message: data.message,
     };
     notifications.push(newNotification);
-    console.log(`[DB createNotification] Created Notification for ${data.mentionedUserId} by ${data.mentionerUsername}`);
+    console.log(`[DB createNotification] Created Notification for ${data.recipientUserId} from ${data.senderUsername} of type ${data.type}`);
     return { ...newNotification };
 };
 
 export const getNotificationsByUserId = async (userId: string): Promise<Notification[]> => {
     await new Promise(resolve => setTimeout(resolve, 10));
     return notifications
-        .filter(n => n.mentionedUserId === userId)
+        .filter(n => n.recipientUserId === userId)
         .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()); 
 };
 
 export const getUnreadNotificationCount = async (userId: string): Promise<number> => {
     await new Promise(resolve => setTimeout(resolve, 5));
-    return notifications.filter(n => n.mentionedUserId === userId && !n.isRead).length;
+    return notifications.filter(n => n.recipientUserId === userId && !n.isRead).length;
 };
 
 export const markNotificationAsRead = async (notificationId: string, userId: string): Promise<boolean> => {
     await new Promise(resolve => setTimeout(resolve, 10));
-    const notificationIndex = notifications.findIndex(n => n.id === notificationId && n.mentionedUserId === userId);
+    const notificationIndex = notifications.findIndex(n => n.id === notificationId && n.recipientUserId === userId);
     if (notificationIndex !== -1) {
         notifications[notificationIndex].isRead = true;
         console.log(`[DB markNotificationAsRead] Marked notification ${notificationId} as read for user ${userId}`);
@@ -474,7 +482,7 @@ export const markAllNotificationsAsRead = async (userId: string): Promise<boolea
     await new Promise(resolve => setTimeout(resolve, 10));
     let markedAny = false;
     notifications.forEach(n => {
-        if (n.mentionedUserId === userId && !n.isRead) {
+        if (n.recipientUserId === userId && !n.isRead) {
             n.isRead = true;
             markedAny = true;
         }
@@ -611,19 +619,3 @@ export const getConversationById = async (conversationId: string): Promise<Conve
     const conversation = conversations.find(c => c.id === conversationId);
     return conversation ? { ...conversation } : null;
 };
-
-// Initialize with a few users for testing if needed
-// For a truly empty DB on start, keep users array empty.
-// Example User Reset:
-// users = [];
-// categories = [
-//   { id: 'cat1', name: 'General Discussion', description: 'Talk about anything.', createdAt: new Date('2023-01-10T09:00:00Z'), topicCount: 0, postCount: 0 },
-//   { id: 'cat2', name: 'Introductions', description: 'Introduce yourself to the community.', createdAt: new Date('2023-01-10T09:05:00Z'), topicCount: 0, postCount: 0 },
-// ];
-// topics = [];
-// posts = [];
-// notifications = [];
-// conversations = [];
-// privateMessages = [];
-// console.log("Placeholder data reset.");
-
