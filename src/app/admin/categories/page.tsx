@@ -39,27 +39,23 @@ export default async function AdminCategoriesPage() {
                 </TableRow>
             </TableHeader>
             <TableBody>
-                {categories.map((category) => ( // Remove potential whitespace here
-                <TableRow key={category.id}>
+                {categories.map((category) => (<TableRow key={category.id}>
                     <TableCell className="font-medium">{category.name}</TableCell>
-                    <TableCell className="text-muted-foreground max-w-xs truncate" title={category.description || ''}> {/* Truncate description, add fallback for title */}
+                    <TableCell className="text-muted-foreground max-w-xs truncate" title={category.description || ''}>
                         {category.description || '-'}
                     </TableCell>
-                    <TableCell className="text-center">{category.topicCount ?? 0}</TableCell> {/* Center align counts */}
-                    <TableCell className="text-center">{category.postCount ?? 0}</TableCell> {/* Center align counts */}
-                    <TableCell className="whitespace-nowrap">{format(new Date(category.createdAt), 'PP')}</TableCell> {/* Prevent wrap */}
-                    <TableCell className="text-right px-3"> {/* Adjust padding */}
+                    <TableCell className="text-center">{category.topicCount ?? 0}</TableCell>
+                    <TableCell className="text-center">{category.postCount ?? 0}</TableCell>
+                    <TableCell className="whitespace-nowrap">{format(new Date(category.createdAt), 'PP')}</TableCell>
+                    <TableCell className="text-right px-3">
                          <CategoryActions category={category} />
                     </TableCell>
-                </TableRow>
-                ))}
-                {categories.length === 0 && ( // Remove potential whitespace here
-                    <TableRow>
+                </TableRow>))}
+                {categories.length === 0 && (<TableRow>
                         <TableCell colSpan={6} className="text-center text-muted-foreground h-24">
                             No categories found. Create one above.
                         </TableCell>
-                    </TableRow>
-                 )}
+                    </TableRow>)}
             </TableBody>
             </Table>
        </div>
