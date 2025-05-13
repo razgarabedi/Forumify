@@ -1,7 +1,7 @@
 
 # ForumLite
 
-ForumLite is a lightweight forum application built using Next.js, TypeScript, Tailwind CSS, ShadCN UI components, and placeholder data for persistence. It demonstrates core forum functionalities including user authentication, category and topic management, posting, an admin panel, user profiles, rich content features, a notification system, and private messaging.
+ForumLite is a lightweight forum application built using Next.js, TypeScript, Tailwind CSS, ShadCN UI components, and PostgreSQL for persistence. It demonstrates core forum functionalities including user authentication, category and topic management, posting, an admin panel, user profiles, rich content features, a notification system, and private messaging.
 
 ## Features
 
@@ -10,7 +10,7 @@ ForumLite is a lightweight forum application built using Next.js, TypeScript, Ta
     *   Secure session management using cookies.
     *   **First User Admin:** The very first user to register on the platform is automatically granted administrator privileges.
 *   **Forum Structure:**
-    *   Create and manage categories (Admin only for creation/editing).
+    *   Create and manage categories (Admin only for creation/editing). Categories display topic count, post count, and last post information.
     *   Users can create topics within categories.
 *   **Posting & Interaction:**
     *   Users can create new topics with a title and an initial post.
@@ -42,14 +42,14 @@ ForumLite is a lightweight forum application built using Next.js, TypeScript, Ta
     *   **User Management:** View all users, toggle admin status for users, delete users (admins cannot delete themselves).
     *   **Category Management:** Create new categories, view existing categories, edit category details (name, description), delete categories (which also removes associated topics and posts).
 *   **Notifications & Mentions:**
-    *   **User Mentions:** Users can mention each other in posts using the "@username" syntax.
+    *   **User Mentions:** Users can mention each other in posts using the "@username" syntax. Mentions are automatically linked to user profiles.
     *   **Reaction Notifications:** Users receive notifications when someone reacts to their posts.
-    *   **Notification System:** Mentioned users and post authors (for reactions) receive notifications.
+    *   **Private Message Notifications:** Users receive notifications for new private messages.
+    *   **Notification System:** Mentioned users, post authors (for reactions), and PM recipients receive notifications.
     *   **Header Dropdown:** A notification icon in the header displays a count of unread notifications and a dropdown with recent notifications (max 5 shown, with link to all).
     *   **Dedicated Notifications Page (`/notifications`):** Users can view all their notifications, sorted by most recent.
     *   **Mark as Read:** Notifications can be marked as read individually or all at once. Clicking a notification also marks it as read.
-    *   **Navigation:** Clicking a notification directly navigates the user to the relevant post where the mention or reaction occurred.
-    *   **Profile Links:** "@username" mentions in posts are automatically linked to the respective user's profile page.
+    *   **Navigation:** Clicking a notification directly navigates the user to the relevant post, private message, or profile.
 *   **Private Messaging (`/messages`):**
     *   **One-on-One Conversations:** Users can engage in private conversations with other users.
     *   **Start New Conversation:**
@@ -61,13 +61,15 @@ ForumLite is a lightweight forum application built using Next.js, TypeScript, Ta
     *   **Subject Specificity:** Conversations between the same two users but with different subjects are treated as distinct conversations.
     *   **Unread Indicators:** Unread message count is shown in the header (next to "Messages" link) and for each conversation in the list.
     *   **Automatic Mark as Read:** Messages are marked as read for the current user when a conversation is opened.
-    *   **Dynamic Updates:** Message list and counts update dynamically.
 *   **Account Settings (`/settings`):**
     *   **Change Password:** Users can update their account password.
     *   Links to manage notifications and private messages.
-*   **Dynamic Updates:**
+*   **Dynamic Updates & Real-time Feel:**
     *   Content (categories, topics, posts, notifications, private messages) updates dynamically after creation, editing, or deletion using Next.js Server Actions and `revalidatePath` for a smooth user experience without manual page refreshes.
-*   **Responsive Design:** Built with Tailwind CSS for responsiveness across devices (desktop, tablet, mobile).
+    *   Notification and private message counts in the header poll for updates, providing a near real-time feel.
+*   **Responsive Design & Theming:**
+    *   Built with Tailwind CSS for responsiveness across devices (desktop, tablet, mobile).
+    *   **Dark Theme by Default:** Features a sleek and clean dark theme as the default, with a theme toggler in the footer to switch to a light theme.
 *   **Modern UI:** Utilizes ShadCN UI components for a clean, accessible, and modern look and feel.
 *   **Server Actions:** Leverages Next.js Server Actions for form submissions and data mutations, reducing the need for traditional API endpoints for these operations.
 
@@ -75,6 +77,7 @@ ForumLite is a lightweight forum application built using Next.js, TypeScript, Ta
 
 *   **Framework:** Next.js (App Router)
 *   **Language:** TypeScript
+*   **Database:** PostgreSQL (with `pg` client)
 *   **Styling:** Tailwind CSS
 *   **UI Components:** ShadCN UI
 *   **State Management:** React Hooks (including `useActionState`)
@@ -83,8 +86,8 @@ ForumLite is a lightweight forum application built using Next.js, TypeScript, Ta
     *   `remark-gfm` for GitHub Flavored Markdown support (tables, strikethrough, etc.).
     *   `react-syntax-highlighter` for code block syntax highlighting.
     *   `emoji-picker-react` for emoji selection.
-*   **Data Persistence:** In-memory placeholder data (`src/lib/placeholder-data.ts`) simulates database interactions.
 *   **Date Formatting:** `date-fns` for user-friendly date and time displays.
+*   **UUID Generation:** `uuid` for generating unique IDs.
 
 ## Prerequisites
 
@@ -92,6 +95,7 @@ Before you begin, ensure you have the following installed:
 
 *   [Node.js](https://nodejs.org/) (Version 18 or later recommended)
 *   [npm](https://www.npmjs.com/) (or [yarn](https://yarnpkg.com/))
+*   [PostgreSQL](https://www.postgresql.org/download/) (Install and have a server running)
 
 ## Installation
 
@@ -110,7 +114,47 @@ Before you begin, ensure you have the following installed:
     ```bash
     yarn install
     ```
-    *This will install all necessary packages including `@tailwindcss/typography` for the Markdown prose styling and other UI/utility libraries.*
+    *This will install all necessary packages including `pg` for PostgreSQL, `@tailwindcss/typography` for Markdown prose styling, and other UI/utility libraries.*
+
+## Database Setup & Configuration
+
+This application uses PostgreSQL for data persistence.
+
+1.  **Set up PostgreSQL:**
+    *   Ensure PostgreSQL is installed and running.
+    *   Create a new database for the application. For example, `forumlite_db`.
+    *   Optionally, create a dedicated PostgreSQL user for the application with a secure password.
+        Example using `psql`:
+        ```sql
+        CREATE USER forumlite_user WITH PASSWORD 'your_secure_password';
+        CREATE DATABASE forumlite_db OWNER forumlite_user;
+        ```
+
+2.  **Configure Environment Variables:**
+    *   In the root of your project, create a file named `.env.local` (if it doesn't exist).
+    *   Add your PostgreSQL connection URL to `.env.local`:
+        ```env
+        DATABASE_URL="postgresql://YOUR_USER:YOUR_PASSWORD@YOUR_HOST:YOUR_PORT/YOUR_DATABASE_NAME"
+        ```
+        Replace the placeholders:
+        *   `YOUR_USER`: Your PostgreSQL username (e.g., `forumlite_user` or your default superuser like `postgres`).
+        *   `YOUR_PASSWORD`: The password for that user.
+        *   `YOUR_HOST`: The hostname or IP address of your PostgreSQL server (e.g., `localhost`).
+        *   `YOUR_PORT`: The port PostgreSQL is listening on (default is `5432`).
+        *   `YOUR_DATABASE_NAME`: The name of the database you created (e.g., `forumlite_db`).
+
+        **Example `.env.local` content:**
+        ```env
+        DATABASE_URL="postgresql://forumlite_user:your_secure_password@localhost:5432/forumlite_db"
+        ```
+    *   **Important:** Add `.env.local` to your `.gitignore` file to prevent committing sensitive credentials.
+        ```
+        # .gitignore
+        .env.local
+        ```
+
+3.  **Database Schema Initialization:**
+    The application includes logic in `src/lib/db.ts` to automatically create the necessary tables if they don't exist when the application starts. This includes tables for `users`, `categories`, `topics`, `posts`, `reactions`, `notifications`, `conversations`, and `private_messages`.
 
 ## Running the Development Server
 
@@ -125,7 +169,7 @@ Or using yarn:
 yarn dev
 ```
 
-This command starts the Next.js development server, typically on `http://localhost:9002` (as configured in `package.json`). Open this URL in your web browser to view the application.
+This command starts the Next.js development server, typically on `http://localhost:9002` (as configured in `package.json`). Open this URL in your web browser to view the application. The database tables will be initialized automatically on the first run if they don't exist.
 
 ## Getting Started
 
@@ -143,169 +187,88 @@ This command starts the Next.js development server, typically on `http://localho
     *   Or, go to `/messages` and use the "Start a New Conversation" form.
     *   Explore sending messages, viewing conversation lists, and individual chats.
 7.  **Account Settings:** Visit `/settings` to change your password or navigate to your messages/notifications.
+8.  **Theme Toggler:** Check out the theme toggler in the footer to switch between dark (default) and light modes.
 
 ## Important Notes & Production Considerations
 
-*   **Password Handling:** For simplicity, passwords are currently stored and compared in plain text within the placeholder data. **This is insecure and should NEVER be done in a production application.** In a real-world scenario, always hash passwords securely (e.g., using `bcrypt`) before storing them.
+*   **Password Handling:** For simplicity, passwords are currently stored and compared in plain text within the database. **This is insecure and should NEVER be done in a production application.** In a real-world scenario, always hash passwords securely (e.g., using `bcrypt`) before storing them. The `src/lib/db.ts` file has comments indicating where hashing should be implemented.
 *   **Error Handling:** Basic error handling is implemented, with messages displayed using toasts. More robust error logging and reporting would be needed for production.
-*   **Image Storage:** Uploaded images (avatars, post images) are handled as Base64 data URIs and stored in the in-memory placeholder data. In a production environment, these should be uploaded to a dedicated file storage service (like Cloudinary, AWS S3, Firebase Storage).
+*   **Image Storage:** Uploaded images (avatars, post images) are handled as Base64 data URIs and stored directly in the database. In a production environment, these should ideally be uploaded to a dedicated file storage service (like Cloudinary, AWS S3, Firebase Storage) to avoid bloating the database and improve performance.
 *   **Notification & Message Polling:** The notification and private message counts in the header use simple client-side polling for updates. For a production application, a more robust solution like WebSockets or Server-Sent Events would be preferable for real-time updates.
+*   **Database Migrations:** The current automatic table creation in `src/lib/db.ts` is suitable for development. For production, a proper database migration tool (e.g., `node-pg-migrate`, Prisma Migrate, TypeORM migrations) should be used to manage schema changes version control.
 
-## Data Persistence: Migrating from Placeholder Data to PostgreSQL
+## Database Schema Overview (PostgreSQL)
 
-This application currently uses in-memory placeholder data (`src/lib/placeholder-data.ts`). **This data is not persistent and will be lost on server restarts.** To enable persistent data storage, you should integrate a real database. The following steps outline how to migrate to PostgreSQL.
+The `src/lib/db.ts` file initializes the following tables:
 
-### 1. Install Dependencies:
-Install the necessary Node.js PostgreSQL client library:
-```bash
-npm install pg
-# If using TypeScript, also install the types:
-npm install --save-dev @types/pg
-```
+*   **`users`**: Stores user information including credentials (password should be hashed in production), profile details, admin status, points, etc.
+    *   `id` (TEXT PRIMARY KEY)
+    *   `username` (TEXT NOT NULL UNIQUE)
+    *   `email` (TEXT NOT NULL UNIQUE)
+    *   `password_hash` (TEXT NOT NULL)
+    *   `is_admin` (BOOLEAN DEFAULT FALSE)
+    *   `created_at` (TIMESTAMPTZ)
+    *   `about_me`, `location`, `website_url`, `social_media_url`, `signature` (TEXT)
+    *   `last_active` (TIMESTAMPTZ)
+    *   `avatar_url` (TEXT)
+    *   `points` (INTEGER DEFAULT 0)
+*   **`categories`**: Stores forum categories.
+    *   `id` (TEXT PRIMARY KEY)
+    *   `name` (TEXT NOT NULL UNIQUE)
+    *   `description` (TEXT)
+    *   `created_at` (TIMESTAMPTZ)
+*   **`topics`**: Stores forum topics, linked to categories and users.
+    *   `id` (TEXT PRIMARY KEY)
+    *   `title` (TEXT NOT NULL)
+    *   `category_id` (TEXT REFERENCES categories(id) ON DELETE CASCADE)
+    *   `author_id` (TEXT REFERENCES users(id) ON DELETE SET NULL)
+    *   `created_at` (TIMESTAMPTZ)
+    *   `last_activity` (TIMESTAMPTZ)
+*   **`posts`**: Stores individual posts within topics, linked to users.
+    *   `id` (TEXT PRIMARY KEY)
+    *   `content` (TEXT NOT NULL)
+    *   `topic_id` (TEXT REFERENCES topics(id) ON DELETE CASCADE)
+    *   `author_id` (TEXT REFERENCES users(id) ON DELETE SET NULL)
+    *   `created_at` (TIMESTAMPTZ)
+    *   `updated_at` (TIMESTAMPTZ)
+    *   `image_url` (TEXT)
+*   **`reactions`**: Stores user reactions to posts.
+    *   `id` (SERIAL PRIMARY KEY)
+    *   `post_id` (TEXT REFERENCES posts(id) ON DELETE CASCADE)
+    *   `user_id` (TEXT REFERENCES users(id) ON DELETE CASCADE)
+    *   `type` (TEXT NOT NULL) -- e.g., 'like', 'love'
+    *   `created_at` (TIMESTAMPTZ)
+    *   UNIQUE constraint on `(post_id, user_id)`
+*   **`notifications`**: Stores notifications for users.
+    *   `id` (TEXT PRIMARY KEY)
+    *   `type` (TEXT NOT NULL) -- 'mention', 'private_message', 'reaction'
+    *   `recipient_user_id` (TEXT REFERENCES users(id) ON DELETE CASCADE)
+    *   `sender_id` (TEXT REFERENCES users(id) ON DELETE CASCADE)
+    *   `post_id` (TEXT REFERENCES posts(id) ON DELETE CASCADE)
+    *   `topic_id` (TEXT REFERENCES topics(id) ON DELETE CASCADE)
+    *   `topic_title` (TEXT)
+    *   `conversation_id` (TEXT) -- For PM notifications
+    *   `reaction_type` (TEXT) -- For reaction notifications
+    *   `created_at` (TIMESTAMPTZ)
+    *   `is_read` (BOOLEAN DEFAULT FALSE)
+    *   `message` (TEXT) -- Snippet for PMs
+*   **`conversations`**: Stores metadata for private message conversations.
+    *   `id` (TEXT PRIMARY KEY) -- Deterministic based on participants and optional subject
+    *   `participant_ids` (TEXT[] NOT NULL) -- Array of user IDs
+    *   `subject` (TEXT)
+    *   `created_at` (TIMESTAMPTZ)
+    *   `last_message_at` (TIMESTAMPTZ)
+    *   `last_message_snippet` (TEXT)
+    *   `last_message_sender_id` (TEXT REFERENCES users(id) ON DELETE SET NULL)
+*   **`private_messages`**: Stores individual private messages within conversations.
+    *   `id` (TEXT PRIMARY KEY)
+    *   `conversation_id` (TEXT REFERENCES conversations(id) ON DELETE CASCADE)
+    *   `sender_id` (TEXT REFERENCES users(id) ON DELETE CASCADE)
+    *   `content` (TEXT NOT NULL)
+    *   `created_at` (TIMESTAMPTZ)
+    *   `read_by` (TEXT[] DEFAULT '{}') -- Array of user IDs who have read the message
 
-### 2. Set up PostgreSQL:
-*   **Install PostgreSQL:** If you don't have it already, download and install PostgreSQL from the [official website](https://www.postgresql.org/download/). Follow the instructions for your operating system.
-*   **Create a Database User (Recommended):** It's good practice to create a dedicated user for your application with appropriate permissions, rather than using the default superuser.
-*   **Create a Database:** Create a new database for your ForumLite application. You can use a tool like `psql` (PostgreSQL's command-line interface) or a GUI tool like pgAdmin.
-    Example using `psql`:
-    ```sql
-    CREATE USER forumlite_user WITH PASSWORD 'your_secure_password';
-    CREATE DATABASE forumlite_db OWNER forumlite_user;
-    ```
-
-### 3. Configure Environment Variables:
-Next.js applications typically use environment variables to store sensitive information like database credentials.
-
-*   **Create a `.env.local` file:** In the root of your project, create a file named `.env.local`. This file is for local development and should **not** be committed to version control (add it to your `.gitignore` file).
-    ```
-    .env.local
-    ```
-
-*   **Add your Database Connection URL:** Inside `.env.local`, add your PostgreSQL connection URL:
-    ```env
-    DATABASE_URL="postgresql://YOUR_USER:YOUR_PASSWORD@YOUR_HOST:YOUR_PORT/YOUR_DATABASE_NAME"
-    ```
-    **Breakdown of the `DATABASE_URL`:**
-    *   `postgresql://`: The protocol for PostgreSQL.
-    *   `YOUR_USER`: The username you created for your application (e.g., `forumlite_user`).
-    *   `YOUR_PASSWORD`: The password for that user. **Make sure this is strong and unique.**
-    *   `YOUR_HOST`: The hostname or IP address where your PostgreSQL server is running. For local development, this is usually `localhost`.
-    *   `YOUR_PORT`: The port PostgreSQL is listening on. The default is `5432`.
-    *   `YOUR_DATABASE_NAME`: The name of the database you created (e.g., `forumlite_db`).
-
-    **Example `.env.local` content:**
-    ```env
-    DATABASE_URL="postgresql://forumlite_user:your_secure_password@localhost:5432/forumlite_db"
-    ```
-
-*   **Accessing Environment Variables in Code:** Next.js automatically loads variables from `.env.local` into `process.env`. You can access `process.env.DATABASE_URL` in your server-side code.
-
-*   **Production Environment Variables:** For deployment (e.g., to Vercel, AWS, Heroku), you will need to configure these environment variables directly in your hosting provider's settings. **Do not commit `.env.local` with production credentials.**
-
-### 4. Define Database Schema and Create Tables:
-You'll need to define the structure of your database tables. This involves creating SQL statements for tables like `users`, `categories`, `topics`, `posts`, `notifications`, `conversations`, and `private_messages`, reflecting the structures in `src/lib/types.ts`. Consider using a migration tool (like `node-pg-migrate` or the migration features of an ORM) for managing schema changes over time.
-
-Example (simplified) table creation SQL:
-```sql
-CREATE TABLE users (
-    id TEXT PRIMARY KEY,
-    username TEXT NOT NULL UNIQUE,
-    email TEXT NOT NULL UNIQUE,
-    password_hash TEXT NOT NULL, -- Store hashed passwords, not plain text!
-    is_admin BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    about_me TEXT,
-    location TEXT,
-    website_url TEXT,
-    social_media_url TEXT,
-    signature TEXT,
-    last_active TIMESTAMP WITH TIME ZONE,
-    avatar_url TEXT
-);
-
--- Add other tables for categories, topics, posts, etc.
--- Remember to include foreign keys and indexes for performance.
-```
-
-### 5. Update Data Access Logic:
-Modify the functions in `src/lib/placeholder-data.ts` (or create a new module like `src/lib/db.ts`) to interact with your PostgreSQL database instead of the in-memory arrays. You'll use the `pg` library to connect to the database and execute SQL queries.
-
-**Example of a database client setup (e.g., in `src/lib/db.ts`):**
-```typescript
-// src/lib/db.ts
-import { Pool } from 'pg';
-import type { User } from './types'; // Assuming your types are in a nearby file
-
-let pool: Pool;
-
-if (!process.env.DATABASE_URL) {
-  throw new Error('DATABASE_URL environment variable is not set');
-}
-
-pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  // Add SSL configuration for production if needed
-  // ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : undefined,
-});
-
-// Export a query function
-export const query = (text: string, params?: any[]) => pool.query(text, params);
-
-// Example modification of findUserByEmail:
-/*
-// Original placeholder-data.ts function:
-export const findUserByEmail = async (email: string): Promise<User | null> => {
-  // ... in-memory logic ...
-};
-*/
-
-// Modified function using PostgreSQL client:
-export async function findUserByEmailFromDb(email: string): Promise<User | null> {
-  const client = await pool.connect(); // Get a client from the pool
-  try {
-    const result = await client.query('SELECT * FROM users WHERE email = $1', [email]);
-    if (result.rows.length === 0) {
-      return null;
-    }
-    // Map database row to User type (ensure column names match or alias them in your SQL)
-    // This mapping will depend on your exact table structure.
-    const dbUser = result.rows[0];
-    const user: User = {
-      id: dbUser.id,
-      username: dbUser.username,
-      email: dbUser.email,
-      // password: dbUser.password_hash, // DO NOT return password hash to client
-      isAdmin: dbUser.is_admin,
-      createdAt: new Date(dbUser.created_at),
-      aboutMe: dbUser.about_me,
-      location: dbUser.location,
-      websiteUrl: dbUser.website_url,
-      socialMediaUrl: dbUser.social_media_url,
-      signature: dbUser.signature,
-      lastActive: dbUser.last_active ? new Date(dbUser.last_active) : undefined,
-      avatarUrl: dbUser.avatar_url,
-      // postCount will likely need a separate query or be joined in the main query
-    };
-    return user;
-  } catch (error) {
-    console.error('Database error in findUserByEmailFromDb:', error);
-    throw error; // Or handle more gracefully
-  } finally {
-    client.release(); // Release the client back to the pool
-  }
-}
-
-// You will need to rewrite all functions in `src/lib/placeholder-data.ts` 
-// (like `createUser`, `getTopicsByCategory`, `createPost`, etc.)
-// to use SQL queries against your PostgreSQL database.
-// Ensure all data access functions now use `async/await` and interact with the `pool`.
-```
-You will need to meticulously go through each function in `src/lib/placeholder-data.ts` and rewrite its logic to perform the equivalent operation using SQL queries via the `pg` pool. This includes `SELECT`, `INSERT`, `UPDATE`, and `DELETE` statements as appropriate for each function. Remember to handle potential SQL errors and map database results back to your application's TypeScript types.
-
-### 6. (Optional) Use an ORM:
-For more complex applications, consider using an Object-Relational Mapper (ORM) like Prisma or TypeORM. ORMs can simplify database interactions, provide type safety, and help with migrations.
-
-This provides a comprehensive guide to transitioning to a persistent PostgreSQL database. Remember that this is a significant change requiring careful implementation of database interactions and security best practices (especially password hashing).
+Refer to `src/lib/db.ts` for the exact `CREATE TABLE IF NOT EXISTS` statements used for initialization.
 
 ## Project Structure
 
@@ -342,12 +305,13 @@ This provides a comprehensive guide to transitioning to a persistent PostgreSQL 
 │   │   ├── forms/      # Form components (Login, Register, Post, Topic, Category, PM etc.)
 │   │   │   └── RichTextToolbar.tsx # Toolbar for markdown editing
 │   │   ├── forums/     # Forum-specific components (CategoryList, TopicList, Post, PostList, ReactionButtons)
-│   │   ├── layout/     # Layout components (Header, HeaderNotificationDropdown)
+│   │   ├── layout/     # Layout components (Header, Footer, HeaderNotificationDropdown, ThemeToggler)
 │   │   └── ui/         # ShadCN UI components
 │   ├── hooks/          # Custom React hooks (useToast, useMobile)
 │   ├── lib/            # Core logic, utilities, actions
 │   │   ├── actions/    # Server Actions (auth, forums, admin, notifications, privateMessages)
-│   │   ├── placeholder-data.ts # In-memory data store and simulation functions
+│   │   ├── db.ts       # PostgreSQL database interaction functions
+│   │   ├── placeholder-data.ts # In-memory data store (used as fallback or for initial dev)
 │   │   ├── types.ts    # TypeScript type definitions
 │   │   └── utils.ts    # Utility functions (e.g., cn for classnames, parseMentions)
 │   └── ai/             # Genkit AI integration files (if used)

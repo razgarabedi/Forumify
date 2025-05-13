@@ -4,23 +4,40 @@ import { Pool } from 'pg';
 import type { User, Category, Topic, Post, Notification, Conversation, PrivateMessage, Reaction, ReactionType, CategoryLastPostInfo } from './types';
 import { v4 as uuidv4 } from 'uuid'; // For generating unique IDs
 
-let pool: Pool;
+let pool: Pool | undefined = undefined;
 
-if (!process.env.DATABASE_URL) {
-  console.warn('DATABASE_URL environment variable is not set. Database operations will fail. Using fallback for type consistency.');
-  // Fallback pool configuration to allow type checking, but it won't connect.
-  pool = new Pool({ connectionString: "postgresql://user:pass@host:port/db" });
+if (process.env.DATABASE_URL) {
+  if (!process.env.DATABASE_URL.startsWith('postgresql://')) {
+    console.error('CRITICAL: DATABASE_URL is not a valid PostgreSQL connection string. It should start with "postgresql://". Database operations will be disabled.');
+  } else {
+    try {
+      pool = new Pool({
+        connectionString: process.env.DATABASE_URL,
+        // Add SSL configuration for production if needed, e.g.
+        // ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : undefined,
+      });
+      console.log("Database pool configured using DATABASE_URL.");
+      // Optionally, test the connection here, but be mindful of startup performance.
+      // pool.query('SELECT 1').then(() => console.log('Database connection test successful.')).catch(e => console.error('Database connection test failed:', e));
+    } catch (e: any) {
+      console.error(`CRITICAL: Error initializing database pool with DATABASE_URL. Check if the URL is correct and the database server is accessible. Error: ${e.message}`);
+      // pool remains undefined
+    }
+  }
 } else {
-  pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    // Add SSL configuration for production if needed, e.g.
-    // ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : undefined,
-  });
+  console.warn('CRITICAL: DATABASE_URL environment variable is not set. Database operations will be disabled. Please set this variable for the application to function correctly.');
+  // pool remains undefined
 }
 
 
 // Export a query function
-export const query = (text: string, params?: any[]) => pool.query(text, params);
+export const query = (text: string, params?: any[]) => {
+  if (!pool) {
+    console.error("Database query attempted but pool is not initialized. DATABASE_URL might be missing or invalid. Check server logs.");
+    throw new Error('Database service is unavailable. Ensure DATABASE_URL is correctly set and the database is running.');
+  }
+  return pool.query(text, params);
+};
 
 // --- Points Calculation ---
 // This would ideally be a more optimized query or trigger in a real DB.
@@ -175,7 +192,7 @@ export const setUserAdminStatus = async (userId: string, isAdmin: boolean): Prom
 
 export const deleteUser = async (userId: string): Promise<boolean> => {
   // Consider related data: set posts.author_id to NULL, delete notifications, PMs etc.
-  const client = await pool.connect();
+  const client = await pool.connect(); // Check if pool is defined before connecting
   try {
     await client.query('BEGIN');
     await client.query('UPDATE posts SET author_id = NULL WHERE author_id = $1', [userId]);
@@ -354,7 +371,7 @@ export const getTopicsByCategory = async (categoryId: string): Promise<Topic[]> 
 export const getTopicById = async (id: string): Promise<Topic | null> => {
   const topicRes = await query(`
     SELECT t.*, 
-           u.id as author_id, u.username as author_username, u.avatar_url as author_avatar_url, u.email as author_email, u.created_at as author_created_at, u.points as author_points,
+           u.id as author_id_fk, u.username as author_username, u.avatar_url as author_avatar_url, u.email as author_email, u.created_at as author_created_at, u.points as author_points,
            c.id as category_id_fk, c.name as category_name, c.description as category_description, c.created_at as category_created_at,
            (SELECT COUNT(*) FROM posts p WHERE p.topic_id = t.id) as post_count
     FROM topics t
@@ -373,13 +390,13 @@ export const getTopicById = async (id: string): Promise<Topic | null> => {
     lastActivity: new Date(row.last_activity),
     postCount: parseInt(row.post_count, 10),
     author: {
-      id: row.author_id,
+      id: row.author_id_fk,
       username: row.author_username,
       avatarUrl: row.author_avatar_url,
       email: row.author_email,
       createdAt: new Date(row.author_created_at),
       points: row.author_points,
-      postCount: await getUserPostCount(row.author_id),
+      postCount: await getUserPostCount(row.author_id_fk),
     },
     category: await getCategoryById(row.category_id_fk) || undefined, // Fetch full category with its counts
   };
@@ -395,6 +412,7 @@ interface CreateTopicParamsDB extends Omit<Topic, 'id' | 'createdAt' | 'lastActi
     firstPostImageUrl?: string;
 }
 export const createTopic = async (topicData: CreateTopicParamsDB): Promise<Topic> => {
+  if (!pool) throw new Error('Database pool not initialized.'); // Add check
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -479,6 +497,7 @@ interface CreatePostParamsDB extends Omit<Post, 'id' | 'createdAt' | 'updatedAt'
     imageUrl?: string;
 }
 export const createPost = async (postData: CreatePostParamsDB): Promise<Post> => {
+  if (!pool) throw new Error('Database pool not initialized.'); // Add check
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -508,6 +527,7 @@ export const createPost = async (postData: CreatePostParamsDB): Promise<Post> =>
 };
 
 export const updatePost = async (postId: string, content: string, userId: string, imageUrl?: string | null): Promise<Post | null> => {
+  if (!pool) throw new Error('Database pool not initialized.'); // Add check
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -543,6 +563,7 @@ export const updatePost = async (postId: string, content: string, userId: string
 };
 
 export const deletePost = async (postId: string, userId: string, isAdmin: boolean): Promise<boolean> => {
+  if (!pool) throw new Error('Database pool not initialized.'); // Add check
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -574,6 +595,7 @@ export const deletePost = async (postId: string, userId: string, isAdmin: boolea
 
 // --- Post Reactions ---
 export const togglePostReaction = async (postId: string, userId: string, username: string, reactionType: ReactionType): Promise<Post | null> => {
+  if (!pool) throw new Error('Database pool not initialized.'); // Add check
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -715,6 +737,7 @@ export const getOrCreateConversation = async (userId1: string, userId2: string, 
 };
 
 export const sendPrivateMessage = async (senderId: string, receiverId: string, content: string, subject?: string): Promise<PrivateMessage> => {
+  if (!pool) throw new Error('Database pool not initialized.'); // Add check
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -797,6 +820,10 @@ export const getConversationById = async (conversationId: string): Promise<Conve
 // Initialization Logic (e.g., create tables if they don't exist)
 // This is a simplified version. In production, use migration tools.
 async function initializeDatabase() {
+  if (!pool) {
+    console.warn("Skipping database schema initialization as the database pool is not available. Check DATABASE_URL.");
+    return;
+  }
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -924,10 +951,12 @@ async function initializeDatabase() {
     console.log("Database tables checked/created successfully.");
 
     // Add some default data if tables were just created and are empty (optional)
-    const usersCount = (await client.query('SELECT COUNT(*) FROM users')).rows[0].count;
-    if (usersCount === '0') {
+    const usersCountRes = await client.query('SELECT COUNT(*) FROM users');
+    const usersCount = parseInt(usersCountRes.rows[0].count, 10);
+    
+    if (usersCount === 0) {
         console.log("No users found, creating initial admin user...");
-        await createUser({
+        const adminUserData = await createUser({
             username: "admin",
             email: "admin@forumlite.com",
             password: "password123", // TODO: Use a strong, hashed password
@@ -939,18 +968,17 @@ async function initializeDatabase() {
         await createCategory({name: 'Introductions', description: 'Introduce yourself to the community.'});
         const techCat = await createCategory({name: 'Technical Help', description: 'Get help with technical issues.'});
         
-        const adminUser = await findUserByEmail("admin@forumlite.com");
-        if (adminUser) {
+        if (adminUserData) { // Ensure adminUser was created
             await createTopic({
                 title: "Welcome to ForumLite!",
                 categoryId: generalCat.id,
-                authorId: adminUser.id,
+                authorId: adminUserData.id,
                 firstPostContent: "This is the first topic on ForumLite. Feel free to look around and start discussions!"
             });
             await createTopic({
                 title: "Having trouble with your PC?",
                 categoryId: techCat.id,
-                authorId: adminUser.id,
+                authorId: adminUserData.id,
                 firstPostContent: "Post your technical issues here and the community might be able to help."
             });
         }
@@ -966,8 +994,11 @@ async function initializeDatabase() {
 }
 
 // Call initialization once when the module loads
-if (process.env.DATABASE_URL) { // Only run if DATABASE_URL is set
+// Ensure pool is defined before calling initializeDatabase
+if (pool) {
     initializeDatabase().catch(e => console.error("Failed to initialize database on module load:", e));
 } else {
-    console.warn("Skipping database initialization as DATABASE_URL is not set.");
+    console.warn("Skipping database initialization as DATABASE_URL is not set or pool failed to initialize.");
 }
+
+    
