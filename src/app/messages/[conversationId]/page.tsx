@@ -18,16 +18,37 @@ export async function generateMetadata({ params }: ConversationPageProps) {
   const currentUser = await getCurrentUser();
   if (!currentUser) return { title: 'Private Message - ForumLite' };
 
+  // Attempt to parse conversationId to find other participant for metadata title
+  let otherParticipantUsername: string | null = null;
+  if (params.conversationId.startsWith('conv-')) {
+    const ids = params.conversationId.substring(5).split('-');
+    if (ids.length === 2) {
+      const otherId = ids.find(id => id !== currentUser.id);
+      if (otherId) {
+        const otherUser = await findUserById(otherId);
+        if (otherUser) {
+          otherParticipantUsername = otherUser.username;
+        }
+      }
+    }
+  }
+
+  if (otherParticipantUsername) {
+    return { title: `Chat with ${otherParticipantUsername} - ForumLite` };
+  }
+
+  // Fallback if conversation or other participant can't be determined early for metadata
   const conversation = await getConversationById(params.conversationId);
-  if (!conversation) return { title: 'Conversation Not Found - ForumLite' };
-  
-  const otherParticipantId = conversation.participantIds.find(id => id !== currentUser.id);
-  if (!otherParticipantId) return { title: 'Conversation - ForumLite' };
-  
-  const otherParticipant = await findUserById(otherParticipantId);
-  return {
-    title: otherParticipant ? `Chat with ${otherParticipant.username} - ForumLite` : 'Private Message - ForumLite',
-  };
+  if (conversation) {
+    const otherParticipantId = conversation.participantIds.find(id => id !== currentUser.id);
+    if (otherParticipantId) {
+      const otherParticipant = await findUserById(otherParticipantId);
+      if (otherParticipant) {
+        return { title: `Chat with ${otherParticipant.username} - ForumLite` };
+      }
+    }
+  }
+  return { title: 'Private Message - ForumLite' };
 }
 
 
@@ -39,37 +60,49 @@ export default async function ConversationPage({ params }: ConversationPageProps
     redirect(`/login?redirect=/messages/${conversationId}`);
   }
 
-  // Validate conversationId format and participants
-  const parts = conversationId.startsWith('conv-') ? conversationId.substring(5).split('-') : [];
-  if (parts.length !== 2 || (!parts.includes(currentUser.id))) {
-    console.warn(`Invalid conversationId format or user ${currentUser.id} not part of ${conversationId}`);
-    // Optional: redirect to /messages or show a specific error. For now, let fetchMessages handle it.
+  let participantIdsFromConvId: string[] = [];
+  if (conversationId.startsWith('conv-')) {
+    participantIdsFromConvId = conversationId.substring(5).split('-');
+  }
+
+  // Validate conversationId format and if current user is part of it (if format is parsable)
+  if (conversationId.startsWith('conv-') && (participantIdsFromConvId.length !== 2 || !participantIdsFromConvId.includes(currentUser.id))) {
+    console.warn(`User ${currentUser.id} attempting to access conversation ${conversationId} with invalid format or not being a participant.`);
+    notFound(); // Invalid format or user not part of this conv ID
   }
 
 
-  const initialMessages = await fetchMessagesAction(conversationId);
   const conversation = await getConversationById(conversationId); // Fetch conversation details
 
+  let otherParticipant: Awaited<ReturnType<typeof findUserById>>;
+
   if (!conversation) {
-    // This can happen if the conversationId is valid format but no messages exist yet (new chat)
-    // Or if dbGetConversationById doesn't find it.
-    // We still want to allow starting a conversation.
-    // Need to determine the other participant from conversationId
-    const participantIds = conversationId.substring(5).split('-');
-    const otherParticipantId = participantIds.find(id => id !== currentUser.id);
-    if (!otherParticipantId) {
-        console.error("Could not determine other participant for new conversation:", conversationId);
-        notFound(); // Or redirect to /messages
-    }
-    const otherParticipant = await findUserById(otherParticipantId);
-     if (!otherParticipant) {
-        console.error("Other participant not found for new conversation:", otherParticipantId);
+    // This can happen if the conversationId is valid format but no messages exist yet (new chat),
+    // or if conversationId is not 'conv-...' type (which getConversationById would return null for).
+    
+    // If conversationId wasn't in 'conv-id-id' format, or if it was but user wasn't part of it,
+    // participantIdsFromConvId might be empty or not include current user.
+    if (!conversationId.startsWith('conv-') || participantIdsFromConvId.length !== 2) {
+        console.error("Cannot determine participants for new conversation from invalid ID format:", conversationId);
         notFound();
     }
+
+    const otherParticipantIdStr = participantIdsFromConvId.find(id => id !== currentUser.id);
+    if (!otherParticipantIdStr) {
+        console.error("Could not determine other participant for new conversation:", conversationId, "Participant IDs derived:", participantIdsFromConvId, "Current User ID:", currentUser.id);
+        notFound();
+    }
+    
+    otherParticipant = await findUserById(otherParticipantIdStr);
+    if (!otherParticipant) {
+        console.error("Other participant not found for new conversation:", otherParticipantIdStr);
+        notFound();
+    }
+    
     // Render UI for starting a new conversation
      return (
-        <div className="flex flex-col h-[calc(100vh-12rem)]">
-            <div className="flex items-center p-3 border-b">
+        <div className="flex flex-col h-[calc(100vh-12rem)] border rounded-lg shadow-sm overflow-hidden">
+            <div className="flex items-center p-3 border-b bg-card">
                  <Button variant="ghost" size="icon" asChild className="mr-2">
                     <Link href="/messages"><ArrowLeft className="h-5 w-5"/></Link>
                  </Button>
@@ -79,25 +112,30 @@ export default async function ConversationPage({ params }: ConversationPageProps
                 </Avatar>
                 <h2 className="text-lg font-semibold">{otherParticipant.username}</h2>
             </div>
-            <div className="flex-1 p-4 text-center text-muted-foreground">
+            <div className="flex-1 p-4 text-center text-muted-foreground flex items-center justify-center">
                 <p>Start your conversation with {otherParticipant.username}.</p>
             </div>
+            {/* Ensure messages array is empty as it's a new chat */}
+            <MessageListClient initialMessages={[]} currentUserId={currentUser.id} />
             <MessageForm conversationId={conversationId} receiverId={otherParticipant.id} />
         </div>
     );
   }
   
+  // If conversation exists
   const otherParticipantId = conversation.participantIds.find(id => id !== currentUser.id);
   if (!otherParticipantId) {
     console.error("Could not determine other participant in existing conversation:", conversationId);
     notFound(); // Should not happen if conversation exists and user is part of it
   }
-  const otherParticipant = await findUserById(otherParticipantId);
+  
+  otherParticipant = await findUserById(otherParticipantId);
    if (!otherParticipant) {
         console.error("Other participant not found for existing conversation:", otherParticipantId);
         notFound();
     }
 
+  const initialMessages = await fetchMessagesAction(conversationId);
 
   return (
     <div className="flex flex-col h-[calc(100vh-12rem)] border rounded-lg shadow-sm overflow-hidden">
@@ -121,3 +159,4 @@ export default async function ConversationPage({ params }: ConversationPageProps
     </div>
   );
 }
+
