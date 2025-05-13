@@ -86,8 +86,8 @@ export function Post({ post, currentUser, onEdit, isFirstPost = false }: PostPro
                 )}>
                     {post.author && (
                         <>
-                            <Link href={`/users/${post.author.username}`} className="block text-center sm:text-left group" title={`View ${post.author.username}'s profile`}>
-                                <Avatar className="h-16 w-16 sm:h-20 sm:w-20 border-2 border-border shadow-sm mx-auto sm:mx-0">
+                            <Link href={`/users/${post.author.username}`} className="block text-left group" title={`View ${post.author.username}'s profile`}>
+                                <Avatar className="h-16 w-16 sm:h-20 sm:w-20 border-2 border-border shadow-sm mx-0">
                                      <AvatarImage src={post.author.avatarUrl || `https://avatar.vercel.sh/${post.author.username}.png?size=80`} alt={post.author.username} data-ai-hint="user avatar"/>
                                     <AvatarFallback className="text-2xl">{post.author.username?.charAt(0)?.toUpperCase() || 'U'}</AvatarFallback>
                                 </Avatar>
@@ -95,28 +95,28 @@ export function Post({ post, currentUser, onEdit, isFirstPost = false }: PostPro
                                     {post.author.username}
                                 </p>
                             </Link>
-                            <div className="text-xs text-muted-foreground mt-2 space-y-1">
-                                <div className="flex items-center gap-1.5 justify-center sm:justify-start">
+                            <div className="text-xs text-muted-foreground mt-2 space-y-1.5"> {/* Increased space-y for better separation */}
+                                <div className="flex items-center gap-1.5 justify-start">
                                     {post.author.isAdmin ? (
                                         <><ShieldCheck className="h-3.5 w-3.5 text-destructive flex-shrink-0" /> Administrator</>
                                     ) : (
                                         <><UserIconLucide className="h-3.5 w-3.5 flex-shrink-0" /> User</>
                                     )}
                                 </div>
-                                <div className="flex items-center gap-1.5 justify-center sm:justify-start"><MessageSquare className="h-3.5 w-3.5 flex-shrink-0" /> Posts: {post.author.postCount ?? 0}</div>
+                                <div className="flex items-center gap-1.5 justify-start"><MessageSquare className="h-3.5 w-3.5 flex-shrink-0" /> Posts: {post.author.postCount ?? 0}</div>
                                 {post.author.createdAt && (
-                                <div className="flex items-center gap-1.5 justify-center sm:justify-start"><CalendarDays className="h-3.5 w-3.5 flex-shrink-0" /> Joined: {format(new Date(post.author.createdAt), 'MMM yyyy')}</div>
+                                <div className="flex items-center gap-1.5 justify-start"><CalendarDays className="h-3.5 w-3.5 flex-shrink-0" /> Joined: {format(new Date(post.author.createdAt), 'MMM yyyy')}</div>
                                 )}
                                 {post.author.location && (
-                                <div className="flex items-center gap-1.5 justify-center sm:justify-start truncate"><MapPin className="h-3.5 w-3.5 flex-shrink-0" /> <span className="truncate" title={post.author.location}>{post.author.location}</span></div>
+                                <div className="flex items-center gap-1.5 justify-start truncate"><MapPin className="h-3.5 w-3.5 flex-shrink-0" /> <span className="truncate" title={post.author.location}>{post.author.location}</span></div>
                                 )}
-                                <div className="flex items-center gap-1.5 justify-center sm:justify-start"><Star className="h-3.5 w-3.5 flex-shrink-0" /> Points: {post.author.points ?? 0}</div>
+                                <div className="flex items-center gap-1.5 justify-start"><Star className="h-3.5 w-3.5 flex-shrink-0" /> Points: {post.author.points ?? 0}</div>
                             </div>
                         </>
                     )}
                      {!post.author && (
-                        <div className="text-center sm:text-left">
-                             <Avatar className="h-16 w-16 sm:h-20 sm:w-20 border-2 border-border shadow-sm mx-auto sm:mx-0">
+                        <div className="text-left"> {/* Ensure left alignment for unknown user too */}
+                             <Avatar className="h-16 w-16 sm:h-20 sm:w-20 border-2 border-border shadow-sm mx-0">
                                 <AvatarFallback className="text-2xl">?</AvatarFallback>
                             </Avatar>
                             <p className="mt-2 text-sm font-semibold text-muted-foreground">Unknown User</p>
