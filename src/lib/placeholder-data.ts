@@ -635,10 +635,10 @@ export const initializePlaceholderData = () => {
         console.warn("Placeholder data arrays are empty. Initializing with defaults.");
         
         const adminUserPlaceholder: User = {
-            id: 'admin-user-placeholder-fallback', username: "admin_fallback", email: "admin_fallback@forumlite.com",
+            id: 'admin-user-placeholder-fallback', username: "admin", email: "admin@forumlite.com",
             password: "password123", isAdmin: true, createdAt: new Date('2023-01-01T10:00:00Z'), lastActive: new Date(),
             aboutMe: "Default administrator account for placeholder data (fallback).", points: 0, postCount: 0,
-            avatarUrl: 'https://avatar.vercel.sh/admin_fallback.png?size=128',
+            avatarUrl: 'https://avatar.vercel.sh/admin.png?size=128',
         };
         users = [adminUserPlaceholder];
 
@@ -668,3 +668,4 @@ export const initializePlaceholderData = () => {
 // Call initialization for placeholder data if this module is loaded.
 // This ensures data exists if db.ts determines it should use placeholders.
 initializePlaceholderData();
+
