@@ -232,6 +232,7 @@ Modify the functions in `src/lib/placeholder-data.ts` (or create a new module li
 ```typescript
 // src/lib/db.ts
 import { Pool } from 'pg';
+import type { User } from './types'; // Assuming your types are in a nearby file
 
 let pool: Pool;
 
@@ -245,18 +246,59 @@ pool = new Pool({
   // ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : undefined,
 });
 
+// Export a query function
 export const query = (text: string, params?: any[]) => pool.query(text, params);
 
-// Example function modification:
-// export async function findUserByEmail(email: string): Promise<User | null> {
-//   const res = await query('SELECT * FROM users WHERE email = $1', [email]);
-//   if (res.rows.length === 0) return null;
-//   // Map database row to User type (ensure column names match or alias them)
-//   const dbUser = res.rows[0];
-//   return { /* ... map properties ... */ } as User;
-// }
+// Example modification of findUserByEmail:
+/*
+// Original placeholder-data.ts function:
+export const findUserByEmail = async (email: string): Promise<User | null> => {
+  // ... in-memory logic ...
+};
+*/
+
+// Modified function using PostgreSQL client:
+export async function findUserByEmailFromDb(email: string): Promise<User | null> {
+  const client = await pool.connect(); // Get a client from the pool
+  try {
+    const result = await client.query('SELECT * FROM users WHERE email = $1', [email]);
+    if (result.rows.length === 0) {
+      return null;
+    }
+    // Map database row to User type (ensure column names match or alias them in your SQL)
+    // This mapping will depend on your exact table structure.
+    const dbUser = result.rows[0];
+    const user: User = {
+      id: dbUser.id,
+      username: dbUser.username,
+      email: dbUser.email,
+      // password: dbUser.password_hash, // DO NOT return password hash to client
+      isAdmin: dbUser.is_admin,
+      createdAt: new Date(dbUser.created_at),
+      aboutMe: dbUser.about_me,
+      location: dbUser.location,
+      websiteUrl: dbUser.website_url,
+      socialMediaUrl: dbUser.social_media_url,
+      signature: dbUser.signature,
+      lastActive: dbUser.last_active ? new Date(dbUser.last_active) : undefined,
+      avatarUrl: dbUser.avatar_url,
+      // postCount will likely need a separate query or be joined in the main query
+    };
+    return user;
+  } catch (error) {
+    console.error('Database error in findUserByEmailFromDb:', error);
+    throw error; // Or handle more gracefully
+  } finally {
+    client.release(); // Release the client back to the pool
+  }
+}
+
+// You will need to rewrite all functions in `src/lib/placeholder-data.ts` 
+// (like `createUser`, `getTopicsByCategory`, `createPost`, etc.)
+// to use SQL queries against your PostgreSQL database.
+// Ensure all data access functions now use `async/await` and interact with the `pool`.
 ```
-You will need to rewrite all functions in `src/lib/placeholder-data.ts` (like `createUser`, `getTopicsByCategory`, etc.) to use SQL queries against your PostgreSQL database.
+You will need to meticulously go through each function in `src/lib/placeholder-data.ts` and rewrite its logic to perform the equivalent operation using SQL queries via the `pg` pool. This includes `SELECT`, `INSERT`, `UPDATE`, and `DELETE` statements as appropriate for each function. Remember to handle potential SQL errors and map database results back to your application's TypeScript types.
 
 ### 6. (Optional) Use an ORM:
 For more complex applications, consider using an Object-Relational Mapper (ORM) like Prisma or TypeORM. ORMs can simplify database interactions, provide type safety, and help with migrations.
