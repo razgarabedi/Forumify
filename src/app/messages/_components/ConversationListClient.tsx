@@ -15,8 +15,6 @@ interface ConversationListClientProps {
 }
 
 export function ConversationListClient({ initialConversations, currentUserId }: ConversationListClientProps) {
-  // In a more complex app, you might use useState and useEffect to fetch/update conversations
-  // For now, we'll rely on server-fetched initialConversations and revalidatePath for updates.
 
   return (
     <div className="space-y-3">
@@ -35,7 +33,12 @@ export function ConversationListClient({ initialConversations, currentUserId }: 
                 <CardTitle className="text-base font-semibold group-hover:text-primary">
                   {convo.otherParticipant.username}
                 </CardTitle>
-                <CardDescription className="text-xs text-muted-foreground truncate">
+                {convo.subject && (
+                    <p className="text-sm font-semibold text-foreground/80 truncate mt-0.5" title={convo.subject}>
+                        {convo.subject}
+                    </p>
+                )}
+                <CardDescription className={cn("text-xs text-muted-foreground truncate", convo.subject ? "mt-0.5" : "mt-1")}>
                   {convo.isLastMessageFromCurrentUser && "You: "}
                   {convo.lastMessageSnippet}
                 </CardDescription>
@@ -56,3 +59,4 @@ export function ConversationListClient({ initialConversations, currentUserId }: 
     </div>
   );
 }
+

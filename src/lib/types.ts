@@ -73,6 +73,7 @@ export interface ActionResponse {
 export type Conversation = {
   id: string; // Deterministic ID: conv-${sortedUserId1}-${sortedUserId2}
   participantIds: string[];
+  subject?: string; // Subject for the conversation
   createdAt: Date;
   lastMessageAt: Date;
   // Optional: store last message snippet/sender for quick display
@@ -93,6 +94,7 @@ export type PrivateMessage = {
 export type ConversationListItem = {
   id: string;
   otherParticipant: User;
+  subject?: string; // Display subject in list
   lastMessageSnippet: string;
   lastMessageAt: Date;
   unreadCount: number; // Number of unread messages for the current user in this conversation
@@ -104,3 +106,4 @@ export type PrivateMessageDisplay = PrivateMessage & {
   sender: User;
   isOwnMessage: boolean;
 };
+

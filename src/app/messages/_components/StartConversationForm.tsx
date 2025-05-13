@@ -32,11 +32,8 @@ export function StartConversationForm() {
         });
       }
       // Successful redirect is handled by the action itself, so no success toast needed here.
-      // If form reset is desired on success *before* redirect, that would be more complex.
     }
     if (state.success) {
-        // This part might not be reached if redirect happens immediately in action.
-        // If it is reached (e.g. redirect is conditional and didn't happen), then reset.
         formRef.current?.reset();
     }
   }, [state, toast]);
@@ -47,7 +44,7 @@ export function StartConversationForm() {
         <CardTitle className="flex items-center text-xl">
           <MessageSquarePlus className="mr-2 h-5 w-5 text-primary" /> Start a New Conversation
         </CardTitle>
-        <CardDescription>Enter the username of the person you want to message.</CardDescription>
+        <CardDescription>Enter the username and an optional subject for the conversation.</CardDescription>
       </CardHeader>
       <form action={formAction} ref={formRef}>
         <CardContent className="space-y-4">
@@ -67,6 +64,22 @@ export function StartConversationForm() {
               </p>
             )}
           </div>
+          <div className="space-y-2">
+            <Label htmlFor="subject-pm">Subject (Optional)</Label>
+            <Input
+              id="subject-pm"
+              name="subject"
+              placeholder="Enter a subject for the conversation"
+              maxLength={100}
+              disabled={isPending}
+              aria-describedby="subject-pm-error"
+            />
+            {state.errors?.subject && (
+              <p id="subject-pm-error" className="text-sm font-medium text-destructive">
+                {typeof state.errors.subject === 'string' ? state.errors.subject : state.errors.subject[0]}
+              </p>
+            )}
+          </div>
         </CardContent>
         <CardFooter>
           <SubmitButton pendingText="Starting..." disabled={isPending}>
@@ -77,3 +90,4 @@ export function StartConversationForm() {
     </Card>
   );
 }
+

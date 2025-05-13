@@ -1,10 +1,10 @@
 
 import { fetchMessagesAction, sendPrivateMessageAction } from '@/lib/actions/privateMessages';
 import { getCurrentUser } from '@/lib/actions/auth';
-import { MessageListClient } from '../_components/MessageListClient';
-import { MessageForm } from '../_components/MessageForm';
+import { MessageListClient } from './_components/MessageListClient'; // Corrected import path
+import { MessageForm } from '../_components/MessageForm'; // Corrected import path
 import { notFound, redirect } from 'next/navigation';
-import { findUserById, getConversationById, generateConversationId } from '@/lib/placeholder-data';
+import { findUserById, getConversationById as dbGetConversationById, generateConversationId as dbGenerateConversationId } from '@/lib/placeholder-data'; // Aliased getConversationById
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
@@ -19,31 +19,29 @@ export async function generateMetadata({ params }: ConversationPageProps) {
   const currentUser = await getCurrentUser();
   if (!currentUser) return { title: 'Private Message - ForumLite' };
 
-  let otherParticipantUsername: string | null = null;
-  if (params.conversationId.startsWith('conv-')) {
-    const ids = params.conversationId.substring(5).split('__'); // Updated delimiter
-    if (ids.length === 2) {
-      const otherId = ids.find(id => id !== currentUser.id);
-      if (otherId) {
-        const otherUser = await findUserById(otherId);
-        if (otherUser) {
-          otherParticipantUsername = otherUser.username;
-        }
-      }
-    }
-  }
+  const conversation = await dbGetConversationById(params.conversationId);
 
-  if (otherParticipantUsername) {
-    return { title: `Chat with ${otherParticipantUsername} - ForumLite` };
-  }
-
-  const conversation = await getConversationById(params.conversationId);
   if (conversation) {
     const otherParticipantId = conversation.participantIds.find(id => id !== currentUser.id);
     if (otherParticipantId) {
       const otherParticipant = await findUserById(otherParticipantId);
       if (otherParticipant) {
-        return { title: `Chat with ${otherParticipant.username} - ForumLite` };
+        let title = `Chat with ${otherParticipant.username}`;
+        if (conversation.subject) {
+          title = `${conversation.subject} - Chat with ${otherParticipant.username}`;
+        }
+        return { title: `${title} - ForumLite` };
+      }
+    }
+  } else if (params.conversationId.startsWith('conv-')) { // Handle case where conversation might not exist yet but IDs are in param
+    const ids = params.conversationId.substring(5).split('__');
+    if (ids.length === 2) {
+      const otherId = ids.find(id => id !== currentUser.id);
+      if (otherId) {
+        const otherUser = await findUserById(otherId);
+        if (otherUser) {
+          return { title: `Chat with ${otherUser.username} - ForumLite` };
+        }
       }
     }
   }
@@ -87,36 +85,20 @@ export default async function ConversationPage({ params }: ConversationPageProps
     notFound();
   }
 
-  const conversation = await getConversationById(conversationId);
+  // Fetch conversation details, including subject
+  const conversationDetails = await dbGetConversationById(conversationId);
 
-  if (conversation && !conversation.participantIds.includes(currentUser.id)) {
-      console.error(`ConversationPage: Mismatch - Current user ${currentUser.id} not in stored participant list for existing conversation ${conversationId}. Stored participants:`, conversation.participantIds);
+  // If conversation exists in DB, verify current user is part of it
+  if (conversationDetails && !conversationDetails.participantIds.includes(currentUser.id)) {
+      console.error(`ConversationPage: Mismatch - Current user ${currentUser.id} not in stored participant list for existing conversation ${conversationId}. Stored participants:`, conversationDetails.participantIds);
       notFound();
-  }
-
-  if (!conversation) {
-     return (
-        <div className="flex flex-col h-[calc(100vh-12rem)] border rounded-lg shadow-sm overflow-hidden">
-            <div className="flex items-center p-3 border-b bg-card">
-                 <Button variant="ghost" size="icon" asChild className="mr-2">
-                    <Link href="/messages"><ArrowLeft className="h-5 w-5"/></Link>
-                 </Button>
-                <Avatar className="h-9 w-9 mr-3 border">
-                     <AvatarImage src={otherParticipant.avatarUrl || `https://avatar.vercel.sh/${otherParticipant.username}.png?size=36`} alt={otherParticipant.username} data-ai-hint="user avatar"/>
-                    <AvatarFallback>{otherParticipant.username.charAt(0).toUpperCase()}</AvatarFallback>
-                </Avatar>
-                <h2 className="text-lg font-semibold">{otherParticipant.username}</h2>
-            </div>
-            <div className="flex-1 p-4 text-center text-muted-foreground flex items-center justify-center">
-                <p>Start your conversation with {otherParticipant.username}.</p>
-            </div>
-            <MessageListClient initialMessages={[]} currentUserId={currentUser.id} conversationId={conversationId} />
-            <MessageForm conversationId={conversationId} receiverId={otherParticipant.id} />
-        </div>
-    );
   }
   
   const initialMessages = await fetchMessagesAction(conversationId);
+
+  // If no conversation exists yet in DB (e.g., from profile link, first message not sent)
+  // still render the page structure. The subject will be missing initially.
+  // `getOrCreateConversation` (called by sendPrivateMessage) will create it then.
 
   return (
     <div className="flex flex-col h-[calc(100vh-12rem)] border rounded-lg shadow-sm overflow-hidden">
@@ -128,10 +110,18 @@ export default async function ConversationPage({ params }: ConversationPageProps
           <AvatarImage src={otherParticipant.avatarUrl || `https://avatar.vercel.sh/${otherParticipant.username}.png?size=36`} alt={otherParticipant.username} data-ai-hint="user avatar"/>
           <AvatarFallback>{otherParticipant.username.charAt(0).toUpperCase()}</AvatarFallback>
         </Avatar>
-        <h2 className="text-lg font-semibold">{otherParticipant.username}</h2>
+        <div className="flex-1 min-w-0">
+            <h2 className="text-lg font-semibold">{otherParticipant.username}</h2>
+            {conversationDetails?.subject && (
+                <p className="text-sm text-muted-foreground truncate" title={conversationDetails.subject}>
+                    {conversationDetails.subject}
+                </p>
+            )}
+        </div>
       </div>
       <MessageListClient initialMessages={initialMessages} currentUserId={currentUser.id} conversationId={conversationId} />
       <MessageForm conversationId={conversationId} receiverId={otherParticipant.id} />
     </div>
   );
 }
+

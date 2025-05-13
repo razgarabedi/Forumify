@@ -13,6 +13,7 @@ import {
     findUserById,
     generateConversationId,
     getConversationById as dbGetConversationById,
+    getOrCreateConversation, // Import getOrCreateConversation
 } from "@/lib/placeholder-data";
 import { getCurrentUser } from "./auth";
 import type { ActionResponse, Conversation, PrivateMessage, User, ConversationListItem, PrivateMessageDisplay } from "@/lib/types";
@@ -20,7 +21,7 @@ import type { ActionResponse, Conversation, PrivateMessage, User, ConversationLi
 const SendMessageSchema = z.object({
     content: z.string().min(1, { message: "Message content cannot be empty." }).max(2000, {message: "Message content cannot exceed 2000 characters."}),
     receiverId: z.string().min(1, { message: "Receiver ID is required." }), 
-    conversationId: z.string().min(1, {message: "Conversation ID is required."}), // Made mandatory from form
+    conversationId: z.string().min(1, {message: "Conversation ID is required."}),
 });
 
 export async function sendPrivateMessageAction(prevState: ActionResponse | undefined, formData: FormData): Promise<ActionResponse> {
@@ -66,6 +67,8 @@ export async function sendPrivateMessageAction(prevState: ActionResponse | undef
     }
     
     try {
+        // dbSendPrivateMessage now internally calls getOrCreateConversation without subject,
+        // as the subject should already be set if the conversation was started via StartConversationForm.
         const newMessage = await dbSendPrivateMessage(currentUser.id, receiverId, content);
 
         revalidatePath(`/messages/${newMessage.conversationId}`);
@@ -104,6 +107,7 @@ export async function fetchConversationsAction(): Promise<ConversationListItem[]
         conversationListItems.push({
             id: conv.id,
             otherParticipant,
+            subject: conv.subject, // Include subject
             lastMessageSnippet: conv.lastMessageSnippet || (lastMessage ? lastMessage.content.substring(0, 30) + (lastMessage.content.length > 30 ? '...' : '') : "No messages yet"),
             lastMessageAt: conv.lastMessageAt,
             unreadCount: unreadCount, 
@@ -128,8 +132,6 @@ export async function fetchMessagesAction(conversationId: string): Promise<Priva
     // dbGetMessagesForConversation will mark messages as read if the third param is true
     const messagesData = await dbGetMessagesForConversation(conversationId, currentUser.id, true);
     
-    // Removed revalidatePath calls from here to prevent error during render
-
     const messageDisplays = await Promise.all(messagesData.map(async msg => {
         const sender = await findUserById(msg.senderId);
         return {
@@ -174,6 +176,7 @@ export async function getUnreadPrivateMessageCountAction(): Promise<number> {
 
 const StartConversationSchema = z.object({
   username: z.string().min(1, "Username cannot be empty.").max(50, "Username is too long."),
+  subject: z.string().min(3, "Subject must be at least 3 characters.").max(100, "Subject cannot exceed 100 characters.").optional(),
 });
 
 export async function startConversationWithUsernameAction(prevState: ActionResponse | undefined, formData: FormData): Promise<ActionResponse> {
@@ -184,17 +187,18 @@ export async function startConversationWithUsernameAction(prevState: ActionRespo
 
   const validatedFields = StartConversationSchema.safeParse({
     username: formData.get("username"),
+    subject: formData.get("subject") || undefined, // Ensure optional empty string becomes undefined
   });
 
   if (!validatedFields.success) {
     return {
       errors: validatedFields.error.flatten().fieldErrors,
-      message: "Invalid username.",
+      message: "Invalid input.",
       success: false,
     };
   }
 
-  const { username } = validatedFields.data;
+  const { username, subject } = validatedFields.data;
 
   const receiver = await findUserByUsername(username);
   if (!receiver) {
@@ -204,8 +208,11 @@ export async function startConversationWithUsernameAction(prevState: ActionRespo
   if (receiver.id === currentUser.id) {
     return { success: false, message: "You cannot start a conversation with yourself.", errors: { username: ["You cannot start a conversation with yourself."] } };
   }
-
-  const conversationId = generateConversationId(currentUser.id, receiver.id);
   
-  redirect(`/messages/${conversationId}`);
+  // Explicitly create or get the conversation with the subject
+  const conversation = await getOrCreateConversation(currentUser.id, receiver.id, subject);
+  
+  revalidatePath('/messages'); // Revalidate list page in case it's the first conversation
+  redirect(`/messages/${conversation.id}`);
 }
+

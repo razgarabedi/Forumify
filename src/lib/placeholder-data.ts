@@ -491,7 +491,7 @@ export const generateConversationId = (userId1: string, userId2: string): string
     return `conv-${ids[0]}__${ids[1]}`; // Use double underscore as delimiter
 };
 
-export const getOrCreateConversation = async (userId1: string, userId2: string): Promise<Conversation> => {
+export const getOrCreateConversation = async (userId1: string, userId2: string, subject?: string): Promise<Conversation> => {
     await new Promise(resolve => setTimeout(resolve, 10));
     const conversationId = generateConversationId(userId1, userId2);
     let conversation = conversations.find(c => c.id === conversationId);
@@ -501,11 +501,21 @@ export const getOrCreateConversation = async (userId1: string, userId2: string):
         conversation = {
             id: conversationId,
             participantIds: [userId1, userId2],
+            subject: subject, // Set subject here
             createdAt: now,
             lastMessageAt: now, 
         };
         conversations.push(conversation);
-        console.log(`[DB getOrCreateConversation] Created new conversation: ${conversationId}`);
+        console.log(`[DB getOrCreateConversation] Created new conversation: ${conversationId} with subject: "${subject || 'N/A'}"`);
+    } else if (subject && !conversation.subject) {
+        // If conversation exists but has no subject, and a subject is provided, update it.
+        // This could happen if a conversation was implicitly created by a message without subject.
+        conversation.subject = subject;
+        const convIndex = conversations.findIndex(c => c.id === conversationId);
+        if (convIndex !== -1) {
+            conversations[convIndex].subject = subject;
+        }
+        console.log(`[DB getOrCreateConversation] Updated existing conversation ${conversationId} with subject: "${subject}"`);
     }
     return { ...conversation };
 };
@@ -516,7 +526,9 @@ export const sendPrivateMessage = async (
     content: string
 ): Promise<PrivateMessage> => {
     await new Promise(resolve => setTimeout(resolve, 50));
-    const conversation = await getOrCreateConversation(senderId, receiverId);
+    // When sending a message, we don't provide a subject here.
+    // Subject is set when the conversation is explicitly started with one, or not at all.
+    const conversation = await getOrCreateConversation(senderId, receiverId); 
     const now = new Date();
 
     const newMessage: PrivateMessage = {
@@ -534,6 +546,7 @@ export const sendPrivateMessage = async (
         conversations[convIndex].lastMessageAt = now;
         conversations[convIndex].lastMessageSnippet = content.substring(0, 50) + (content.length > 50 ? '...' : '');
         conversations[convIndex].lastMessageSenderId = senderId;
+        // Do not overwrite subject here. It's set by getOrCreateConversation if new.
     }
     await updateUserLastActive(senderId);
     console.log(`[DB sendPrivateMessage] Sent PM ${newMessage.id} in conversation ${conversation.id}`);
@@ -563,9 +576,9 @@ export const getMessagesForConversation = async (conversationId: string, current
                 }
             }
         });
-        console.log(`[DB getMessagesForConversation] Fetched messages for ${conversationId} and marked as read for ${currentUserId}`);
+        // console.log(`[DB getMessagesForConversation] Fetched messages for ${conversationId} and marked as read for ${currentUserId}`);
     } else {
-        console.log(`[DB getMessagesForConversation] Fetched messages for ${conversationId} (read status not changed)`);
+        // console.log(`[DB getMessagesForConversation] Fetched messages for ${conversationId} (read status not changed)`);
     }
     return messagesInConv;
 };

@@ -7,7 +7,7 @@ import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import React, { useEffect, useRef } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { triggerMessageRevalidationAction } from '@/lib/actions/privateMessages'; // Import the new action
+import { triggerMessageRevalidationAction } from '@/lib/actions/privateMessages';
 
 interface MessageListClientProps {
   initialMessages: PrivateMessageDisplay[];
@@ -31,11 +31,10 @@ export function MessageListClient({ initialMessages, currentUserId, conversation
   // This ensures UI elements like unread counts in the header/conversation list are updated.
   useEffect(() => {
     if (conversationId) {
-      // console.log(`MessageListClient: Triggering revalidation for ${conversationId}`);
       triggerMessageRevalidationAction(conversationId)
         .catch(err => console.error("Failed to trigger message revalidation:", err));
     }
-  }, [conversationId]); // Re-run if conversationId changes (i.e., when navigating to a new conversation)
+  }, [conversationId]); // Re-run if conversationId changes
 
 
   if (initialMessages.length === 0) {
@@ -85,3 +84,4 @@ export function MessageListClient({ initialMessages, currentUserId, conversation
     </ScrollArea>
   );
 }
+
