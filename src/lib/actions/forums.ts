@@ -1,3 +1,4 @@
+
 "use server";
 
 import { z } from "zod";
@@ -109,16 +110,33 @@ export async function createTopic(prevState: any, formData: FormData) {
         });
          console.log("[Action createTopic] dbCreateTopic successful, New Topic ID:", newTopic.id);
 
-        revalidatePath(`/categories/${categoryId}`); // Revalidate the category page
-        revalidatePath('/'); // Revalidate home potentially for counts
+        // Revalidate paths *before* redirecting
+        revalidatePath(`/categories/${categoryId}`);
+        revalidatePath('/');
 
-        // Redirect server-side. This terminates the request flow here.
+        // If dbCreateTopic and revalidatePath succeed, redirect.
+        // This call throws a NEXT_REDIRECT error internally to signal Next.js
+        // It should not normally be caught by the catch block below unless dbCreateTopic or revalidatePath fail.
         redirect(`/topics/${newTopic.id}`);
-        // No return needed after redirect
 
     } catch (error: any) {
-        console.error("[Action createTopic] Error:", error);
-        return { message: `Database Error: Failed to create topic. ${error.message}`, success: false };
+        // This catch block should ideally only catch errors from dbCreateTopic or revalidatePath
+        console.error("[Action createTopic] Error during topic creation or revalidation:", error);
+
+        // Check if it's the special redirect error, though it shouldn't normally be caught here.
+        if (error.message?.includes('NEXT_REDIRECT')) {
+             console.warn("[Action createTopic] Caught NEXT_REDIRECT error unexpectedly. This usually indicates an issue after successful creation but before client navigation.");
+             // Return a generic error, as the redirect *should* have been initiated.
+             // The client-side might be showing the error due to the redirect interrupting the normal flow.
+             return { message: "Topic created, but an issue occurred during navigation.", success: false };
+        }
+
+        // Provide a clearer message for actual database/validation errors
+        let errorMessage = "Database Error: Failed to create topic.";
+        if (error instanceof Error) {
+            errorMessage = `${errorMessage} ${error.message}`;
+        }
+        return { message: errorMessage, success: false };
     }
 }
 
@@ -156,8 +174,8 @@ export async function submitPost(prevState: any, formData: FormData) {
         };
     }
 
-    const { content, topicId, postId, imageUrl } = validatedFields.data;
-    const finalImageUrl = imageUrl === "" ? undefined : imageUrl; // Ensure empty string becomes undefined
+    const { content, topicId, postId } = validatedFields.data;
+    const finalImageUrl = validatedFields.data.imageUrl === "" ? undefined : validatedFields.data.imageUrl; // Ensure empty string becomes undefined
     const removeImage = formData.get("removeImage") === "true"; // Ensure boolean conversion is robust
     console.log("[Action submitPost] Validated Data:", { content: '...', topicId, postId, imageUrl: '...', removeImage }); // Avoid logging full content/image
 
@@ -187,13 +205,18 @@ export async function submitPost(prevState: any, formData: FormData) {
                 console.warn("[Action submitPost] Could not revalidate category page - categoryId missing from savedPost.topic");
             }
             revalidatePath('/'); // Revalidate home (counts)
-            return { message: "Post created successfully.", success: true, post: savedPost };
+            return { message: "Reply posted successfully.", success: true, post: savedPost }; // Changed message slightly for clarity
         }
 
     } catch (error: any) {
         console.error("[Action submitPost] Error:", error);
         const actionType = postId ? 'update' : 'create';
-        return { message: `Database Error: Failed to ${actionType} post. ${error.message}`, success: false };
+        // Provide a clearer message for actual database/validation errors
+        let errorMessage = `Database Error: Failed to ${actionType} post.`;
+        if (error instanceof Error) {
+            errorMessage = `${errorMessage} ${error.message}`;
+        }
+        return { message: errorMessage, success: false };
     }
 }
 
@@ -239,3 +262,4 @@ export const getPostsByTopic = async (topicId: string) => {
      console.log(`[Action getPostsByTopic] Found ${posts.length} posts for topic ${topicId}`);
     return posts;
 }
+
