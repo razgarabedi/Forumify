@@ -102,8 +102,8 @@ Before you begin, ensure you have the following installed:
 
 1.  **Clone the repository:**
     ```bash
-    git clone &lt;your-repository-url&gt;
-    cd &lt;repository-directory-name&gt; # e.g., cd forumlite
+    git clone <your-repository-url>
+    cd <repository-directory-name> # e.g., cd forumlite
     ```
 
 2.  **Install dependencies:**
@@ -198,6 +198,8 @@ Your PostgreSQL server is now running, and you have a database and user ready fo
 ### 3. Database Schema Initialization
 
 The application includes logic in `src/lib/db.ts` to automatically create the necessary tables if they don't exist when the application starts. This includes tables for `users`, `categories`, `topics`, `posts`, `reactions`, `notifications`, `conversations`, and `private_messages`. No manual schema creation is needed after configuring `DATABASE_URL`.
+
+If the database is new and empty (no users table), the `initializeDatabase` function in `src/lib/db.ts` will also attempt to create a default admin user and some initial categories and topics.
 
 ## Running the Development Server
 
@@ -332,20 +334,24 @@ Your ForumLite application should now be accessible via your domain, served by N
 ## Getting Started
 
 1.  **Register the First User (Admin):** Navigate to the registration page (`/register`). The first account created will automatically have administrative privileges.
-2.  **Explore:**
+2.  **Default Admin Credentials (if DB was initialized empty):** If the database was empty upon first application start and the automatic schema initialization created the default admin user, you can log in with:
+    *   **Email:** `admin@forumlite.com`
+    *   **Password:** `password123`
+    *   It is **highly recommended** to change this password immediately after logging in.
+3.  **Explore:**
     *   Browse the forum.
     *   Create categories (if logged in as admin via the Admin Panel).
     *   Navigate to a category and click "Start a New Topic" to create discussions.
     *   Reply to topics, try out the rich text editor features (Markdown, image upload, emoji, @mentions, reactions).
-3.  **Admin Panel:** If logged in as the admin user, access the Admin Panel via the link in the header or by navigating to `/admin`. Here you can manage users and categories.
-4.  **User Profiles:** Click on a username (e.g., in a post or a mention) to view their profile. If it's your own profile, you'll see an "Edit Profile" button. Check out their post count and points.
-5.  **Notifications:** Try mentioning another user in a post or reacting to someone's post. Check the notification dropdown in the header and the `/notifications` page.
-6.  **Private Messages:**
+4.  **Admin Panel:** If logged in as the admin user, access the Admin Panel via the link in the header or by navigating to `/admin`. Here you can manage users and categories.
+5.  **User Profiles:** Click on a username (e.g., in a post or a mention) to view their profile. If it's your own profile, you'll see an "Edit Profile" button. Check out their post count and points.
+6.  **Notifications:** Try mentioning another user in a post or reacting to someone's post. Check the notification dropdown in the header and the `/notifications` page.
+7.  **Private Messages:**
     *   Navigate to a user's profile and click "Send Message".
     *   Or, go to `/messages` and use the "Start a New Conversation" form.
     *   Explore sending messages, viewing conversation lists, and individual chats.
-7.  **Account Settings:** Visit `/settings` to change your password or navigate to your messages/notifications.
-8.  **Theme Toggler:** Check out the theme toggler in the footer to switch between dark (default) and light modes.
+8.  **Account Settings:** Visit `/settings` to change your password or navigate to your messages/notifications.
+9.  **Theme Toggler:** Check out the theme toggler in the footer to switch between dark (default) and light modes.
 
 ## Important Notes & Production Considerations
 
