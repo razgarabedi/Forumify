@@ -1,12 +1,13 @@
 
 "use client";
 
-import React from 'react'; // Added React import
+import React from 'react';
 import type { Notification } from '@/lib/types';
-import Link from 'next/link';
+import Link from 'next/link'; // Keep Link for non-JS scenarios or if action fails
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { BellRing, CheckCircle2, Eye } from 'lucide-react';
+import { BellRing, CheckCircle2, Eye, ExternalLink } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { markNotificationReadAction } from '@/lib/actions/notifications';
@@ -17,34 +18,52 @@ interface NotificationItemProps {
   notification: Notification;
 }
 
-const initialActionState = { success: false, message: '' };
+// For the direct "Mark as Read" button, we still use useActionState
+const initialActionStateForButton = { success: false, message: '' };
 
 export function NotificationItem({ notification }: NotificationItemProps) {
   const { toast } = useToast();
-  const [state, formAction, isPending] = useActionState(markNotificationReadAction.bind(null, notification.id), initialActionState);
+  const router = useRouter();
+  const [buttonState, buttonFormAction, isButtonPending] = useActionState(markNotificationReadAction.bind(null, notification.id), initialActionStateForButton);
 
-
-  const handleMarkAsRead = async () => {
-    if (notification.isRead) return;
-    // Trigger the server action via formAction
-    formAction();
+  // Handle click on the entire card item
+  const handleItemClick = async () => {
+    if (!notification.isRead) {
+      // Directly call the action for the card click
+      const result = await markNotificationReadAction(notification.id);
+      if (!result.success) {
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: result.message || "Could not mark notification as read.",
+        });
+      }
+      // Optimistic update or revalidation will handle the UI change
+    }
+    router.push(`/topics/${notification.topicId}#post-${notification.postId}`);
   };
 
-  // Use useEffect to react to state changes from useActionState
+  // Effect for the "Mark as Read" button's action state
   React.useEffect(() => {
-    if (state.message && !state.success) {
+    if (buttonState.message && !buttonState.success) {
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: state.message,
+        description: buttonState.message,
       });
     }
-    // No success toast needed here as the UI will update implicitly (becomes read)
-    // and revalidation is handled by the action.
-  }, [state, toast]);
+    // Success toast isn't strictly needed as UI updates implicitly, and revalidation is handled.
+  }, [buttonState, toast]);
 
   return (
-    <Card className={cn("mb-3 shadow-sm border", notification.isRead ? "border-border/50 bg-card/70" : "border-primary/30 bg-primary/5")}>
+    <Card 
+      className={cn(
+        "mb-3 shadow-sm border transition-colors duration-150 ease-in-out group", 
+        notification.isRead ? "border-border/50 bg-card/70 hover:bg-muted/50" : "border-primary/30 bg-primary/5 hover:bg-primary/10",
+        "cursor-pointer" // Make the whole card clickable
+      )}
+      onClick={handleItemClick} // Handle click on the card
+    >
       <CardHeader className="p-3 sm:p-4">
         <div className="flex items-start justify-between gap-2">
             <div>
@@ -57,21 +76,21 @@ export function NotificationItem({ notification }: NotificationItemProps) {
                 </CardDescription>
             </div>
             {!notification.isRead && (
-                 <form action={formAction}>
+                 <form action={buttonFormAction} onClick={(e) => e.stopPropagation()} /* Prevent card click */ >
                     <Button
                         type="submit"
                         variant="ghost"
                         size="sm"
-                        className="text-xs"
-                        disabled={isPending}
+                        className="text-xs opacity-70 group-hover:opacity-100 transition-opacity"
+                        disabled={isButtonPending}
                         aria-label="Mark as read"
                     >
-                        {isPending ? 'Marking...' : <><Eye className="mr-1 h-3.5 w-3.5" /> Mark as Read</>}
+                        {isButtonPending ? 'Marking...' : <><Eye className="mr-1 h-3.5 w-3.5" /> Mark as Read</>}
                     </Button>
                  </form>
             )}
             {notification.isRead && (
-                 <span className="text-xs text-muted-foreground flex items-center">
+                 <span className="text-xs text-muted-foreground flex items-center opacity-70 group-hover:opacity-100 transition-opacity">
                     <CheckCircle2 className="mr-1 h-3.5 w-3.5 text-green-500" /> Read
                  </span>
             )}
@@ -79,13 +98,14 @@ export function NotificationItem({ notification }: NotificationItemProps) {
       </CardHeader>
       <CardContent className="p-3 sm:p-4 pt-0 text-sm">
         <p className="text-foreground">
-          <Link href={`/users/${notification.mentionerUsername}`} className="font-semibold text-primary hover:underline">
+          <span className="font-semibold text-primary group-hover:underline">
             {notification.mentionerUsername}
-          </Link>
+          </span>
           {' mentioned you in the topic: '}
-          <Link href={`/topics/${notification.topicId}#post-${notification.postId}`} className="font-semibold text-primary hover:underline">
+          <span className="font-semibold text-primary group-hover:underline">
             {notification.topicTitle}
-          </Link>
+          </span>
+           <ExternalLink className="inline-block h-3 w-3 ml-1 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
         </p>
       </CardContent>
     </Card>

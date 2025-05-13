@@ -4,10 +4,10 @@ import { fetchNotificationsAction, markAllNotificationsReadAction } from '@/lib/
 import { NotificationItem } from './_components/NotificationItem';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { BellOff, CheckCheck } from 'lucide-react';
+import { BellOff, CheckCheck, ExternalLink } from 'lucide-react'; // Added ExternalLink
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { SubmitButton } from '@/components/SubmitButton'; // For form-based "Mark All Read"
+import { SubmitButton } from '@/components/SubmitButton'; 
 
 export const metadata = {
   title: 'Notifications - ForumLite',
@@ -22,26 +22,23 @@ export default async function NotificationsPage() {
   const notifications = await fetchNotificationsAction();
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
-  // Server action to be called by the form
   async function handleMarkAllRead() {
     "use server";
     const result = await markAllNotificationsReadAction();
-    // Revalidation is handled within markAllNotificationsReadAction
     if (!result.success) {
         console.error("Failed to mark all notifications as read:", result.message);
-        // Optionally, you could redirect with an error query param or use a toast if this were a client component.
-        // For a server component, just logging is often sufficient for this kind of feedback.
     }
+    // Revalidation is handled by the action
   }
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <h1 className="text-2xl sm:text-3xl font-bold">Your Notifications</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold">All Notifications</h1>
         {notifications.length > 0 && unreadCount > 0 && (
           <form action={handleMarkAllRead}>
             <SubmitButton variant="outline" size="sm" pendingText="Marking...">
-              <CheckCheck className="mr-2 h-4 w-4" /> Mark All as Read
+              <CheckCheck className="mr-2 h-4 w-4" /> Mark All as Read ({unreadCount})
             </SubmitButton>
           </form>
         )}
@@ -60,7 +57,7 @@ export default async function NotificationsPage() {
               When someone mentions you (e.g., @{user.username}) in a post, you'll see it here.
             </CardDescription>
             <Button asChild className="mt-6">
-              <Link href="/">Go to Homepage</Link>
+              <Link href="/"> <ExternalLink className="mr-2 h-4 w-4" /> Go to Homepage</Link>
             </Button>
           </CardContent>
         </Card>

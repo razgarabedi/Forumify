@@ -1,14 +1,15 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { getCurrentUser, logout } from '@/lib/actions/auth';
-import { getUnreadNotificationCountAction } from '@/lib/actions/notifications'; // Import notification action
-import { LogIn, LogOut, UserPlus, Home, ShieldCheck, Settings, User as UserIcon, Bell } from 'lucide-react'; 
+import { getUnreadNotificationCountAction } from '@/lib/actions/notifications';
+import { LogIn, LogOut, UserPlus, Home, ShieldCheck, Settings, User as UserIcon } from 'lucide-react';
+import { HeaderNotificationDropdown } from './HeaderNotificationDropdown'; // Import the new component
 
 export async function Header() {
   const user = await getCurrentUser();
-  let unreadNotificationCount = 0;
+  let initialUnreadCount = 0;
   if (user) {
-    unreadNotificationCount = await getUnreadNotificationCountAction();
+    initialUnreadCount = await getUnreadNotificationCountAction();
   }
 
   return (
@@ -56,18 +57,8 @@ export async function Header() {
                     <ShieldCheck className="h-3.5 w-3.5 mr-1" /> Admin
                  </span>
              )}
-             {/* Notification Bell */}
-             <Button variant="ghost" size="icon" className="relative h-9 w-9" asChild>
-                 <Link href="/notifications" aria-label="Notifications">
-                    <Bell className="h-5 w-5" />
-                    {unreadNotificationCount > 0 && (
-                        <span className="absolute top-1 right-1 flex h-2 w-2">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
-                        </span>
-                    )}
-                 </Link>
-             </Button>
+             
+             <HeaderNotificationDropdown user={user} initialUnreadCount={initialUnreadCount} />
 
               <span className="text-sm font-medium mr-2 hidden md:inline">
                 Welcome, {user.username}
