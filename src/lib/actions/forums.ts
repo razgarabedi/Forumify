@@ -8,9 +8,13 @@ import {
     createTopic as dbCreateTopic,
     createPost as dbCreatePost,
     updatePost as dbUpdatePost,
-    deletePost as dbDeletePost
+    deletePost as dbDeletePost,
+    findUserByUsername, // Import for mention resolution
+    createNotification, // Import for creating notifications
+    getTopicByIdSimple, // To get topic title for notifications
 } from "@/lib/placeholder-data"; // Using placeholder functions
 import { getCurrentUser } from "./auth";
+import { parseMentions } from "@/lib/utils"; // Import mention parser
 
 // --- Schemas ---
 const CategorySchema = z.object({
@@ -60,8 +64,8 @@ export async function createCategory(prevState: any, formData: FormData) {
 
     try {
         const newCategory = await dbCreateCategory({ name, description });
-        revalidatePath("/"); // Revalidate home page where categories are listed
-        revalidatePath("/admin/categories"); // Revalidate admin page
+        revalidatePath("/"); 
+        revalidatePath("/admin/categories"); 
         return { message: `Category "${newCategory.name}" created successfully.`, success: true };
     } catch (error) {
         console.error("Create Category Error:", error);
@@ -71,7 +75,6 @@ export async function createCategory(prevState: any, formData: FormData) {
 
 // --- Topics ---
 export async function createTopic(prevState: any, formData: FormData) {
-    console.log("[Action createTopic] Received FormData Keys:", Array.from(formData.keys()));
     const user = await getCurrentUser();
     if (!user) {
         return { message: "Unauthorized: You must be logged in to create a topic.", success: false };
@@ -81,12 +84,11 @@ export async function createTopic(prevState: any, formData: FormData) {
         title: formData.get("title"),
         categoryId: formData.get("categoryId"),
         firstPostContent: formData.get("firstPostContent"),
-        firstPostImageUrl: formData.get("firstPostImageUrl") || undefined, // Handle empty string as undefined
+        firstPostImageUrl: formData.get("firstPostImageUrl") || undefined,
     });
 
 
      if (!validatedFields.success) {
-        console.error("[Action createTopic] Validation failed:", validatedFields.error.flatten().fieldErrors);
         return {
             errors: validatedFields.error.flatten().fieldErrors,
             message: "Failed to create topic. Check title, category, and first post content.",
@@ -95,11 +97,8 @@ export async function createTopic(prevState: any, formData: FormData) {
     }
 
     const { title, categoryId, firstPostContent, firstPostImageUrl } = validatedFields.data;
-    console.log("[Action createTopic] Validated Data:", { title, categoryId, firstPostContent: '...', firstPostImageUrl: '...' }); // Avoid logging full content/image
 
     try {
-        // dbCreateTopic now also creates the first post internally in placeholder
-         console.log("[Action createTopic] Calling dbCreateTopic with:", { title, categoryId, authorId: user.id });
         const newTopic = await dbCreateTopic({
             title,
             categoryId,
@@ -107,29 +106,45 @@ export async function createTopic(prevState: any, formData: FormData) {
             firstPostContent,
             firstPostImageUrl: firstPostImageUrl === "" ? undefined : firstPostImageUrl,
         });
-         console.log("[Action createTopic] dbCreateTopic successful, New Topic ID:", newTopic.id);
 
-        // Revalidate paths *before* redirecting
+        // Handle mentions in the first post
+        const mentionedUsernames = parseMentions(firstPostContent);
+        const uniqueMentionedUserIds = new Set<string>();
+
+        if (mentionedUsernames.length > 0) {
+            for (const username of mentionedUsernames) {
+                const mentionedUser = await findUserByUsername(username);
+                if (mentionedUser && mentionedUser.id !== user.id && !uniqueMentionedUserIds.has(mentionedUser.id)) {
+                     // Assuming the first post is always posts[0] after topic creation by dbCreateTopic
+                    const firstPostInTopic = (await getPostsByTopic(newTopic.id))[0];
+                    if (firstPostInTopic) {
+                        await createNotification({
+                            mentionedUserId: mentionedUser.id,
+                            mentionerId: user.id,
+                            mentionerUsername: user.username,
+                            postId: firstPostInTopic.id, 
+                            topicId: newTopic.id,
+                            topicTitle: newTopic.title,
+                        });
+                        uniqueMentionedUserIds.add(mentionedUser.id);
+                    }
+                }
+            }
+        }
+
+
         revalidatePath(`/categories/${categoryId}`);
         revalidatePath('/');
+        revalidatePath('/notifications', 'layout'); // Revalidate notifications for potential new ones
 
-        // If dbCreateTopic and revalidatePath succeed, redirect.
-        // This call throws a NEXT_REDIRECT error internally to signal Next.js
         redirect(`/topics/${newTopic.id}`);
 
     } catch (error: any) {
-        console.error("[Action createTopic] Error during topic creation, revalidation, or redirect:", error);
-
-        // Check if it's the special redirect error. If so, re-throw it.
-        // Next.js redirect() throws an error with a specific digest.
         if (typeof error.digest === 'string' && error.digest.startsWith('NEXT_REDIRECT')) {
-            console.warn("[Action createTopic] Caught NEXT_REDIRECT error, re-throwing for Next.js to handle navigation.");
             throw error;
         }
-
-        // Handle other errors (from dbCreateTopic or revalidatePath)
         let errorMessage = "Database Error: Failed to create topic.";
-        if (error instanceof Error && error.message) { // Check if error.message exists
+        if (error instanceof Error && error.message) {
             errorMessage = `${errorMessage} ${error.message}`;
         }
         return { message: errorMessage, success: false };
@@ -138,31 +153,20 @@ export async function createTopic(prevState: any, formData: FormData) {
 
 // --- Posts ---
 export async function submitPost(prevState: any, formData: FormData) {
-    console.log("[Action submitPost] Received FormData Keys:", Array.from(formData.keys()));
     const user = await getCurrentUser();
     if (!user) {
         return { message: "Unauthorized: You must be logged in to post.", success: false };
     }
 
-    // Log raw values before parsing
-    console.log("[Action submitPost] Raw Form Data:", {
-        content: formData.get("content")?.toString().substring(0, 50) + '...', // Log excerpt
-        topicId: formData.get("topicId"),
-        postId: formData.get("postId"),
-        imageUrl: formData.get("imageUrl")?.toString().substring(0, 50) + '...', // Log excerpt
-        removeImage: formData.get("removeImage"),
-    });
-
     const validatedFields = PostSchema.safeParse({
         content: formData.get("content"),
         topicId: formData.get("topicId"),
-        postId: formData.get("postId") || undefined, // Ensure empty string/null becomes undefined
-        imageUrl: formData.get("imageUrl") || undefined, // Optional: For image, handle empty string
-        removeImage: formData.get("removeImage") || undefined, // Optional flag
+        postId: formData.get("postId") || undefined,
+        imageUrl: formData.get("imageUrl") || undefined,
+        removeImage: formData.get("removeImage") || undefined,
     });
 
     if (!validatedFields.success) {
-         console.error("[Action submitPost] Validation failed:", validatedFields.error.flatten().fieldErrors);
         return {
             errors: validatedFields.error.flatten().fieldErrors,
             message: "Failed to submit post. Check content length.",
@@ -171,45 +175,56 @@ export async function submitPost(prevState: any, formData: FormData) {
     }
 
     const { content, topicId, postId } = validatedFields.data;
-    const finalImageUrl = validatedFields.data.imageUrl === "" ? undefined : validatedFields.data.imageUrl; // Ensure empty string becomes undefined
-    const removeImage = formData.get("removeImage") === "true"; // Ensure boolean conversion is robust
-    console.log("[Action submitPost] Validated Data:", { content: '...', topicId, postId, imageUrl: '...', removeImage }); // Avoid logging full content/image
+    const finalImageUrl = validatedFields.data.imageUrl === "" ? undefined : validatedFields.data.imageUrl;
+    const removeImage = formData.get("removeImage") === "true";
 
     try {
         let savedPost;
         if (postId) {
-            // Editing existing post
-            console.log(`[Action submitPost] Updating post ${postId} for user ${user.id}`);
             savedPost = await dbUpdatePost(postId, content, user.id, removeImage ? null : finalImageUrl);
             if (!savedPost) {
-                 console.error(`[Action submitPost] dbUpdatePost failed for post ${postId}`);
                  return { message: "Error: Failed to update post. Post not found or permission denied.", success: false };
             }
-            console.log(`[Action submitPost] Post ${postId} updated successfully.`);
-            revalidatePath(`/topics/${topicId}`);
-            return { message: "Post updated successfully.", success: true, post: savedPost };
         } else {
-            // Creating new post
-            console.log(`[Action submitPost] Creating new post in topic ${topicId} for user ${user.id}`);
             savedPost = await dbCreatePost({ content, topicId, authorId: user.id, imageUrl: finalImageUrl });
-            console.log(`[Action submitPost] New post created successfully with ID ${savedPost.id}`);
-            revalidatePath(`/topics/${topicId}`); // Revalidate the topic page
-            // Attempt to revalidate category page - needs category ID from topic
-            if (savedPost.topic?.categoryId) {
-                revalidatePath(`/categories/${savedPost.topic.categoryId}`); // Revalidate category page (counts)
-            } else {
-                console.warn("[Action submitPost] Could not revalidate category page - categoryId missing from savedPost.topic");
-            }
-            revalidatePath('/'); // Revalidate home (counts)
-            return { message: "Reply posted successfully.", success: true, post: savedPost }; // Changed message slightly for clarity
         }
+
+        // Handle mentions
+        const mentionedUsernames = parseMentions(savedPost.content);
+        const uniqueMentionedUserIds = new Set<string>();
+        const topicForNotification = await getTopicByIdSimple(topicId);
+
+        if (mentionedUsernames.length > 0 && topicForNotification) {
+            for (const username of mentionedUsernames) {
+                const mentionedUser = await findUserByUsername(username);
+                if (mentionedUser && mentionedUser.id !== user.id && !uniqueMentionedUserIds.has(mentionedUser.id)) {
+                    await createNotification({
+                        mentionedUserId: mentionedUser.id,
+                        mentionerId: user.id,
+                        mentionerUsername: user.username,
+                        postId: savedPost.id,
+                        topicId: topicId,
+                        topicTitle: topicForNotification.title,
+                    });
+                    uniqueMentionedUserIds.add(mentionedUser.id);
+                }
+            }
+        }
+
+        revalidatePath(`/topics/${topicId}`);
+        if (savedPost.topic?.categoryId) {
+            revalidatePath(`/categories/${savedPost.topic.categoryId}`);
+        }
+        revalidatePath('/');
+        revalidatePath('/notifications', 'layout'); // Revalidate notifications page/count in header
+
+        return { message: postId ? "Post updated successfully." : "Reply posted successfully.", success: true, post: savedPost };
 
     } catch (error: any) {
         console.error("[Action submitPost] Error:", error);
         const actionType = postId ? 'update' : 'create';
-        // Provide a clearer message for actual database/validation errors
         let errorMessage = `Database Error: Failed to ${actionType} post.`;
-        if (error instanceof Error && error.message) { // Check if error.message exists
+        if (error instanceof Error && error.message) {
             errorMessage = `${errorMessage} ${error.message}`;
         }
         return { message: errorMessage, success: false };
@@ -219,43 +234,29 @@ export async function submitPost(prevState: any, formData: FormData) {
 export async function deletePost(postId: string, topicId: string): Promise<{success: boolean, message: string}> {
     const user = await getCurrentUser();
      if (!user) {
-        // Although UI should prevent this, add server-side check
-         console.error("[Action deletePost] Unauthorized delete attempt.");
         return { success: false, message: "Unauthorized: You must be logged in to delete posts."};
     }
 
     try {
-        console.log(`[Action deletePost] Deleting post ${postId} in topic ${topicId} by user ${user.id}`);
-        const success = await dbDeletePost(postId, user.id, user.isAdmin ?? false); // Pass isAdmin status
+        const success = await dbDeletePost(postId, user.id, user.isAdmin ?? false);
         if (!success) {
-             console.error(`[Action deletePost] dbDeletePost failed for post ${postId}`);
              return { success: false, message: "Failed to delete post. Post not found or permission denied."};
         }
-        console.log(`[Action deletePost] Post ${postId} deleted successfully.`);
-        revalidatePath(`/topics/${topicId}`); // Revalidate the topic page after deletion
+        revalidatePath(`/topics/${topicId}`); 
 
-        // Fetch topic to get category ID for revalidation
-        const topic = await import('@/lib/placeholder-data').then(mod => mod.getTopicByIdSimple(topicId));
+        const topic = await getTopicByIdSimple(topicId);
         if (topic?.categoryId) {
             revalidatePath(`/categories/${topic.categoryId}`);
-        } else {
-             console.warn(`[Action deletePost] Could not revalidate category page - topic ${topicId} or its categoryId not found.`);
         }
-         revalidatePath('/'); // Revalidate home page potentially
-         revalidatePath('/admin'); // Revalidate admin dashboard counts
+         revalidatePath('/'); 
+         revalidatePath('/admin');
         return { message: "Post deleted successfully.", success: true };
     } catch (error: any) {
-        console.error("[Action deletePost] Error:", error);
         return { success: false, message: (error instanceof Error && error.message) ? error.message : "Database Error: Failed to delete post." };
     }
 }
 
-// Helper function (can be called from Server Components)
 export const getPostsByTopic = async (topicId: string) => {
-    // In a real app, you'd fetch from your actual DB here
-    console.log(`[Action getPostsByTopic] Fetching posts for topic ${topicId}`);
-    const posts = await import('@/lib/placeholder-data').then(mod => mod.getPostsByTopic(topicId));
-     console.log(`[Action getPostsByTopic] Found ${posts.length} posts for topic ${topicId}`);
-    return posts;
+    const postsData = await import('@/lib/placeholder-data').then(mod => mod.getPostsByTopic(topicId));
+    return postsData;
 }
-

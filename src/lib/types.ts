@@ -48,6 +48,19 @@ export type Post = {
   topic?: Topic;   // Optional: include topic details
 };
 
+export type Notification = {
+  id: string;
+  mentionedUserId: string; // User who was mentioned
+  mentionerId: string; // User who made the mention
+  mentionerUsername: string; // Username of the mentioner
+  postId: string; // Post where the mention occurred
+  topicId: string; // Topic of the post
+  topicTitle: string; // Title of the topic for display
+  createdAt: Date;
+  isRead: boolean;
+};
+
+
 // Form state for actions
 export interface ActionResponse {
   success: boolean;

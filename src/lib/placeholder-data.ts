@@ -1,29 +1,30 @@
 
-import type { User, Category, Topic, Post } from './types';
-import { revalidatePath } from 'next/cache';
+import type { User, Category, Topic, Post, Notification } from './types';
 
-// Placeholder Users - Reset to empty
+// Placeholder Users
 let users: User[] = [];
 
 // Placeholder Categories
 let categories: Category[] = [
-  { id: 'cat1', name: 'General Discussion', description: 'Talk about anything.', createdAt: new Date('2023-01-10T09:00:00Z'), topicCount: 0, postCount: 0 }, // Reset counts
-  { id: 'cat2', name: 'Introductions', description: 'Introduce yourself to the community.', createdAt: new Date('2023-01-10T09:05:00Z'), topicCount: 0, postCount: 0 }, // Reset counts
-  { id: 'cat3', name: 'Technical Help', description: 'Get help with technical issues.', createdAt: new Date('2023-01-11T14:00:00Z'), topicCount: 0, postCount: 0 }, // Reset counts
+  { id: 'cat1', name: 'General Discussion', description: 'Talk about anything.', createdAt: new Date('2023-01-10T09:00:00Z'), topicCount: 0, postCount: 0 },
+  { id: 'cat2', name: 'Introductions', description: 'Introduce yourself to the community.', createdAt: new Date('2023-01-10T09:05:00Z'), topicCount: 0, postCount: 0 },
+  { id: 'cat3', name: 'Technical Help', description: 'Get help with technical issues.', createdAt: new Date('2023-01-11T14:00:00Z'), topicCount: 0, postCount: 0 },
 ];
 
-// Placeholder Topics - Reset to empty as users are gone
+// Placeholder Topics
 let topics: Topic[] = [];
 
-// Placeholder Posts - Reset to empty as topics/users are gone
+// Placeholder Posts
 let posts: Post[] = [];
+
+// Placeholder Notifications
+let notifications: Notification[] = [];
 
 // --- Simulation Functions ---
 
 // Fetch Users
 export const getAllUsers = async (): Promise<User[]> => {
-    await new Promise(resolve => setTimeout(resolve, 10)); // Shorter delay
-    // Return a copy to prevent direct modification outside controlled functions
+    await new Promise(resolve => setTimeout(resolve, 10));
     return users.map(user => ({
         ...user,
         postCount: posts.filter(p => p.authorId === user.id).length
@@ -32,23 +33,22 @@ export const getAllUsers = async (): Promise<User[]> => {
 
 
 export const findUserByEmail = async (email: string): Promise<User | null> => {
-  await new Promise(resolve => setTimeout(resolve, 10)); // Shorter delay
+  await new Promise(resolve => setTimeout(resolve, 10));
   const user = users.find(u => u.email === email);
   if (!user) return null;
-  return { ...user, postCount: await getUserPostCount(user.id), lastActive: user.lastActive || user.createdAt }; // Return a copy with postCount
+  return { ...user, postCount: await getUserPostCount(user.id), lastActive: user.lastActive || user.createdAt };
 };
 
 export const findUserById = async (id: string): Promise<User | null> => {
-    await new Promise(resolve => setTimeout(resolve, 10)); // Shorter delay
+    await new Promise(resolve => setTimeout(resolve, 10));
     const user = users.find(u => u.id === id);
     if (!user) return null;
-    return { ...user, postCount: await getUserPostCount(user.id), lastActive: user.lastActive || user.createdAt }; // Return a copy with postCount
+    return { ...user, postCount: await getUserPostCount(user.id), lastActive: user.lastActive || user.createdAt };
 }
 
 export const findUserByUsername = async (username: string): Promise<User | null> => {
     await new Promise(resolve => setTimeout(resolve, 10));
     console.log(`[DB findUserByUsername] Attempting to find user with username: "${username}" (lowercase: "${username.toLowerCase()}")`);
-    console.log(`[DB findUserByUsername] Current users in DB (${users.length}):`, users.map(u => ({id: u.id, username: u.username, lcUsername: u.username.toLowerCase()})));
     const user = users.find(u => u.username.toLowerCase() === username.toLowerCase());
     if (!user) {
         console.warn(`[DB findUserByUsername] User "${username}" NOT FOUND.`);
@@ -59,12 +59,11 @@ export const findUserByUsername = async (username: string): Promise<User | null>
 };
 
 
-// Define the expected structure for userData passed to createUser
 interface CreateUserParams {
     username: string;
     email: string;
-    password?: string; // Password from form
-    isAdmin?: boolean; // Accept isAdmin flag
+    password?: string;
+    isAdmin?: boolean;
     aboutMe?: string;
     location?: string;
     websiteUrl?: string;
@@ -73,27 +72,27 @@ interface CreateUserParams {
 }
 
 export const createUser = async (userData: CreateUserParams): Promise<User> => {
-  await new Promise(resolve => setTimeout(resolve, 50)); // Shorter delay
+  await new Promise(resolve => setTimeout(resolve, 50));
   const now = new Date();
   const newUser: User = {
-    id: `user${Date.now()}-${Math.random().toString(36).substring(2, 7)}`, // More unique ID
+    id: `user${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
     username: userData.username,
     email: userData.email,
-    password: userData.password, // Storing plain text for placeholder
+    password: userData.password,
     isAdmin: userData.isAdmin ?? false,
     createdAt: now,
-    lastActive: now, // Set lastActive on creation
-    aboutMe: userData.aboutMe || `Hello, I'm ${userData.username}!`, // Default about me
+    lastActive: now,
+    aboutMe: userData.aboutMe || `Hello, I'm ${userData.username}!`,
     location: userData.location,
     websiteUrl: userData.websiteUrl,
     socialMediaUrl: userData.socialMediaUrl,
-    signature: userData.signature || `Regards, ${userData.username}`, // Default signature
-    avatarUrl: `https://avatar.vercel.sh/${userData.username}.png?size=128`, // Default avatar
+    signature: userData.signature || `Regards, ${userData.username}`,
+    avatarUrl: `https://avatar.vercel.sh/${userData.username}.png?size=128`,
     postCount: 0,
   };
   users.push(newUser);
   console.log("[DB createUser] Created User:", newUser.id, newUser.username, `isAdmin: ${newUser.isAdmin}`);
-  return { ...newUser }; // Return a copy
+  return { ...newUser };
 };
 
 export const updateUserProfile = async (userId: string, profileData: Partial<Omit<User, 'id' | 'email' | 'password' | 'isAdmin' | 'createdAt' | 'postCount'>>): Promise<User | null> => {
@@ -104,10 +103,8 @@ export const updateUserProfile = async (userId: string, profileData: Partial<Omi
     users[userIndex] = {
         ...users[userIndex],
         ...profileData,
-        lastActive: new Date() // Update last active on profile update
+        lastActive: new Date()
     };
-    revalidatePath(`/users/${users[userIndex].username}`);
-    revalidatePath(`/`); // General revalidation
     return { ...users[userIndex], postCount: await getUserPostCount(userId) };
 };
 
@@ -117,14 +114,12 @@ export const updateUserLastActive = async (userId: string): Promise<void> => {
     const userIndex = users.findIndex(u => u.id === userId);
     if (userIndex !== -1) {
         users[userIndex].lastActive = new Date();
-        // console.log(`[DB updateUserLastActive] Updated lastActive for user ${userId} to ${users[userIndex].lastActive}`);
     }
 };
 
 
-// Admin Actions for Users
 export const setUserAdminStatus = async (userId: string, isAdmin: boolean): Promise<User | null> => {
-    await new Promise(resolve => setTimeout(resolve, 50)); // Shorter delay
+    await new Promise(resolve => setTimeout(resolve, 50));
     const userIndex = users.findIndex(u => u.id === userId);
     if (userIndex === -1) {
         console.error("[DB setUserAdminStatus] Set Admin Status failed: User not found.");
@@ -133,15 +128,13 @@ export const setUserAdminStatus = async (userId: string, isAdmin: boolean): Prom
     users[userIndex].isAdmin = isAdmin;
     users[userIndex].lastActive = new Date();
     console.log(`[DB setUserAdminStatus] Set admin status for user ${userId} to ${isAdmin}`);
-    return { ...users[userIndex], postCount: await getUserPostCount(userId) }; // Return a copy
+    return { ...users[userIndex], postCount: await getUserPostCount(userId) };
 }
 
 export const deleteUser = async (userId: string): Promise<boolean> => {
-    await new Promise(resolve => setTimeout(resolve, 50)); // Shorter delay
+    await new Promise(resolve => setTimeout(resolve, 50));
     const initialLength = users.length;
     users = users.filter(u => u.id !== userId);
-
-     console.log(`[DB deleteUser] User ${userId} deleted. Posts/Topics may remain under original authorId.`);
 
     if (users.length < initialLength) {
         console.log(`[DB deleteUser] User ${userId} successfully deleted.`);
@@ -155,7 +148,7 @@ export const deleteUser = async (userId: string): Promise<boolean> => {
 
 // Fetch Categories
 export const getCategories = async (): Promise<Category[]> => {
-  await new Promise(resolve => setTimeout(resolve, 20)); // Shorter delay
+  await new Promise(resolve => setTimeout(resolve, 20));
    return categories.map(cat => ({
     ...cat,
     topicCount: topics.filter(t => t.categoryId === cat.id).length,
@@ -164,7 +157,7 @@ export const getCategories = async (): Promise<Category[]> => {
 };
 
 export const getCategoryById = async (id: string): Promise<Category | null> => {
-    await new Promise(resolve => setTimeout(resolve, 10)); // Shorter delay
+    await new Promise(resolve => setTimeout(resolve, 10));
     const category = categories.find(c => c.id === id);
     if (!category) return null;
     return {
@@ -175,7 +168,7 @@ export const getCategoryById = async (id: string): Promise<Category | null> => {
 }
 
 export const createCategory = async (categoryData: Omit<Category, 'id' | 'createdAt' | 'topicCount' | 'postCount'>): Promise<Category> => {
-    await new Promise(resolve => setTimeout(resolve, 50)); // Shorter delay
+    await new Promise(resolve => setTimeout(resolve, 50));
     const newCategory: Category = {
         ...categoryData,
         id: `cat${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
@@ -189,7 +182,7 @@ export const createCategory = async (categoryData: Omit<Category, 'id' | 'create
 }
 
 export const updateCategory = async (categoryId: string, data: { name: string; description?: string }): Promise<Category | null> => {
-    await new Promise(resolve => setTimeout(resolve, 50)); // Shorter delay
+    await new Promise(resolve => setTimeout(resolve, 50));
     const catIndex = categories.findIndex(c => c.id === categoryId);
     if (catIndex === -1) {
         console.error("[DB updateCategory] Update Category failed: Category not found.");
@@ -201,7 +194,7 @@ export const updateCategory = async (categoryId: string, data: { name: string; d
 }
 
 export const deleteCategory = async (categoryId: string): Promise<boolean> => {
-    await new Promise(resolve => setTimeout(resolve, 50)); // Shorter delay
+    await new Promise(resolve => setTimeout(resolve, 50));
     const initialLength = categories.length;
     const topicsToDelete = topics.filter(t => t.categoryId === categoryId).map(t => t.id);
     categories = categories.filter(c => c.id !== categoryId);
@@ -227,7 +220,7 @@ export const getTopicsByCategory = async (categoryId: string): Promise<Topic[]> 
 
   return Promise.all(categoryTopics.map(async topic => {
     const author = await findUserById(topic.authorId);
-    return { ...topic, author, postCount: await getUserPostCount(topic.authorId) };
+    return { ...topic, author, postCount: posts.filter(p => p.topicId === topic.id).length };
   }));
 };
 
@@ -262,13 +255,13 @@ export const createTopic = async (topicData: CreateTopicParams): Promise<Topic> 
         id: `topic${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
         createdAt: now,
         lastActivity: now,
-        postCount: 1,
+        postCount: 0, // Will be incremented by createPost
     };
     topics.push(newTopic);
     console.log("[DB createTopic] Created Topic:", newTopic.id, newTopic.title);
     await updateUserLastActive(topicData.authorId);
 
-    await createPost({
+    await createPost({ // This will increment postCount on topic and category
         content: topicData.firstPostContent,
         topicId: newTopic.id,
         authorId: topicData.authorId,
@@ -279,8 +272,10 @@ export const createTopic = async (topicData: CreateTopicParams): Promise<Topic> 
      if (catIndex !== -1) {
         categories[catIndex].topicCount = (categories[catIndex].topicCount || 0) + 1;
     }
-
-    return { ...newTopic };
+    
+    // Fetch the topic again to get updated postCount from createPost
+    const finalTopic = await getTopicById(newTopic.id);
+    return finalTopic || { ...newTopic, postCount: 1 }; // Fallback if somehow not found
 }
 
 // Fetch Posts
@@ -289,7 +284,8 @@ export const getPostsByTopic = async (topicId: string): Promise<Post[]> => {
   const topicPosts = posts.filter(p => p.topicId === topicId).sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
   return Promise.all(topicPosts.map(async post => {
     const author = await findUserById(post.authorId);
-    return { ...post, author };
+    const topic = await getTopicByIdSimple(post.topicId); // Get simple topic for context
+    return { ...post, author, topic: topic ?? undefined };
   }));
 };
 
@@ -331,7 +327,7 @@ export const createPost = async (postData: CreatePostParams): Promise<Post> => {
     }
 
     const author = await findUserById(newPost.authorId);
-    const topic = await getTopicById(newPost.topicId);
+    const topic = await getTopicByIdSimple(newPost.topicId);
     return { ...newPost, author: author ?? undefined, topic: topic ?? undefined };
 };
 
@@ -354,15 +350,16 @@ export const updatePost = async (postId: string, content: string, userId: string
     await updateUserLastActive(userId);
 
     post.content = content;
-    if (imageUrl === null) {
+    if (imageUrl === null) { // Explicitly remove
         delete post.imageUrl;
-    } else if (imageUrl !== undefined) {
+    } else if (imageUrl !== undefined) { // Set or update
         post.imageUrl = imageUrl;
     }
+    // If imageUrl is undefined, do nothing (keep existing)
 
     post.updatedAt = new Date();
     const author = await findUserById(post.authorId);
-    const topic = await getTopicById(post.topicId);
+    const topic = await getTopicByIdSimple(post.topicId);
     return { ...post, author: author ?? undefined, topic: topic ?? undefined };
 };
 
@@ -415,4 +412,54 @@ export const getTotalTopicCount = async (): Promise<number> => {
 export const getTotalPostCount = async (): Promise<number> => {
     await new Promise(resolve => setTimeout(resolve, 5));
     return posts.length;
+};
+
+// --- Notification Functions ---
+export const createNotification = async (data: Omit<Notification, 'id' | 'createdAt' | 'isRead'>): Promise<Notification> => {
+    await new Promise(resolve => setTimeout(resolve, 10));
+    const newNotification: Notification = {
+        ...data,
+        id: `notif${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+        createdAt: new Date(),
+        isRead: false,
+    };
+    notifications.push(newNotification);
+    console.log(`[DB createNotification] Created Notification for ${data.mentionedUserId} by ${data.mentionerUsername}`);
+    return { ...newNotification };
+};
+
+export const getNotificationsByUserId = async (userId: string): Promise<Notification[]> => {
+    await new Promise(resolve => setTimeout(resolve, 10));
+    return notifications
+        .filter(n => n.mentionedUserId === userId)
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()); // Newest first
+};
+
+export const getUnreadNotificationCount = async (userId: string): Promise<number> => {
+    await new Promise(resolve => setTimeout(resolve, 5));
+    return notifications.filter(n => n.mentionedUserId === userId && !n.isRead).length;
+};
+
+export const markNotificationAsRead = async (notificationId: string, userId: string): Promise<boolean> => {
+    await new Promise(resolve => setTimeout(resolve, 10));
+    const notificationIndex = notifications.findIndex(n => n.id === notificationId && n.mentionedUserId === userId);
+    if (notificationIndex !== -1) {
+        notifications[notificationIndex].isRead = true;
+        console.log(`[DB markNotificationAsRead] Marked notification ${notificationId} as read for user ${userId}`);
+        return true;
+    }
+    return false;
+};
+
+export const markAllNotificationsAsRead = async (userId: string): Promise<boolean> => {
+    await new Promise(resolve => setTimeout(resolve, 10));
+    let markedAny = false;
+    notifications.forEach(n => {
+        if (n.mentionedUserId === userId && !n.isRead) {
+            n.isRead = true;
+            markedAny = true;
+        }
+    });
+    if (markedAny) console.log(`[DB markAllNotificationsAsRead] Marked all unread notifications as read for user ${userId}`);
+    return markedAny;
 };
