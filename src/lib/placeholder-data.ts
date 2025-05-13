@@ -1,3 +1,4 @@
+
 import type { User, Category, Topic, Post } from './types';
 import { revalidatePath } from 'next/cache';
 
@@ -46,8 +47,14 @@ export const findUserById = async (id: string): Promise<User | null> => {
 
 export const findUserByUsername = async (username: string): Promise<User | null> => {
     await new Promise(resolve => setTimeout(resolve, 10));
+    console.log(`[DB findUserByUsername] Attempting to find user with username: "${username}" (lowercase: "${username.toLowerCase()}")`);
+    console.log(`[DB findUserByUsername] Current users in DB (${users.length}):`, users.map(u => ({id: u.id, username: u.username, lcUsername: u.username.toLowerCase()})));
     const user = users.find(u => u.username.toLowerCase() === username.toLowerCase());
-    if (!user) return null;
+    if (!user) {
+        console.warn(`[DB findUserByUsername] User "${username}" NOT FOUND.`);
+        return null;
+    }
+    console.log(`[DB findUserByUsername] User "${username}" FOUND. ID: ${user.id}`);
     return { ...user, postCount: await getUserPostCount(user.id), lastActive: user.lastActive || user.createdAt };
 };
 

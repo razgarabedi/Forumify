@@ -1,3 +1,4 @@
+
 import { findUserByUsername, getUserPostCount } from '@/lib/placeholder-data';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -23,11 +24,15 @@ export async function generateMetadata({ params }: UserProfilePageProps) {
 
 export default async function UserProfilePage({ params }: UserProfilePageProps) {
   const viewingUser = await getCurrentUser();
+  console.log(`[UserProfilePage] Attempting to fetch profile for username: "${params.username}"`);
   const profileUser = await findUserByUsername(params.username);
 
   if (!profileUser) {
+    console.error(`[UserProfilePage] User not found for username "${params.username}". Rendering 404 page.`);
     notFound();
   }
+  console.log(`[UserProfilePage] Successfully fetched profileUser: ${profileUser.id} - ${profileUser.username}`);
+
 
   // Ensure postCount is a number, default to 0 if undefined
   const postCount = profileUser.postCount ?? 0;
