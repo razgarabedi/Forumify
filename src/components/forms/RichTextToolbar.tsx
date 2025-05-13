@@ -135,37 +135,37 @@ export function RichTextToolbar({ textareaRef, onContentChange, currentContent }
 
     return (
         <div className="flex flex-wrap items-center gap-1 p-2 border border-input rounded-t-md bg-background sticky top-0 z-10">
-             <Button variant="outline" size="icon" className="h-7 w-7" title="Bold (Ctrl+B)" onClick={() => insertText('**', 'bold text', '**')}>
+             <Button type="button" variant="outline" size="icon" className="h-7 w-7" title="Bold (Ctrl+B)" onClick={() => insertText('**', 'bold text', '**')}>
                 <Bold className="h-4 w-4" />
             </Button>
-            <Button variant="outline" size="icon" className="h-7 w-7" title="Italic (Ctrl+I)" onClick={() => insertText('*', 'italic text', '*')}>
+            <Button type="button" variant="outline" size="icon" className="h-7 w-7" title="Italic (Ctrl+I)" onClick={() => insertText('*', 'italic text', '*')}>
                 <Italic className="h-4 w-4" />
             </Button>
-             <Button variant="outline" size="icon" className="h-7 w-7" title="Strikethrough" onClick={() => insertText('~~', 'strikethrough text', '~~')}>
+             <Button type="button" variant="outline" size="icon" className="h-7 w-7" title="Strikethrough" onClick={() => insertText('~~', 'strikethrough text', '~~')}>
                 <Strikethrough className="h-4 w-4" />
             </Button>
-             <Button variant="outline" size="icon" className="h-7 w-7" title="Link (Ctrl+K)" onClick={handleInsertLink}>
+             <Button type="button" variant="outline" size="icon" className="h-7 w-7" title="Link (Ctrl+K)" onClick={handleInsertLink}>
                 <LinkIcon className="h-4 w-4" />
             </Button>
-             <Button variant="outline" size="icon" className="h-7 w-7" title="Image" onClick={handleInsertImage}>
+             <Button type="button" variant="outline" size="icon" className="h-7 w-7" title="Image" onClick={handleInsertImage}>
                 <ImageIcon className="h-4 w-4" />
             </Button>
-             <Button variant="outline" size="icon" className="h-7 w-7" title="Blockquote" onClick={() => insertText('> ', 'quoted text', '', true)}>
+             <Button type="button" variant="outline" size="icon" className="h-7 w-7" title="Blockquote" onClick={() => insertText('> ', 'quoted text', '', true)}>
                 <Quote className="h-4 w-4" />
             </Button>
-             <Button variant="outline" size="icon" className="h-7 w-7" title="Code" onClick={() => insertText('`', 'code', '`')}>
+             <Button type="button" variant="outline" size="icon" className="h-7 w-7" title="Code" onClick={() => insertText('`', 'code', '`')}>
                 <Code className="h-4 w-4" />
             </Button>
-             <Button variant="outline" size="icon" className="h-7 w-7" title="Bulleted List" onClick={() => insertList('-')}>
+             <Button type="button" variant="outline" size="icon" className="h-7 w-7" title="Bulleted List" onClick={() => insertList('-')}>
                 <List className="h-4 w-4" />
             </Button>
-            <Button variant="outline" size="icon" className="h-7 w-7" title="Numbered List" onClick={() => insertList('1.')}>
+            <Button type="button" variant="outline" size="icon" className="h-7 w-7" title="Numbered List" onClick={() => insertList('1.')}>
                 <ListOrdered className="h-4 w-4" />
             </Button>
 
             <Popover>
                 <PopoverTrigger asChild>
-                    <Button variant="outline" size="icon" className="h-7 w-7" title="Emoji">
+                    <Button type="button" variant="outline" size="icon" className="h-7 w-7" title="Emoji">
                         <SmilePlus className="h-4 w-4" />
                     </Button>
                 </PopoverTrigger>
