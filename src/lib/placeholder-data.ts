@@ -628,48 +628,46 @@ export const getConversationById = async (conversationId: string): Promise<Conve
 };
 
 // Fallback data initialization if DATABASE_URL is not set and db.ts fails to initialize fully
+// This section is important if db.ts initialization fails or DATABASE_URL is not provided
+// This ensures the app can still run with placeholder data.
 if (!process.env.DATABASE_URL && users.length === 0 && categories.length === 0) {
-    console.log("DATABASE_URL not set, initializing placeholder data with defaults.");
-    // Initialize default users if users array is empty
-    const adminUser = {
-        id: 'admin-user-placeholder',
-        username: "admin",
-        email: "admin@forumlite.com",
+    console.warn("DATABASE_URL not set OR db.ts initialization failed. Initializing placeholder data with defaults for fallback.");
+    
+    const adminUserPlaceholder: User = {
+        id: 'admin-user-placeholder-fallback',
+        username: "admin_fallback",
+        email: "admin_fallback@forumlite.com",
         password: "password123",
         isAdmin: true,
         createdAt: new Date('2023-01-01T10:00:00Z'),
         lastActive: new Date(),
-        aboutMe: "Default administrator account for placeholder data.",
+        aboutMe: "Default administrator account for placeholder data (fallback).",
         points: 0,
         postCount: 0,
-        avatarUrl: 'https://avatar.vercel.sh/admin.png?size=128',
+        avatarUrl: 'https://avatar.vercel.sh/admin_fallback.png?size=128',
     };
-    users = [adminUser];
+    users = [adminUserPlaceholder];
 
-    // Initialize default categories if categories array is empty
-    const generalCatData = { id: 'cat1-placeholder', name: 'General Discussion', description: 'Talk about anything placeholder.', createdAt: new Date('2023-01-10T09:00:00Z') };
-    const introCatData = { id: 'cat2-placeholder', name: 'Introductions', description: 'Introduce yourself (placeholder).', createdAt: new Date('2023-01-10T09:05:00Z') };
-    const techCatData = { id: 'cat3-placeholder', name: 'Technical Help', description: 'Get help with tech (placeholder).', createdAt: new Date('2023-01-11T14:00:00Z') };
-    categories = [generalCatData, introCatData, techCatData];
+    const generalCatData: Omit<Category, 'topicCount' | 'postCount' | 'lastPost'> = { id: 'cat1-placeholder-fallback', name: 'General Discussion (Fallback)', description: 'Talk about anything (fallback).', createdAt: new Date('2023-01-10T09:00:00Z') };
+    categories = [generalCatData];
     
-    // Initialize default topics and posts if topics array is empty
-    const welcomeTopic: Topic = {
-        id: 'topic1-placeholder',
-        title: "Welcome to ForumLite (Placeholder)",
+    const welcomeTopicPlaceholder: Topic = {
+        id: 'topic1-placeholder-fallback',
+        title: "Welcome to ForumLite (Fallback)",
         categoryId: generalCatData.id,
-        authorId: adminUser.id,
+        authorId: adminUserPlaceholder.id,
         createdAt: new Date('2023-01-10T10:00:00Z'),
         lastActivity: new Date('2023-01-10T10:05:00Z'),
         postCount: 1,
     };
-    topics = [welcomeTopic];
+    topics = [welcomeTopicPlaceholder];
     posts = [{
-        id: 'post1-placeholder',
-        content: "This is the first post in the placeholder topic.",
-        topicId: welcomeTopic.id,
-        authorId: adminUser.id,
+        id: 'post1-placeholder-fallback',
+        content: "This is the first post in the fallback placeholder topic.",
+        topicId: welcomeTopicPlaceholder.id,
+        authorId: adminUserPlaceholder.id,
         createdAt: new Date('2023-01-10T10:00:00Z'),
         reactions: [],
     }];
-    console.log("Placeholder data initialized with defaults because DATABASE_URL was not set.");
+    console.log("Placeholder data initialized with defaults as a fallback measure.");
 }

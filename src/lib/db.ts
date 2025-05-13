@@ -191,8 +191,8 @@ export const setUserAdminStatus = async (userId: string, isAdmin: boolean): Prom
 };
 
 export const deleteUser = async (userId: string): Promise<boolean> => {
-  // Consider related data: set posts.author_id to NULL, delete notifications, PMs etc.
-  const client = await pool.connect(); // Check if pool is defined before connecting
+  if (!pool) throw new Error('Database pool not initialized.');
+  const client = await pool.connect(); 
   try {
     await client.query('BEGIN');
     await client.query('UPDATE posts SET author_id = NULL WHERE author_id = $1', [userId]);
@@ -956,31 +956,56 @@ async function initializeDatabase() {
     
     if (usersCount === 0) {
         console.log("No users found, creating initial admin user...");
-        const adminUserData = await createUser({
-            username: "admin",
-            email: "admin@forumlite.com",
-            password: "password123", // TODO: Use a strong, hashed password
-            isAdmin: true,
-            lastActive: new Date(),
-            aboutMe: "Default administrator account.",
-        });
-        const generalCat = await createCategory({name: 'General Discussion', description: 'Talk about anything.'});
-        await createCategory({name: 'Introductions', description: 'Introduce yourself to the community.'});
-        const techCat = await createCategory({name: 'Technical Help', description: 'Get help with technical issues.'});
+        // Check if admin user already exists (shouldn't if usersCount is 0, but good practice)
+        const existingAdmin = await findUserByUsername("admin");
+        let adminUserData: User | null = existingAdmin;
+
+        if (!adminUserData) {
+             adminUserData = await createUser({
+                username: "admin",
+                email: "admin@forumlite.com",
+                password: "password123", 
+                isAdmin: true,
+                lastActive: new Date(),
+                aboutMe: "Default administrator account.",
+            });
+        }
         
-        if (adminUserData) { // Ensure adminUser was created
-            await createTopic({
-                title: "Welcome to ForumLite!",
-                categoryId: generalCat.id,
-                authorId: adminUserData.id,
-                firstPostContent: "This is the first topic on ForumLite. Feel free to look around and start discussions!"
-            });
-            await createTopic({
-                title: "Having trouble with your PC?",
-                categoryId: techCat.id,
-                authorId: adminUserData.id,
-                firstPostContent: "Post your technical issues here and the community might be able to help."
-            });
+        // Check and create default categories
+        let generalCat = await getCategoryByName("General Discussion");
+        if (!generalCat) {
+            generalCat = await createCategory({name: 'General Discussion', description: 'Talk about anything.'});
+        }
+        let introCat = await getCategoryByName("Introductions");
+        if(!introCat){
+            introCat = await createCategory({name: 'Introductions', description: 'Introduce yourself to the community.'});
+        }
+        let techCat = await getCategoryByName("Technical Help");
+        if(!techCat){
+            techCat = await createCategory({name: 'Technical Help', description: 'Get help with technical issues.'});
+        }
+        
+        // Check and create default topics (only if admin and categories exist)
+        if (adminUserData && generalCat && techCat) {
+            const welcomeTopicExists = await getTopicByTitleAndCategory("Welcome to ForumLite!", generalCat.id);
+            if (!welcomeTopicExists) {
+                await createTopic({
+                    title: "Welcome to ForumLite!",
+                    categoryId: generalCat.id,
+                    authorId: adminUserData.id,
+                    firstPostContent: "This is the first topic on ForumLite. Feel free to look around and start discussions!"
+                });
+            }
+
+            const techTopicExists = await getTopicByTitleAndCategory("Having trouble with your PC?", techCat.id);
+            if (!techTopicExists) {
+                await createTopic({
+                    title: "Having trouble with your PC?",
+                    categoryId: techCat.id,
+                    authorId: adminUserData.id,
+                    firstPostContent: "Post your technical issues here and the community might be able to help."
+                });
+            }
         }
     }
 
@@ -992,6 +1017,30 @@ async function initializeDatabase() {
     client.release();
   }
 }
+
+// Helper function to get category by name (used in initialization)
+const getCategoryByName = async (name: string): Promise<Category | null> => {
+  const result = await query('SELECT * FROM categories WHERE name = $1', [name]);
+  if (result.rows.length === 0) return null;
+  const row = result.rows[0];
+   return {
+      id: row.id,
+      name: row.name,
+      description: row.description,
+      createdAt: new Date(row.created_at),
+      // Counts and lastPost are not critical for this check, so set to defaults
+      topicCount: 0, 
+      postCount: 0,  
+      lastPost: null,
+  };
+};
+
+// Helper function to get topic by title and category (used in initialization)
+const getTopicByTitleAndCategory = async (title: string, categoryId: string): Promise<Topic | null> => {
+  const result = await query('SELECT * FROM topics WHERE title = $1 AND category_id = $2', [title, categoryId]);
+  return result.rows.length > 0 ? result.rows[0] : null;
+};
+
 
 // Call initialization once when the module loads
 // Ensure pool is defined before calling initializeDatabase
