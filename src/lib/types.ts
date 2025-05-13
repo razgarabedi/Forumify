@@ -5,6 +5,14 @@ export type User = {
   password?: string; // Add optional password for placeholder data
   isAdmin?: boolean; // Flag for admin users
   createdAt: Date;
+  aboutMe?: string;
+  location?: string;
+  websiteUrl?: string;
+  socialMediaUrl?: string; // Generic, could be expanded
+  signature?: string;
+  lastActive?: Date;
+  avatarUrl?: string; // For custom avatar uploads, or keep using Vercel Avatars
+  postCount?: number; // Denormalized, can be calculated
 };
 
 export type Category = {
@@ -40,3 +48,10 @@ export type Post = {
   topic?: Topic;   // Optional: include topic details
 };
 
+// Form state for actions
+export interface ActionResponse {
+  success: boolean;
+  message: string;
+  errors?: Record<string, string[]>;
+  [key: string]: any; // Allow other properties like 'user' or 'topicId'
+}

@@ -1,17 +1,15 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { getCurrentUser, logout } from '@/lib/actions/auth';
-import { LogIn, LogOut, UserPlus, Home, ShieldCheck, Settings } from 'lucide-react'; // Added Settings for Admin
+import { LogIn, LogOut, UserPlus, Home, ShieldCheck, Settings, User as UserIcon } from 'lucide-react'; // Added UserIcon
 
 export async function Header() {
   const user = await getCurrentUser();
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      {/* Adjusted container padding */}
       <div className="container flex h-14 max-w-5xl items-center px-4 sm:px-6 lg:px-8">
         <Link href="/" className="mr-6 flex items-center space-x-2">
-          {/* Simplified Logo SVG */}
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6 text-primary">
              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
           </svg>
@@ -34,7 +32,15 @@ export async function Header() {
                 <span className="hidden sm:inline">Admin</span>
               </Link>
            )}
-           {/* Add more nav links here if needed */}
+           {user && (
+             <Link
+                href={`/users/${user.username}`}
+                className="transition-colors hover:text-primary text-foreground/80 flex items-center gap-1"
+             >
+                <UserIcon className="h-4 w-4" />
+                <span className="hidden sm:inline">My Profile</span>
+             </Link>
+           )}
         </nav>
 
         <div className="flex flex-shrink-0 items-center justify-end space-x-2">
@@ -45,7 +51,6 @@ export async function Header() {
                     <ShieldCheck className="h-3.5 w-3.5 mr-1" /> Admin
                  </span>
              )}
-              {/* Hide username on small screens */}
               <span className="text-sm font-medium mr-2 hidden md:inline">
                 Welcome, {user.username}
               </span>

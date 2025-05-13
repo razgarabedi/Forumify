@@ -27,6 +27,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm'; // For GitHub Flavored Markdown (tables, strikethrough, etc.)
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'; // Example syntax highlighter
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism'; // Example style
+import Link from 'next/link'; // Import Link
 
 interface PostProps {
     post: PostType;
@@ -34,9 +35,6 @@ interface PostProps {
     onEdit: (post: PostType) => void;
     isFirstPost?: boolean;
 }
-
-// Helper function to check if URL is likely an image
-const isImageUrl = (url: string) => /\.(jpeg|jpg|gif|png|webp)(\?.*)?$/i.test(url);
 
 // Helper function to extract YouTube video ID from URL
 const getYouTubeVideoId = (url: string): string | null => {
@@ -47,7 +45,7 @@ const getYouTubeVideoId = (url: string): string | null => {
 
 export function Post({ post, currentUser, onEdit, isFirstPost = false }: PostProps) {
     const { toast } = useToast();
-    const [isDeleting, setIsDeleting] = useState(false); // Add loading state for delete
+    const [isDeleting, setIsDeleting] = useState(false);
 
     const isAuthor = currentUser?.id === post.authorId;
     const canEditDelete = isAuthor || currentUser?.isAdmin;
@@ -58,7 +56,6 @@ export function Post({ post, currentUser, onEdit, isFirstPost = false }: PostPro
             const result = await deletePost(post.id, post.topicId);
             if (result.success) {
                 toast({ title: "Success", description: "Post deleted successfully." });
-                // Revalidation is handled by the action, parent component might need update if posts are stateful
             } else {
                  throw new Error(result.message || "Failed to delete post.");
             }
@@ -79,14 +76,19 @@ export function Post({ post, currentUser, onEdit, isFirstPost = false }: PostPro
              isFirstPost && "border-primary/30 bg-primary/5"
          )}>
             <CardHeader className="flex flex-row items-start space-x-4 p-3 sm:p-4 bg-card border-b">
-                <Avatar className="h-10 w-10 border flex-shrink-0">
-                     <AvatarImage src={`https://avatar.vercel.sh/${post.author?.username || post.authorId}.png?size=40`} alt={post.author?.username} data-ai-hint="user avatar"/>
-                    <AvatarFallback>{post.author?.username?.charAt(0)?.toUpperCase() || 'U'}</AvatarFallback>
-                </Avatar>
+                <Link href={`/users/${post.author?.username}`} className="flex-shrink-0 block" title={`View ${post.author?.username}'s profile`}>
+                    <Avatar className="h-10 w-10 border">
+                         <AvatarImage src={post.author?.avatarUrl || `https://avatar.vercel.sh/${post.author?.username || post.authorId}.png?size=40`} alt={post.author?.username} data-ai-hint="user avatar"/>
+                        <AvatarFallback>{post.author?.username?.charAt(0)?.toUpperCase() || 'U'}</AvatarFallback>
+                    </Avatar>
+                </Link>
                 <div className="flex-1 min-w-0">
                     <div className="flex items-center flex-wrap gap-x-2">
                         <CardTitle className="text-sm font-semibold flex items-center gap-1">
-                        <UserCircle className="h-4 w-4 text-muted-foreground"/> {post.author?.username || 'Unknown User'}
+                            <UserCircle className="h-4 w-4 text-muted-foreground"/>
+                            <Link href={`/users/${post.author?.username}`} className="hover:underline" title={`View ${post.author?.username}'s profile`}>
+                                {post.author?.username || 'Unknown User'}
+                            </Link>
                         </CardTitle>
                         {post.author?.isAdmin && (
                              <span className="text-xs font-bold text-destructive flex items-center gap-1">
@@ -98,7 +100,7 @@ export function Post({ post, currentUser, onEdit, isFirstPost = false }: PostPro
                        <span className="flex items-center gap-1">
                             <Clock className="h-3 w-3"/> Posted: {formatDistanceToNow(new Date(post.createdAt), { addSuffix: true })}
                        </span>
-                        {post.updatedAt && post.updatedAt.getTime() !== post.createdAt.getTime() && (
+                        {post.updatedAt && new Date(post.updatedAt).getTime() !== new Date(post.createdAt).getTime() && (
                              <span className="flex items-center gap-1"><Edit className="h-3 w-3"/> Edited: {formatDistanceToNow(new Date(post.updatedAt), { addSuffix: true })}</span>
                         )}
                     </CardDescription>
@@ -144,54 +146,43 @@ export function Post({ post, currentUser, onEdit, isFirstPost = false }: PostPro
                         <Image
                             src={post.imageUrl}
                             alt="User uploaded image"
-                            width={600} // Adjusted size
-                            height={400} // Adjusted size
+                            width={600}
+                            height={400}
                             className="rounded-md shadow-md object-contain w-full h-auto max-h-[500px]"
                         />
                     </div>
                 )}
-                 {/* Markdown Renderer */}
                 <article className="prose prose-sm dark:prose-invert max-w-none break-words">
                     <ReactMarkdown
-                        remarkPlugins={[remarkGfm]} // Enable GitHub Flavored Markdown (tables, strikethrough, etc.)
+                        remarkPlugins={[remarkGfm]}
                         components={{
-                             // Basic styling for links
                             a: ({node, ...props}) => (
                                 <a {...props} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline inline-flex items-center gap-1">
                                     {props.children}
-                                    {/* Optional: Add external link icon */}
-                                    {/* <LinkIcon className="h-3 w-3 opacity-70" /> */}
                                 </a>
                             ),
-                             // Handle images within markdown (e.g., ![alt](url))
                             img: ({node, ...props}) => (
-                                <span className="block text-center my-4"> {/* Center images */}
+                                <span className="block text-center my-4">
                                     <Image
-                                        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
                                         src={props.src!}
-                                        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
                                         alt={props.alt!}
-                                        width={500} // Default width
-                                        height={300} // Default height
+                                        width={500}
+                                        height={300}
                                         className="max-w-full h-auto inline-block rounded-md shadow-sm border"
-                                        onError={(e) => (e.currentTarget.style.display = 'none')} // Hide if link broken
-                                        unoptimized={!props.src?.startsWith('data:image')} // Optimize only data URIs if needed
+                                        onError={(e) => (e.currentTarget.style.display = 'none')}
+                                        unoptimized={!props.src?.startsWith('data:image')}
                                         data-ai-hint="embedded image"
                                     />
-                                     {/* Optional: Display alt text as caption */}
                                      {props.alt && <em className="text-xs text-muted-foreground block mt-1">{props.alt}</em>}
                                 </span>
                             ),
-                            // Override p tags to check for lone YouTube links
                             p: ({ node, children, ...props }) => {
-                                // Check if the paragraph contains only a single child which is a link
                                 if (node.children.length === 1 && node.children[0].type === 'element' && node.children[0].tagName === 'a') {
                                     const linkNode = node.children[0];
                                     const href = linkNode.properties?.href as string | undefined;
                                     if (href) {
                                         const videoId = getYouTubeVideoId(href);
                                         if (videoId) {
-                                            // Render YouTube embed instead of the paragraph
                                             return (
                                                 <div className="my-4 aspect-video max-w-xl mx-auto">
                                                     <iframe
@@ -210,16 +201,13 @@ export function Post({ post, currentUser, onEdit, isFirstPost = false }: PostPro
                                         }
                                     }
                                 }
-                                // Render as normal paragraph if not a lone YouTube link
                                 return <p {...props}>{children}</p>;
                             },
-                             // Example: Basic code block highlighting
-                             // You might need to install react-syntax-highlighter: npm install react-syntax-highlighter @types/react-syntax-highlighter
                             code({ node, inline, className, children, ...props }: any) {
                                 const match = /language-(\w+)/.exec(className || '');
                                 return !inline && match ? (
                                 <SyntaxHighlighter
-                                    style={oneDark} // Choose a style
+                                    style={oneDark}
                                     language={match[1]}
                                     PreTag="div"
                                     {...props}
@@ -232,13 +220,11 @@ export function Post({ post, currentUser, onEdit, isFirstPost = false }: PostPro
                                 </code>
                                 );
                             },
-                            // Customize other elements as needed (e.g., blockquote, lists)
                             blockquote: ({node, ...props}) => <blockquote className="border-l-4 border-border pl-4 italic my-4 text-muted-foreground" {...props} />,
                             ul: ({node, ...props}) => <ul className="list-disc list-inside my-2 space-y-1" {...props} />,
                             ol: ({node, ...props}) => <ol className="list-decimal list-inside my-2 space-y-1" {...props} />,
                             li: ({node, ...props}) => <li className="pl-2" {...props} />,
                             }}
-
                     >
                         {post.content}
                     </ReactMarkdown>
