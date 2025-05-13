@@ -5,7 +5,7 @@ import type { Post as PostType, User } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from '@/components/ui/button';
-import { Edit, Trash2, Clock, UserCircle, ShieldCheck, Link as LinkIcon } from 'lucide-react';
+import { Edit, Trash2, Clock, UserCircle, ShieldCheck } from 'lucide-react'; // Removed LinkIcon as it's not used here
 import { formatDistanceToNow } from 'date-fns';
 import { deletePost } from '@/lib/actions/forums';
 import {
@@ -22,12 +22,14 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
-import React, { useState } from 'react';
+import React, { useState } from 'react'; // Ensure React is imported
 import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm'; // For GitHub Flavored Markdown (tables, strikethrough, etc.)
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'; // Example syntax highlighter
-import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism'; // Example style
-import Link from 'next/link'; // Import Link
+import remarkGfm from 'remark-gfm';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import Link from 'next/link'; // Import Link from next/link
+import type { CodeProps } from 'react-markdown/lib/ast-to-react';
+
 
 interface PostProps {
     post: PostType;
@@ -156,27 +158,8 @@ export function Post({ post, currentUser, onEdit, isFirstPost = false }: PostPro
                     <ReactMarkdown
                         remarkPlugins={[remarkGfm]}
                         components={{
-                            a: ({node, ...props}) => (
-                                <a {...props} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline inline-flex items-center gap-1">
-                                    {props.children}
-                                </a>
-                            ),
-                            img: ({node, ...props}) => (
-                                <span className="block text-center my-4">
-                                    <Image
-                                        src={props.src!}
-                                        alt={props.alt!}
-                                        width={500}
-                                        height={300}
-                                        className="max-w-full h-auto inline-block rounded-md shadow-sm border"
-                                        onError={(e) => (e.currentTarget.style.display = 'none')}
-                                        unoptimized={!props.src?.startsWith('data:image')}
-                                        data-ai-hint="embedded image"
-                                    />
-                                     {props.alt && <em className="text-xs text-muted-foreground block mt-1">{props.alt}</em>}
-                                </span>
-                            ),
                             p: ({ node, children, ...props }) => {
+                                // 1. Check for YouTube embed (existing logic)
                                 if (node.children.length === 1 && node.children[0].type === 'element' && node.children[0].tagName === 'a') {
                                     const linkNode = node.children[0];
                                     const href = linkNode.properties?.href as string | undefined;
@@ -201,9 +184,58 @@ export function Post({ post, currentUser, onEdit, isFirstPost = false }: PostPro
                                         }
                                     }
                                 }
-                                return <p {...props}>{children}</p>;
+
+                                // 2. If not a YouTube embed, process for mentions
+                                const processedChildren = React.Children.map(children, child => {
+                                    if (typeof child === 'string') {
+                                    const parts = child.split(/(@[a-zA-Z0-9_]+)/g); // Split by @username, keeping the mention
+                                    return parts.map((part, index) => {
+                                        if (part.startsWith('@') && part.length > 1) {
+                                        const username = part.substring(1);
+                                        // Validate username format (alphanumeric and underscore)
+                                        if (/^[a-zA-Z0-9_]+$/.test(username)) { 
+                                            return (
+                                            <Link
+                                                key={`${index}-${username}`} // Unique key for the link
+                                                href={`/users/${encodeURIComponent(username)}`}
+                                                className="text-accent hover:underline font-semibold"
+                                            >
+                                                {part}
+                                            </Link>
+                                            );
+                                        }
+                                        }
+                                        return part; // Return non-mention part or invalid mention as is
+                                    });
+                                    }
+                                    return child; // Return non-string children (e.g., <strong>, <em>)
+                                });
+
+                                return <p {...props}>{processedChildren}</p>;
                             },
-                            code({ node, inline, className, children, ...props }: any) {
+                            a: ({node, ...props}) => (
+                                <a {...props} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline inline-flex items-center gap-1">
+                                    {props.children}
+                                </a>
+                            ),
+                            img: ({node, ...props}) => (
+                                <span className="block text-center my-4">
+                                    <Image
+                                        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+                                        src={props.src!}
+                                        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+                                        alt={props.alt!}
+                                        width={500}
+                                        height={300}
+                                        className="max-w-full h-auto inline-block rounded-md shadow-sm border"
+                                        onError={(e) => (e.currentTarget.style.display = 'none')}
+                                        unoptimized={!props.src?.startsWith('data:image')}
+                                        data-ai-hint="embedded image"
+                                    />
+                                     {props.alt && <em className="text-xs text-muted-foreground block mt-1">{props.alt}</em>}
+                                </span>
+                            ),
+                            code({ node, inline, className, children, ...props }: CodeProps) {
                                 const match = /language-(\w+)/.exec(className || '');
                                 return !inline && match ? (
                                 <SyntaxHighlighter
@@ -233,3 +265,4 @@ export function Post({ post, currentUser, onEdit, isFirstPost = false }: PostPro
         </Card>
     );
 }
+
