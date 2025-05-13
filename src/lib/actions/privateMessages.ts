@@ -45,49 +45,32 @@ export async function sendPrivateMessageAction(prevState: ActionResponse | undef
 
     const { content, receiverId, conversationId: providedConvIdFromForm } = validatedFields.data;
     
-    // Validate receiverId existence and ensure not sending to self
     const receiverUser = await findUserById(receiverId);
     if(!receiverUser) {
         return { success: false, message: "Receiver not found." };
     }
     if(receiverUser.id === currentUser.id) {
-        // This scenario should ideally be prevented by UI, but good to have a check.
         return { success: false, message: "You cannot send a message to yourself." };
     }
 
-    // Determine the definitive/expected conversation ID based on participants.
-    // This ID is what getOrCreateConversation (called by dbSendPrivateMessage) will use/generate.
     const expectedConvId = generateConversationId(currentUser.id, receiverId);
 
-    // The conversationId from the form (derived from URL params) must match the expected ID.
-    // This validates that the user is on the correct conversation page for these participants.
     if (providedConvIdFromForm !== expectedConvId) {
         console.error(`Conversation ID mismatch: Form ID "${providedConvIdFromForm}" does not match expected ID "${expectedConvId}" for sender ${currentUser.id} and receiver ${receiverId}.`);
         return { success: false, message: "Conversation ID mismatch. Please refresh the page." };
     }
-
-    // Optional: Further security check if a conversation object already exists in the DB.
-    // This is somewhat redundant if generateConversationId and form data are correct.
+    
     const existingConversationInDb = await dbGetConversationById(expectedConvId);
     if (existingConversationInDb && !existingConversationInDb.participantIds.includes(currentUser.id)) {
-        // This case should be extremely rare.
         return { success: false, message: "Security check failed: You are not part of this conversation." };
     }
     
-    // At this point:
-    // 1. currentUser and receiverUser are valid and different.
-    // 2. expectedConvId is correctly formed for these two users.
-    // 3. providedConvIdFromForm (from the URL/hidden input) matches expectedConvId.
-    // Now, dbSendPrivateMessage can safely proceed. It will call getOrCreateConversation,
-    // which will either find the conversation by expectedConvId or create it if it's the first message.
-
     try {
         const newMessage = await dbSendPrivateMessage(currentUser.id, receiverId, content);
 
-        // newMessage.conversationId will be the same as expectedConvId
         revalidatePath(`/messages/${newMessage.conversationId}`);
-        revalidatePath('/messages'); // For the conversation list
-        revalidatePath('/', 'layout'); // For header unread count
+        revalidatePath('/messages'); 
+        revalidatePath('/', 'layout'); 
 
         return { success: true, message: "Message sent successfully.", privateMessage: newMessage };
     } catch (error: any) {
@@ -113,7 +96,7 @@ export async function fetchConversationsAction(): Promise<ConversationListItem[]
         const otherParticipant = await findUserById(otherParticipantId);
         if (!otherParticipant) continue;
         
-        const messagesInConv = await dbGetMessagesForConversation(conv.id, currentUser.id, false); // false to not mark as read for list view
+        const messagesInConv = await dbGetMessagesForConversation(conv.id, currentUser.id, false); 
         const lastMessage = messagesInConv.length > 0 ? messagesInConv[messagesInConv.length-1] : null;
         const unreadCount = messagesInConv.filter(m => m.senderId !== currentUser.id && !m.readBy.includes(currentUser.id)).length;
 
@@ -142,11 +125,10 @@ export async function fetchMessagesAction(conversationId: string): Promise<Priva
         return []; 
     }
 
-    const messagesData = await dbGetMessagesForConversation(conversationId, currentUser.id, true); // true to mark as read
+    // dbGetMessagesForConversation will mark messages as read if the third param is true
+    const messagesData = await dbGetMessagesForConversation(conversationId, currentUser.id, true);
     
-    revalidatePath('/messages'); 
-    revalidatePath('/', 'layout');
-
+    // Removed revalidatePath calls from here to prevent error during render
 
     const messageDisplays = await Promise.all(messagesData.map(async msg => {
         const sender = await findUserById(msg.senderId);
@@ -158,6 +140,26 @@ export async function fetchMessagesAction(conversationId: string): Promise<Priva
     }));
 
     return messageDisplays;
+}
+
+// New action specifically for revalidation, to be called from a client component
+export async function triggerMessageRevalidationAction(conversationId: string): Promise<void> {
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
+        console.warn("triggerMessageRevalidationAction: No current user found.");
+        return;
+    }
+
+    const conversation = await dbGetConversationById(conversationId);
+    if (!conversation || !conversation.participantIds.includes(currentUser.id)) {
+        console.warn(`triggerMessageRevalidationAction: User ${currentUser.id} not part of conversation ${conversationId}.`);
+        return;
+    }
+
+    revalidatePath('/messages'); // Revalidates the list of conversations
+    revalidatePath(`/messages/${conversationId}`); // Revalidates the current conversation page
+    revalidatePath('/', 'layout'); // Revalidates the header for unread counts
+    console.log(`[triggerMessageRevalidationAction] Triggered revalidation for conversation ${conversationId} and related paths.`);
 }
 
 
@@ -205,13 +207,5 @@ export async function startConversationWithUsernameAction(prevState: ActionRespo
 
   const conversationId = generateConversationId(currentUser.id, receiver.id);
   
-  // The redirect will be handled by Next.js when an action called via `formAction`
-  // that is successful and calls `redirect`.
   redirect(`/messages/${conversationId}`);
-  // This part is mostly for type consistency if the redirect doesn't happen,
-  // but for a successful redirect, this won't be reached by the client.
-  // return { success: true, message: "Redirecting to conversation..." }; 
 }
-
-
-    

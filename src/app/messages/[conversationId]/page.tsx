@@ -59,13 +59,12 @@ export default async function ConversationPage({ params }: ConversationPageProps
     redirect(`/login?redirect=/messages/${conversationId}`);
   }
 
-  // Validate conversationId and extract participant IDs
   if (!conversationId.startsWith('conv-')) {
     console.error(`ConversationPage: Invalid conversationId format. Expected 'conv-id1__id2', got: ${conversationId}`);
     notFound();
   }
 
-  const participantIdParts = conversationId.substring(5).split('__'); // Updated delimiter
+  const participantIdParts = conversationId.substring(5).split('__'); 
   if (participantIdParts.length !== 2 || !participantIdParts[0] || !participantIdParts[1]) {
     console.error(`ConversationPage: conversationId must contain two valid participant IDs separated by '__'. Got: ${conversationId}, Parsed parts:`, participantIdParts);
     notFound();
@@ -88,19 +87,14 @@ export default async function ConversationPage({ params }: ConversationPageProps
     notFound();
   }
 
-  // At this point, otherParticipant is valid. Now fetch existing conversation details if any.
   const conversation = await getConversationById(conversationId);
 
-  // Sanity check: if a conversation object exists in DB, ensure current user is part of its stored participant list.
-  // This should typically be true if ID parsing was correct.
   if (conversation && !conversation.participantIds.includes(currentUser.id)) {
       console.error(`ConversationPage: Mismatch - Current user ${currentUser.id} not in stored participant list for existing conversation ${conversationId}. Stored participants:`, conversation.participantIds);
       notFound();
   }
 
   if (!conversation) {
-    // This is a new chat (conversationId is synthetically generated for two users, but no messages/DB record yet).
-    // `otherParticipant` is already fetched and validated.
      return (
         <div className="flex flex-col h-[calc(100vh-12rem)] border rounded-lg shadow-sm overflow-hidden">
             <div className="flex items-center p-3 border-b bg-card">
@@ -116,14 +110,12 @@ export default async function ConversationPage({ params }: ConversationPageProps
             <div className="flex-1 p-4 text-center text-muted-foreground flex items-center justify-center">
                 <p>Start your conversation with {otherParticipant.username}.</p>
             </div>
-            {/* Pass empty array for initialMessages as it's a new chat */}
-            <MessageListClient initialMessages={[]} currentUserId={currentUser.id} />
+            <MessageListClient initialMessages={[]} currentUserId={currentUser.id} conversationId={conversationId} />
             <MessageForm conversationId={conversationId} receiverId={otherParticipant.id} />
         </div>
     );
   }
   
-  // If conversation exists in DB and user is part of it (otherParticipant already fetched).
   const initialMessages = await fetchMessagesAction(conversationId);
 
   return (
@@ -138,7 +130,7 @@ export default async function ConversationPage({ params }: ConversationPageProps
         </Avatar>
         <h2 className="text-lg font-semibold">{otherParticipant.username}</h2>
       </div>
-      <MessageListClient initialMessages={initialMessages} currentUserId={currentUser.id} />
+      <MessageListClient initialMessages={initialMessages} currentUserId={currentUser.id} conversationId={conversationId} />
       <MessageForm conversationId={conversationId} receiverId={otherParticipant.id} />
     </div>
   );
