@@ -1,5 +1,7 @@
+
 "use client";
 
+import React from 'react'; // Added React import
 import type { Notification } from '@/lib/types';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
