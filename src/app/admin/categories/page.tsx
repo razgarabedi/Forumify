@@ -39,10 +39,10 @@ export default async function AdminCategoriesPage() {
                 </TableRow>
             </TableHeader>
             <TableBody>
-                {categories.map((category) => (
+                {categories.map((category) => ( // Remove potential whitespace here
                 <TableRow key={category.id}>
                     <TableCell className="font-medium">{category.name}</TableCell>
-                    <TableCell className="text-muted-foreground max-w-xs truncate" title={category.description}> {/* Truncate description */}
+                    <TableCell className="text-muted-foreground max-w-xs truncate" title={category.description || ''}> {/* Truncate description, add fallback for title */}
                         {category.description || '-'}
                     </TableCell>
                     <TableCell className="text-center">{category.topicCount ?? 0}</TableCell> {/* Center align counts */}
@@ -53,7 +53,7 @@ export default async function AdminCategoriesPage() {
                     </TableCell>
                 </TableRow>
                 ))}
-                {categories.length === 0 && (
+                {categories.length === 0 && ( // Remove potential whitespace here
                     <TableRow>
                         <TableCell colSpan={6} className="text-center text-muted-foreground h-24">
                             No categories found. Create one above.

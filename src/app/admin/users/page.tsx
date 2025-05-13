@@ -36,7 +36,7 @@ export default async function AdminUsersPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {users.map((user) => (
+            {users.map((user) => ( // Remove potential whitespace here
               <TableRow key={user.id}>
                 <TableCell className="px-3"> {/* Adjust padding */}
                    <Avatar className="h-9 w-9">
@@ -59,7 +59,7 @@ export default async function AdminUsersPage() {
                 </TableCell>
               </TableRow>
             ))}
-             {users.length === 0 && (
+            {users.length === 0 && ( // Remove potential whitespace here
                 <TableRow>
                     <TableCell colSpan={6} className="text-center text-muted-foreground h-24">
                         No users found.
