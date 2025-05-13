@@ -18,9 +18,9 @@ import { getCurrentUser } from "./auth";
 import type { ActionResponse, Conversation, PrivateMessage, User, ConversationListItem, PrivateMessageDisplay } from "@/lib/types";
 
 const SendMessageSchema = z.object({
-    content: z.string().min(1, { message: "Message content cannot be empty." }).max(2000),
+    content: z.string().min(1, { message: "Message content cannot be empty." }).max(2000, {message: "Message content cannot exceed 2000 characters."}),
     receiverId: z.string().min(1, { message: "Receiver ID is required." }), 
-    conversationId: z.string().optional(), 
+    conversationId: z.string().min(1, {message: "Conversation ID is required."}), // Made mandatory from form
 });
 
 export async function sendPrivateMessageAction(prevState: ActionResponse | undefined, formData: FormData): Promise<ActionResponse> {
@@ -43,35 +43,51 @@ export async function sendPrivateMessageAction(prevState: ActionResponse | undef
         };
     }
 
-    const { content, receiverId, conversationId: providedConvId } = validatedFields.data;
+    const { content, receiverId, conversationId: providedConvIdFromForm } = validatedFields.data;
     
-    let targetConversationId = providedConvId;
+    // Validate receiverId existence and ensure not sending to self
+    const receiverUser = await findUserById(receiverId);
+    if(!receiverUser) {
+        return { success: false, message: "Receiver not found." };
+    }
+    if(receiverUser.id === currentUser.id) {
+        // This scenario should ideally be prevented by UI, but good to have a check.
+        return { success: false, message: "You cannot send a message to yourself." };
+    }
 
-    if (!targetConversationId) {
-        if (!receiverId) {
-            return { success: false, message: "Receiver not specified." };
-        }
-        // Ensure receiverId is valid before generating conversationId
-        const receiverUser = await findUserById(receiverId);
-        if(!receiverUser) {
-            return { success: false, message: "Receiver not found." };
-        }
-        targetConversationId = generateConversationId(currentUser.id, receiverId);
-    } else {
-        const conversation = await dbGetConversationById(targetConversationId);
-        if (!conversation || !conversation.participantIds.includes(currentUser.id)) {
-             return { success: false, message: "Invalid conversation." };
-        }
+    // Determine the definitive/expected conversation ID based on participants.
+    // This ID is what getOrCreateConversation (called by dbSendPrivateMessage) will use/generate.
+    const expectedConvId = generateConversationId(currentUser.id, receiverId);
+
+    // The conversationId from the form (derived from URL params) must match the expected ID.
+    // This validates that the user is on the correct conversation page for these participants.
+    if (providedConvIdFromForm !== expectedConvId) {
+        console.error(`Conversation ID mismatch: Form ID "${providedConvIdFromForm}" does not match expected ID "${expectedConvId}" for sender ${currentUser.id} and receiver ${receiverId}.`);
+        return { success: false, message: "Conversation ID mismatch. Please refresh the page." };
+    }
+
+    // Optional: Further security check if a conversation object already exists in the DB.
+    // This is somewhat redundant if generateConversationId and form data are correct.
+    const existingConversationInDb = await dbGetConversationById(expectedConvId);
+    if (existingConversationInDb && !existingConversationInDb.participantIds.includes(currentUser.id)) {
+        // This case should be extremely rare.
+        return { success: false, message: "Security check failed: You are not part of this conversation." };
     }
     
-    const actualReceiverId = receiverId; 
+    // At this point:
+    // 1. currentUser and receiverUser are valid and different.
+    // 2. expectedConvId is correctly formed for these two users.
+    // 3. providedConvIdFromForm (from the URL/hidden input) matches expectedConvId.
+    // Now, dbSendPrivateMessage can safely proceed. It will call getOrCreateConversation,
+    // which will either find the conversation by expectedConvId or create it if it's the first message.
 
     try {
-        const newMessage = await dbSendPrivateMessage(currentUser.id, actualReceiverId, content);
+        const newMessage = await dbSendPrivateMessage(currentUser.id, receiverId, content);
 
+        // newMessage.conversationId will be the same as expectedConvId
         revalidatePath(`/messages/${newMessage.conversationId}`);
-        revalidatePath('/messages');
-        revalidatePath('/', 'layout'); 
+        revalidatePath('/messages'); // For the conversation list
+        revalidatePath('/', 'layout'); // For header unread count
 
         return { success: true, message: "Message sent successfully.", privateMessage: newMessage };
     } catch (error: any) {
@@ -196,3 +212,6 @@ export async function startConversationWithUsernameAction(prevState: ActionRespo
   // but for a successful redirect, this won't be reached by the client.
   // return { success: true, message: "Redirecting to conversation..." }; 
 }
+
+
+    
