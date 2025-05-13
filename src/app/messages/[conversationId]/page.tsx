@@ -1,10 +1,10 @@
 
 import { fetchMessagesAction, sendPrivateMessageAction } from '@/lib/actions/privateMessages';
 import { getCurrentUser } from '@/lib/actions/auth';
-import { MessageListClient } from './_components/MessageListClient'; // Corrected import path
-import { MessageForm } from '../_components/MessageForm'; // Corrected import path
+import { MessageListClient } from './_components/MessageListClient';
+import { MessageForm } from '../_components/MessageForm';
 import { notFound, redirect } from 'next/navigation';
-import { findUserById, getConversationById as dbGetConversationById, generateConversationId as dbGenerateConversationId } from '@/lib/placeholder-data'; // Aliased getConversationById
+import { findUserById, getConversationById as dbGetConversationById } from '@/lib/placeholder-data';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
@@ -33,8 +33,12 @@ export async function generateMetadata({ params }: ConversationPageProps) {
         return { title: `${title} - ForumLite` };
       }
     }
-  } else if (params.conversationId.startsWith('conv-')) { // Handle case where conversation might not exist yet but IDs are in param
-    const ids = params.conversationId.substring(5).split('__');
+  } else if (params.conversationId.startsWith('conv-')) { 
+    const idWithoutPrefix = params.conversationId.substring(5); 
+    const idParts = idWithoutPrefix.split('--s-'); 
+    const participantIdsStr = idParts[0]; 
+    const ids = participantIdsStr.split('__');
+
     if (ids.length === 2) {
       const otherId = ids.find(id => id !== currentUser.id);
       if (otherId) {
@@ -58,18 +62,24 @@ export default async function ConversationPage({ params }: ConversationPageProps
   }
 
   if (!conversationId.startsWith('conv-')) {
-    console.error(`ConversationPage: Invalid conversationId format. Expected 'conv-id1__id2', got: ${conversationId}`);
+    console.error(`ConversationPage: Invalid conversationId format. Expected 'conv-id1__id2...' or 'conv-id1__id2--s-subject...', got: ${conversationId}`);
     notFound();
   }
 
-  const participantIdParts = conversationId.substring(5).split('__'); 
+  // Refined parsing of conversationId
+  const idWithoutPrefix = conversationId.substring(5); // e.g., "userA__userB--s-subject" or "userA__userB"
+  const mainParts = idWithoutPrefix.split('--s-'); // Splits into ["userA__userB", "subject"] or ["userA__userB"]
+  const participantIdsString = mainParts[0]; // "userA__userB"
+  const participantIdParts = participantIdsString.split('__'); // ["userA", "userB"]
+
+
   if (participantIdParts.length !== 2 || !participantIdParts[0] || !participantIdParts[1]) {
-    console.error(`ConversationPage: conversationId must contain two valid participant IDs separated by '__'. Got: ${conversationId}, Parsed parts:`, participantIdParts);
+    console.error(`ConversationPage: conversationId must contain two valid participant IDs separated by '__'. Got: ${conversationId}, Parsed participant string: ${participantIdsString}, Final parts:`, participantIdParts);
     notFound();
   }
 
   if (!participantIdParts.includes(currentUser.id)) {
-    console.error(`ConversationPage: Current user (${currentUser.id}) is not a participant in conversationId: ${conversationId}. Participants from ID:`, participantIdParts);
+    console.error(`ConversationPage: Current user (${currentUser.id}) is not a participant in conversationId: ${conversationId}. Participants from ID: ${participantIdParts.join(', ')}`);
     notFound();
   }
 
@@ -85,20 +95,16 @@ export default async function ConversationPage({ params }: ConversationPageProps
     notFound();
   }
 
-  // Fetch conversation details, including subject
+  // Fetch conversation details, including subject, using the full conversationId
   const conversationDetails = await dbGetConversationById(conversationId);
 
-  // If conversation exists in DB, verify current user is part of it
+  // If conversation exists in DB, verify current user is part of it (this is a stronger check using DB data)
   if (conversationDetails && !conversationDetails.participantIds.includes(currentUser.id)) {
       console.error(`ConversationPage: Mismatch - Current user ${currentUser.id} not in stored participant list for existing conversation ${conversationId}. Stored participants:`, conversationDetails.participantIds);
       notFound();
   }
   
   const initialMessages = await fetchMessagesAction(conversationId);
-
-  // If no conversation exists yet in DB (e.g., from profile link, first message not sent)
-  // still render the page structure. The subject will be missing initially.
-  // `getOrCreateConversation` (called by sendPrivateMessage) will create it then.
 
   return (
     <div className="flex flex-col h-[calc(100vh-12rem)] border rounded-lg shadow-sm overflow-hidden">
