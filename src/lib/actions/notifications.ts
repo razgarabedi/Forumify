@@ -1,3 +1,4 @@
+
 "use server";
 
 import { revalidatePath } from "next/cache";
@@ -6,7 +7,7 @@ import {
     markNotificationAsRead,
     markAllNotificationsAsRead,
     getUnreadNotificationCount,
-} from "@/lib/placeholder-data";
+} from "@/lib/db"; // Changed from placeholder-data to db
 import type { Notification, ActionResponse } from "@/lib/types";
 import { getCurrentUser } from "./auth";
 

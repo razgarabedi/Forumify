@@ -1,14 +1,16 @@
+
 "use server";
 
 import { revalidatePath } from 'next/cache';
-import { getCurrentUser } from './auth';
+import { getCurrentUser } from './auth'; // Stays the same
 import {
     setUserAdminStatus as dbSetUserAdminStatus,
     deleteUser as dbDeleteUser,
     updateCategory as dbUpdateCategory,
     deleteCategory as dbDeleteCategory
-} from '@/lib/placeholder-data';
+} from '@/lib/db'; // Changed from placeholder-data to db
 import { z } from 'zod';
+import type { ActionResponse } from '@/lib/types'; // Import ActionResponse
 
 // Helper function to check admin privileges
 async function checkAdmin() {
@@ -21,7 +23,7 @@ async function checkAdmin() {
 
 // --- User Actions ---
 
-export async function toggleAdminStatus(targetUserId: string, newStatus: boolean) {
+export async function toggleAdminStatus(targetUserId: string, newStatus: boolean): Promise<ActionResponse> {
     try {
         await checkAdmin(); // Ensure current user is admin
         const updatedUser = await dbSetUserAdminStatus(targetUserId, newStatus);
@@ -29,14 +31,14 @@ export async function toggleAdminStatus(targetUserId: string, newStatus: boolean
              throw new Error("Failed to update user status. User not found.");
         }
         revalidatePath('/admin/users');
-        return { success: true, message: `User status updated successfully.`, newStatus };
+        return { success: true, message: `User status updated successfully.`, newStatus: updatedUser.isAdmin }; // Use updatedUser.isAdmin
     } catch (error: any) {
         console.error("Toggle Admin Status Error:", error);
         return { success: false, message: error.message || "Failed to update user status." };
     }
 }
 
-export async function deleteUserAction(targetUserId: string) {
+export async function deleteUserAction(targetUserId: string): Promise<ActionResponse> {
      try {
         const adminUser = await checkAdmin(); // Ensure current user is admin
         if (adminUser.id === targetUserId) {
@@ -66,7 +68,7 @@ const UpdateCategorySchema = z.object({
 
 // Note: We might want a separate action for the form submission if using useActionState
 // For direct calls (e.g., from a modal), this function is fine.
-export async function updateCategoryAction(categoryId: string, data: { name: string; description?: string }) {
+export async function updateCategoryAction(categoryId: string, data: { name: string; description?: string }): Promise<ActionResponse> {
      try {
         await checkAdmin();
         const validatedData = UpdateCategorySchema.parse(data); // Validate input data
@@ -88,7 +90,7 @@ export async function updateCategoryAction(categoryId: string, data: { name: str
 }
 
 
-export async function deleteCategoryAction(categoryId: string) {
+export async function deleteCategoryAction(categoryId: string): Promise<ActionResponse> {
     try {
         await checkAdmin();
         const success = await dbDeleteCategory(categoryId);

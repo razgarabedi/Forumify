@@ -1,5 +1,6 @@
 
-import { getAllUsers } from "@/lib/placeholder-data";
+
+import { getAllUsers } from "@/lib/db"; // Changed from placeholder-data
 import {
   Table,
   TableBody,

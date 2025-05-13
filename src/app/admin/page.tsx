@@ -1,5 +1,6 @@
+
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
-import { getTotalUserCount, getTotalCategoryCount, getTotalTopicCount, getTotalPostCount } from "@/lib/placeholder-data";
+import { getTotalUserCount, getTotalCategoryCount, getTotalTopicCount, getTotalPostCount } from "@/lib/db"; // Changed from placeholder-data
 import { Users, LayoutGrid, MessageSquare, Library } from "lucide-react";
 import Link from "next/link";
 

@@ -1,15 +1,12 @@
 
 import type { User, Category, Topic, Post, Notification, Conversation, PrivateMessage, Reaction, ReactionType, CategoryLastPostInfo } from './types';
+import { v4 as uuidv4 } from 'uuid'; // For generating unique IDs in placeholder
 
-// Placeholder Users
+// Placeholder Users - Reset to empty, will be populated if DB init fails or not used
 let users: User[] = [];
 
 // Placeholder Categories
-let categories: Omit<Category, 'topicCount' | 'postCount' | 'lastPost'>[] = [
-  { id: 'cat1', name: 'General Discussion', description: 'Talk about anything.', createdAt: new Date('2023-01-10T09:00:00Z') },
-  { id: 'cat2', name: 'Introductions', description: 'Introduce yourself to the community.', createdAt: new Date('2023-01-10T09:05:00Z') },
-  { id: 'cat3', name: 'Technical Help', description: 'Get help with technical issues.', createdAt: new Date('2023-01-11T14:00:00Z') },
-];
+let categories: Omit<Category, 'topicCount' | 'postCount' | 'lastPost'>[] = [];
 
 // Placeholder Topics
 let topics: Topic[] = [];
@@ -24,16 +21,16 @@ let notifications: Notification[] = [];
 let conversations: Conversation[] = [];
 let privateMessages: PrivateMessage[] = [];
 
+
 // --- Points Calculation ---
 export const calculateUserPoints = async (postAuthorId: string): Promise<number> => {
-    await new Promise(resolve => setTimeout(resolve, 5)); // simulate async
+    await new Promise(resolve => setTimeout(resolve, 5)); 
     let totalPoints = 0;
     const authorPosts = posts.filter(p => p.authorId === postAuthorId);
 
     for (const post of authorPosts) {
         if (post.reactions && post.reactions.length > 0) {
             for (const reaction of post.reactions) {
-                // Points are awarded to the post author for reactions from *other* users.
                 if (reaction.userId !== postAuthorId) {
                     switch (reaction.type) {
                         case 'like':
@@ -44,11 +41,15 @@ export const calculateUserPoints = async (postAuthorId: string): Promise<number>
                         case 'wow':
                             totalPoints += 1;
                             break;
-                        // 'sad' and 'angry' give 0 points, so no action needed here
                     }
                 }
             }
         }
+    }
+    // In placeholder, points are calculated on the fly. In DB, they might be stored.
+    const userIndex = users.findIndex(u => u.id === postAuthorId);
+    if (userIndex !== -1) {
+        users[userIndex].points = totalPoints;
     }
     return totalPoints;
 };
@@ -56,13 +57,12 @@ export const calculateUserPoints = async (postAuthorId: string): Promise<number>
 
 // --- Simulation Functions ---
 
-// Fetch Users
 export const getAllUsers = async (): Promise<User[]> => {
     await new Promise(resolve => setTimeout(resolve, 10));
     return Promise.all(users.map(async user => ({
         ...user,
         postCount: posts.filter(p => p.authorId === user.id).length,
-        points: await calculateUserPoints(user.id),
+        points: user.points ?? await calculateUserPoints(user.id), // Use stored or calculate
     })));
 };
 
@@ -72,7 +72,7 @@ export const findUserByEmail = async (email: string): Promise<User | null> => {
   const user = users.find(u => u.email === email);
   if (!user) return null;
   const postCount = await getUserPostCount(user.id);
-  const points = await calculateUserPoints(user.id);
+  const points = user.points ?? await calculateUserPoints(user.id);
   return { ...user, postCount, points, lastActive: user.lastActive || user.createdAt };
 };
 
@@ -81,7 +81,7 @@ export const findUserById = async (id: string): Promise<User | null> => {
     const user = users.find(u => u.id === id);
     if (!user) return null;
     const postCount = await getUserPostCount(user.id);
-    const points = await calculateUserPoints(user.id);
+    const points = user.points ?? await calculateUserPoints(user.id);
     return { ...user, postCount, points, lastActive: user.lastActive || user.createdAt };
 }
 
@@ -92,7 +92,7 @@ export const findUserByUsername = async (username: string): Promise<User | null>
         return null;
     }
     const postCount = await getUserPostCount(user.id);
-    const points = await calculateUserPoints(user.id);
+    const points = user.points ?? await calculateUserPoints(user.id);
     return { ...user, postCount, points, lastActive: user.lastActive || user.createdAt };
 };
 
@@ -108,30 +108,30 @@ interface CreateUserParams {
     socialMediaUrl?: string;
     signature?: string;
     lastActive: Date;
+    avatarUrl?: string;
 }
 
 export const createUser = async (userData: CreateUserParams): Promise<User> => {
   await new Promise(resolve => setTimeout(resolve, 50));
   const now = new Date();
   const newUser: User = {
-    id: `user${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+    id: uuidv4(),
     username: userData.username,
     email: userData.email,
-    password: userData.password,
+    password: userData.password, // Storing plain for placeholder
     isAdmin: userData.isAdmin ?? false,
     createdAt: now,
-    lastActive: userData.lastActive,
+    lastActive: userData.lastActive || now,
     aboutMe: userData.aboutMe || `Hello, I'm ${userData.username}!`,
     location: userData.location,
     websiteUrl: userData.websiteUrl,
     socialMediaUrl: userData.socialMediaUrl,
     signature: userData.signature || `Regards, ${userData.username}`,
-    avatarUrl: `https://avatar.vercel.sh/${userData.username}.png?size=128`,
+    avatarUrl: userData.avatarUrl || `https://avatar.vercel.sh/${userData.username}.png?size=128`,
     postCount: 0,
-    points: 0, // New users start with 0 points
+    points: 0,
   };
   users.push(newUser);
-  console.log("[DB createUser] Created User:", newUser.id, newUser.username, `isAdmin: ${newUser.isAdmin}`);
   return { ...newUser };
 };
 
@@ -146,7 +146,7 @@ export const updateUserProfile = async (userId: string, profileData: Partial<Omi
         lastActive: new Date()
     };
     const postCount = await getUserPostCount(userId);
-    const points = await calculateUserPoints(userId);
+    const points = users[userIndex].points ?? await calculateUserPoints(userId);
     return { ...users[userIndex], postCount, points };
 };
 
@@ -170,7 +170,6 @@ export const updateUserPassword = async (userId: string, currentPasswordPlain: s
     }
     users[userIndex].password = newPasswordPlain;
     users[userIndex].lastActive = new Date();
-    console.log(`[DB updateUserPassword] Password updated for user ${userId}`);
     return { success: true };
 };
 
@@ -178,15 +177,12 @@ export const updateUserPassword = async (userId: string, currentPasswordPlain: s
 export const setUserAdminStatus = async (userId: string, isAdmin: boolean): Promise<User | null> => {
     await new Promise(resolve => setTimeout(resolve, 50));
     const userIndex = users.findIndex(u => u.id === userId);
-    if (userIndex === -1) {
-        console.error("[DB setUserAdminStatus] Set Admin Status failed: User not found.");
-        return null;
-    }
+    if (userIndex === -1) return null;
+    
     users[userIndex].isAdmin = isAdmin;
     users[userIndex].lastActive = new Date();
-    console.log(`[DB setUserAdminStatus] Set admin status for user ${userId} to ${isAdmin}`);
     const postCount = await getUserPostCount(userId);
-    const points = await calculateUserPoints(userId);
+    const points = users[userIndex].points ?? await calculateUserPoints(userId);
     return { ...users[userIndex], postCount, points };
 }
 
@@ -196,41 +192,33 @@ export const deleteUser = async (userId: string): Promise<boolean> => {
     users = users.filter(u => u.id !== userId);
 
     if (users.length < initialLength) {
-        console.log(`[DB deleteUser] User ${userId} successfully deleted.`);
-        // Also delete their conversations and messages
         conversations = conversations.filter(c => !c.participantIds.includes(userId));
         privateMessages = privateMessages.filter(pm => pm.senderId !== userId && !conversations.find(c => c.id === pm.conversationId && c.participantIds.includes(userId)));
+        // Nullify author for posts, or delete them, depending on desired behavior
+        posts.forEach(p => { if (p.authorId === userId) p.authorId = 'deleted_user'; }); 
         return true;
-    } else {
-        console.error(`[DB deleteUser] Delete User failed: User ${userId} not found.`);
-        return false;
     }
+    return false;
 }
 
 
-// Fetch Categories
 export const getCategories = async (): Promise<Category[]> => {
   await new Promise(resolve => setTimeout(resolve, 20));
-  
-  const resultCategories: Category[] = await Promise.all(
+  return Promise.all(
     categories.map(async (catData) => {
       const categoryTopics = topics.filter(t => t.categoryId === catData.id);
       const topicCount = categoryTopics.length;
-      
       let postCount = 0;
       let lastPost: CategoryLastPostInfo | null = null;
       
       if (categoryTopics.length > 0) {
         const categoryPosts = posts.filter(p => categoryTopics.some(ct => ct.id === p.topicId));
         postCount = categoryPosts.length;
-
         if (categoryPosts.length > 0) {
-          const sortedPosts = categoryPosts.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+          const sortedPosts = [...categoryPosts].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
           const latestPostData = sortedPosts[0];
-          
           const latestPostAuthor = await findUserById(latestPostData.authorId);
           const latestPostTopic = topics.find(t => t.id === latestPostData.topicId);
-
           if (latestPostData && latestPostAuthor && latestPostTopic) {
             lastPost = {
               id: latestPostData.id,
@@ -244,17 +232,9 @@ export const getCategories = async (): Promise<Category[]> => {
           }
         }
       }
-      
-      return {
-        ...catData,
-        topicCount,
-        postCount,
-        lastPost,
-      };
+      return { ...catData, topicCount, postCount, lastPost };
     })
   );
-
-  return resultCategories.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 };
 
 
@@ -265,21 +245,17 @@ export const getCategoryById = async (id: string): Promise<Category | null> => {
 
     const categoryTopics = topics.filter(t => t.categoryId === categoryData.id);
     const topicCount = categoryTopics.length;
-    
     let postCount = 0;
     let lastPost: CategoryLastPostInfo | null = null;
     
     if (categoryTopics.length > 0) {
       const categoryPosts = posts.filter(p => categoryTopics.some(ct => ct.id === p.topicId));
       postCount = categoryPosts.length;
-
       if (categoryPosts.length > 0) {
-        const sortedPosts = categoryPosts.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        const sortedPosts = [...categoryPosts].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
         const latestPostData = sortedPosts[0];
-        
         const latestPostAuthor = await findUserById(latestPostData.authorId);
         const latestPostTopic = topics.find(t => t.id === latestPostData.topicId);
-
         if (latestPostData && latestPostAuthor && latestPostTopic) {
           lastPost = {
             id: latestPostData.id,
@@ -293,38 +269,26 @@ export const getCategoryById = async (id: string): Promise<Category | null> => {
         }
       }
     }
-
-    return {
-        ...categoryData,
-        topicCount,
-        postCount,
-        lastPost
-    };
+    return { ...categoryData, topicCount, postCount, lastPost };
 }
 
 export const createCategory = async (categoryData: Pick<Category, 'name' | 'description'>): Promise<Category> => {
     await new Promise(resolve => setTimeout(resolve, 50));
     const newCategoryData: Omit<Category, 'topicCount' | 'postCount' | 'lastPost'> = {
+        id: uuidv4(),
         name: categoryData.name,
         description: categoryData.description,
-        id: `cat${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
         createdAt: new Date(),
     };
     categories.push(newCategoryData);
-    console.log("[DB createCategory] Created Category:", newCategoryData.id, newCategoryData.name);
     return { ...newCategoryData, topicCount: 0, postCount: 0, lastPost: null };
 }
 
 export const updateCategory = async (categoryId: string, data: { name: string; description?: string }): Promise<Category | null> => {
     await new Promise(resolve => setTimeout(resolve, 50));
     const catIndex = categories.findIndex(c => c.id === categoryId);
-    if (catIndex === -1) {
-        console.error("[DB updateCategory] Update Category failed: Category not found.");
-        return null;
-    }
+    if (catIndex === -1) return null;
     categories[catIndex] = { ...categories[catIndex], ...data };
-    console.log("[DB updateCategory] Updated Category:", categories[catIndex].id);
-    // Re-fetch the category to get updated counts and lastPost
     return getCategoryById(categoryId);
 }
 
@@ -335,23 +299,15 @@ export const deleteCategory = async (categoryId: string): Promise<boolean> => {
     categories = categories.filter(c => c.id !== categoryId);
     topics = topics.filter(t => t.categoryId !== categoryId);
     posts = posts.filter(p => !topicsToDelete.includes(p.topicId));
-
-    if (categories.length < initialLength) {
-        console.log(`[DB deleteCategory] Category ${categoryId} and its topics/posts deleted.`);
-        return true;
-    } else {
-        console.error(`[DB deleteCategory] Delete Category failed: Category ${categoryId} not found.`);
-        return false;
-    }
+    return categories.length < initialLength;
 }
 
 
-// Fetch Topics
 export const getTopicsByCategory = async (categoryId: string): Promise<Topic[]> => {
   await new Promise(resolve => setTimeout(resolve, 50));
   const categoryTopics = topics
     .filter(t => t.categoryId === categoryId)
-    .sort((a, b) => b.lastActivity.getTime() - a.lastActivity.getTime());
+    .sort((a, b) => new Date(b.lastActivity).getTime() - new Date(a.lastActivity).getTime());
 
   return Promise.all(categoryTopics.map(async topic => {
     const author = await findUserById(topic.authorId);
@@ -364,7 +320,7 @@ export const getTopicById = async (id: string): Promise<Topic | null> => {
     const topic = topics.find(t => t.id === id);
     if (!topic) return null;
     const author = await findUserById(topic.authorId);
-    const category = await getCategoryById(topic.categoryId); // This will now include counts
+    const category = await getCategoryById(topic.categoryId);
     return { ...topic, author, category, postCount: posts.filter(p => p.topicId === id).length };
 }
 
@@ -384,16 +340,15 @@ export const createTopic = async (topicData: CreateTopicParams): Promise<Topic> 
     await new Promise(resolve => setTimeout(resolve, 50));
     const now = new Date();
     const newTopic: Topic = {
+        id: uuidv4(),
         title: topicData.title,
         categoryId: topicData.categoryId,
         authorId: topicData.authorId,
-        id: `topic${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
         createdAt: now,
         lastActivity: now,
         postCount: 0, 
     };
     topics.push(newTopic);
-    console.log("[DB createTopic] Created Topic:", newTopic.id, newTopic.title);
     await updateUserLastActive(topicData.authorId);
 
     await createPost({ 
@@ -403,11 +358,11 @@ export const createTopic = async (topicData: CreateTopicParams): Promise<Topic> 
         imageUrl: topicData.firstPostImageUrl,
     });
     
-    const finalTopic = await getTopicById(newTopic.id); // This will fetch with updated counts
+    const finalTopic = await getTopicById(newTopic.id);
     return finalTopic || { ...newTopic, postCount: 1 }; 
 }
 
-// Fetch Posts
+
 export const getPostsByTopic = async (topicId: string): Promise<Post[]> => {
   await new Promise(resolve => setTimeout(resolve, 20));
   const topicPosts = posts.filter(p => p.topicId === topicId).sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
@@ -431,24 +386,21 @@ export const createPost = async (postData: CreatePostParams): Promise<Post> => {
     await new Promise(resolve => setTimeout(resolve, 50));
     const now = new Date();
     const newPost: Post = {
+        id: uuidv4(),
         content: postData.content,
         topicId: postData.topicId,
         authorId: postData.authorId,
         imageUrl: postData.imageUrl,
-        id: `post${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
         createdAt: now,
-        reactions: [], // Initialize reactions
+        reactions: [],
     };
     posts.push(newPost);
-    console.log(`[DB createPost] Created Post: ${newPost.id} in Topic ${newPost.topicId}`);
     await updateUserLastActive(postData.authorId);
 
     const topicIndex = topics.findIndex(t => t.id === postData.topicId);
     if (topicIndex !== -1) {
         topics[topicIndex].lastActivity = now;
         topics[topicIndex].postCount = (topics[topicIndex].postCount || 0) + 1;
-    } else {
-         console.warn(`[DB createPost] Topic ${postData.topicId} not found when trying to update counts/activity.`);
     }
 
     const author = await findUserById(newPost.authorId);
@@ -459,29 +411,20 @@ export const createPost = async (postData: CreatePostParams): Promise<Post> => {
 export const updatePost = async (postId: string, content: string, userId: string, imageUrl?: string | null): Promise<Post | null> => {
     await new Promise(resolve => setTimeout(resolve, 50));
     const postIndex = posts.findIndex(p => p.id === postId);
-    if (postIndex === -1) {
-        console.error("[DB updatePost] Update failed: Post not found.");
-        return null;
-    }
+    if (postIndex === -1) return null;
 
     const post = posts[postIndex];
     const user = await findUserById(userId);
     const canModify = user?.isAdmin || post.authorId === userId;
 
-    if (!canModify) {
-        console.error("[DB updatePost] Update failed: User not authorized.");
-        return null;
-    }
+    if (!canModify) return null;
+    
     await updateUserLastActive(userId);
-
     post.content = content;
-    if (imageUrl === null) { 
-        delete post.imageUrl;
-    } else if (imageUrl !== undefined) { 
-        post.imageUrl = imageUrl;
-    }
-
+    if (imageUrl === null) delete post.imageUrl;
+    else if (imageUrl !== undefined) post.imageUrl = imageUrl;
     post.updatedAt = new Date();
+
     const author = await findUserById(post.authorId);
     const topic = await getTopicByIdSimple(post.topicId);
     return { ...post, author: author ?? undefined, topic: topic ?? undefined, reactions: post.reactions || [] };
@@ -490,63 +433,43 @@ export const updatePost = async (postId: string, content: string, userId: string
 export const deletePost = async (postId: string, userId: string, isAdmin: boolean): Promise<boolean> => {
     await new Promise(resolve => setTimeout(resolve, 50));
     const postIndex = posts.findIndex(p => p.id === postId);
-     if (postIndex === -1) {
-        return false;
-    }
+     if (postIndex === -1) return false;
 
     const postToDelete = posts[postIndex];
     const canDelete = isAdmin || postToDelete.authorId === userId;
-
-     if (!canDelete) {
-        return false;
-    }
+     if (!canDelete) return false;
+    
     await updateUserLastActive(userId);
-
     const deletedPost = posts.splice(postIndex, 1)[0];
-
-     const topicIndex = topics.findIndex(t => t.id === deletedPost.topicId);
+    const topicIndex = topics.findIndex(t => t.id === deletedPost.topicId);
     if (topicIndex !== -1) {
-        const currentTopic = topics[topicIndex];
-        currentTopic.postCount = Math.max(0, (currentTopic.postCount || 1) - 1);
+        topics[topicIndex].postCount = Math.max(0, (topics[topicIndex].postCount || 1) - 1);
     }
     return true;
 };
 
-// --- Post Reactions ---
+
 export const togglePostReaction = async (postId: string, userId: string, username: string, reactionType: ReactionType): Promise<Post | null> => {
   await new Promise(resolve => setTimeout(resolve, 30));
   const postIndex = posts.findIndex(p => p.id === postId);
-  if (postIndex === -1) {
-    console.error(`[DB togglePostReaction] Post with ID ${postId} not found.`);
-    return null;
-  }
+  if (postIndex === -1) return null;
 
   const post = posts[postIndex];
-  // Ensure reactions array exists
-  if (!post.reactions) {
-    post.reactions = [];
-  }
+  if (!post.reactions) post.reactions = [];
 
   const existingReactionIndex = post.reactions.findIndex(r => r.userId === userId);
-
   if (existingReactionIndex !== -1) {
-    // User has an existing reaction
     if (post.reactions[existingReactionIndex].type === reactionType) {
-      // Clicking the same reaction again, remove it
       post.reactions.splice(existingReactionIndex, 1);
-      console.log(`[DB togglePostReaction] User ${userId} removed reaction ${reactionType} from post ${postId}`);
     } else {
-      // Clicking a different reaction, update it
       post.reactions[existingReactionIndex].type = reactionType;
-      console.log(`[DB togglePostReaction] User ${userId} changed reaction to ${reactionType} on post ${postId}`);
     }
   } else {
-    // User has no reaction yet, add new one
     post.reactions.push({ userId, username, type: reactionType });
-    console.log(`[DB togglePostReaction] User ${userId} added reaction ${reactionType} to post ${postId}`);
   }
   
-  await updateUserLastActive(userId); // Update user's last active time
+  await updateUserLastActive(userId);
+  await calculateUserPoints(post.authorId); // Recalculate points for author
 
   const author = await findUserById(post.authorId); 
   const topic = await getTopicByIdSimple(post.topicId);
@@ -554,47 +477,21 @@ export const togglePostReaction = async (postId: string, userId: string, usernam
 };
 
 
-// --- Count Functions for Admin Dashboard ---
-export const getTotalUserCount = async (): Promise<number> => {
-    await new Promise(resolve => setTimeout(resolve, 5));
-    return users.length;
-};
+export const getTotalUserCount = async (): Promise<number> => (users.length);
+export const getTotalCategoryCount = async (): Promise<number> => (categories.length);
+export const getTotalTopicCount = async (): Promise<number> => (topics.length);
+export const getTotalPostCount = async (): Promise<number> => (posts.length);
 
-export const getTotalCategoryCount = async (): Promise<number> => {
-    await new Promise(resolve => setTimeout(resolve, 5));
-    return categories.length;
-};
 
-export const getTotalTopicCount = async (): Promise<number> => {
-    await new Promise(resolve => setTimeout(resolve, 5));
-    return topics.length;
-};
-
-export const getTotalPostCount = async (): Promise<number> => {
-    await new Promise(resolve => setTimeout(resolve, 5));
-    return posts.length;
-};
-
-// --- Notification Functions ---
 export const createNotification = async (data: Omit<Notification, 'id' | 'createdAt' | 'isRead'>): Promise<Notification> => {
     await new Promise(resolve => setTimeout(resolve, 10));
     const newNotification: Notification = {
-        id: `notif${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+        id: uuidv4(),
+        ...data,
         createdAt: new Date(),
         isRead: false,
-        type: data.type,
-        recipientUserId: data.recipientUserId,
-        senderId: data.senderId,
-        senderUsername: data.senderUsername,
-        postId: data.postId,
-        topicId: data.topicId,
-        topicTitle: data.topicTitle,
-        conversationId: data.conversationId,
-        reactionType: data.reactionType,
-        message: data.message,
     };
     notifications.push(newNotification);
-    console.log(`[DB createNotification] Created Notification for ${data.recipientUserId} from ${data.senderUsername} of type ${data.type}`);
     return { ...newNotification };
 };
 
@@ -615,7 +512,6 @@ export const markNotificationAsRead = async (notificationId: string, userId: str
     const notificationIndex = notifications.findIndex(n => n.id === notificationId && n.recipientUserId === userId);
     if (notificationIndex !== -1) {
         notifications[notificationIndex].isRead = true;
-        console.log(`[DB markNotificationAsRead] Marked notification ${notificationId} as read for user ${userId}`);
         return true;
     }
     return false;
@@ -630,75 +526,53 @@ export const markAllNotificationsAsRead = async (userId: string): Promise<boolea
             markedAny = true;
         }
     });
-    if (markedAny) console.log(`[DB markAllNotificationsAsRead] Marked all unread notifications as read for user ${userId}`);
     return markedAny;
 };
 
 
-// --- Private Messaging Functions ---
-
 const sanitizeSubjectForId = (subject?: string): string => {
     if (!subject || subject.trim() === "") return "";
-    return subject
-        .toLowerCase()
-        .replace(/[^a-z0-9\s-]/g, '') // Remove non-alphanumeric (excluding space and hyphen)
-        .replace(/\s+/g, '-')          // Replace spaces with hyphens
-        .replace(/-+/g, '-')           // Replace multiple hyphens with single
-        .replace(/^-+|-+$/g, '')       // Trim leading/trailing hyphens
-        .substring(0, 50);             // Truncate
+    return subject.toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-').replace(/^-+|-+$/g, '').substring(0, 50);
 };
 
 export const generateConversationId = (userId1: string, userId2: string, subject?: string): string => {
     const ids = [userId1, userId2].sort();
     const baseId = `conv-${ids[0]}__${ids[1]}`;
     const sanitizedSubject = sanitizeSubjectForId(subject);
-    if (sanitizedSubject) {
-        return `${baseId}--s-${sanitizedSubject}`;
-    }
-    return baseId;
+    return sanitizedSubject ? `${baseId}--s-${sanitizedSubject}` : baseId;
 };
 
 export const getOrCreateConversation = async (userId1: string, userId2: string, subject?: string): Promise<Conversation> => {
     await new Promise(resolve => setTimeout(resolve, 10));
     const conversationId = generateConversationId(userId1, userId2, subject);
     let conversation = conversations.find(c => c.id === conversationId);
-
     if (!conversation) {
         const now = new Date();
         conversation = {
             id: conversationId,
-            participantIds: [userId1, userId2].sort(), // Store sorted IDs
-            subject: subject, // Store the original, un-sanitized subject for display
+            participantIds: [userId1, userId2].sort(),
+            subject: subject,
             createdAt: now,
             lastMessageAt: now, 
         };
         conversations.push(conversation);
-        console.log(`[DB getOrCreateConversation] Created new conversation: ${conversationId} with original subject: "${subject || 'N/A'}"`);
     }
     return { ...conversation };
 };
 
-export const sendPrivateMessage = async (
-    senderId: string,
-    receiverId: string, 
-    content: string,
-    subject?: string // Subject is used to get/create the correct conversation
-): Promise<PrivateMessage> => {
+export const sendPrivateMessage = async (senderId: string, receiverId: string, content: string, subject?: string): Promise<PrivateMessage> => {
     await new Promise(resolve => setTimeout(resolve, 50));
-    
     const conversation = await getOrCreateConversation(senderId, receiverId, subject); 
     const now = new Date();
-
     const newMessage: PrivateMessage = {
-        id: `pm-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-        conversationId: conversation.id, // Use the ID from getOrCreateConversation
+        id: uuidv4(),
+        conversationId: conversation.id,
         senderId,
         content,
         createdAt: now,
         readBy: [senderId], 
     };
     privateMessages.push(newMessage);
-
     const convIndex = conversations.findIndex(c => c.id === conversation.id);
     if (convIndex !== -1) {
         conversations[convIndex].lastMessageAt = now;
@@ -706,7 +580,6 @@ export const sendPrivateMessage = async (
         conversations[convIndex].lastMessageSenderId = senderId;
     }
     await updateUserLastActive(senderId);
-    console.log(`[DB sendPrivateMessage] Sent PM ${newMessage.id} in conversation ${conversation.id} (Subject: "${conversation.subject || 'General'}")`);
     return { ...newMessage };
 };
 
@@ -727,10 +600,6 @@ export const getMessagesForConversation = async (conversationId: string, current
         messagesInConv.forEach(msg => {
             if (msg.senderId !== currentUserId && !msg.readBy.includes(currentUserId)) {
                 msg.readBy.push(currentUserId);
-                const pmIndex = privateMessages.findIndex(pm => pm.id === msg.id);
-                if (pmIndex !== -1) {
-                    privateMessages[pmIndex] = msg;
-                }
             }
         });
     }
@@ -739,11 +608,7 @@ export const getMessagesForConversation = async (conversationId: string, current
 
 export const getUnreadPrivateMessagesCountForConversation = async (conversationId: string, userId: string): Promise<number> => {
     await new Promise(resolve => setTimeout(resolve, 5));
-    return privateMessages.filter(pm => 
-        pm.conversationId === conversationId &&
-        pm.senderId !== userId &&
-        !pm.readBy.includes(userId)
-    ).length;
+    return privateMessages.filter(pm => pm.conversationId === conversationId && pm.senderId !== userId && !pm.readBy.includes(userId)).length;
 };
 
 export const getTotalUnreadPrivateMessagesCountForUser = async (userId: string): Promise<number> => {
@@ -762,3 +627,49 @@ export const getConversationById = async (conversationId: string): Promise<Conve
     return conversation ? { ...conversation } : null;
 };
 
+// Fallback data initialization if DATABASE_URL is not set and db.ts fails to initialize fully
+if (!process.env.DATABASE_URL && users.length === 0 && categories.length === 0) {
+    console.log("DATABASE_URL not set, initializing placeholder data with defaults.");
+    // Initialize default users if users array is empty
+    const adminUser = {
+        id: 'admin-user-placeholder',
+        username: "admin",
+        email: "admin@forumlite.com",
+        password: "password123",
+        isAdmin: true,
+        createdAt: new Date('2023-01-01T10:00:00Z'),
+        lastActive: new Date(),
+        aboutMe: "Default administrator account for placeholder data.",
+        points: 0,
+        postCount: 0,
+        avatarUrl: 'https://avatar.vercel.sh/admin.png?size=128',
+    };
+    users = [adminUser];
+
+    // Initialize default categories if categories array is empty
+    const generalCatData = { id: 'cat1-placeholder', name: 'General Discussion', description: 'Talk about anything placeholder.', createdAt: new Date('2023-01-10T09:00:00Z') };
+    const introCatData = { id: 'cat2-placeholder', name: 'Introductions', description: 'Introduce yourself (placeholder).', createdAt: new Date('2023-01-10T09:05:00Z') };
+    const techCatData = { id: 'cat3-placeholder', name: 'Technical Help', description: 'Get help with tech (placeholder).', createdAt: new Date('2023-01-11T14:00:00Z') };
+    categories = [generalCatData, introCatData, techCatData];
+    
+    // Initialize default topics and posts if topics array is empty
+    const welcomeTopic: Topic = {
+        id: 'topic1-placeholder',
+        title: "Welcome to ForumLite (Placeholder)",
+        categoryId: generalCatData.id,
+        authorId: adminUser.id,
+        createdAt: new Date('2023-01-10T10:00:00Z'),
+        lastActivity: new Date('2023-01-10T10:05:00Z'),
+        postCount: 1,
+    };
+    topics = [welcomeTopic];
+    posts = [{
+        id: 'post1-placeholder',
+        content: "This is the first post in the placeholder topic.",
+        topicId: welcomeTopic.id,
+        authorId: adminUser.id,
+        createdAt: new Date('2023-01-10T10:00:00Z'),
+        reactions: [],
+    }];
+    console.log("Placeholder data initialized with defaults because DATABASE_URL was not set.");
+}

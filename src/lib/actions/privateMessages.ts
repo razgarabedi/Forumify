@@ -11,13 +11,13 @@ import {
     getTotalUnreadPrivateMessagesCountForUser as dbGetTotalUnreadPMCount,
     findUserByUsername,
     findUserById,
-    generateConversationId,
+    generateConversationId, // This is a utility, can stay as is or be moved to utils.ts
     getConversationById as dbGetConversationById,
     getOrCreateConversation,
-    createNotification, // Import createNotification
-} from "@/lib/placeholder-data";
+    createNotification,
+} from "@/lib/db"; // Changed from placeholder-data to db
 import { getCurrentUser } from "./auth";
-import type { ActionResponse, Conversation, PrivateMessage, User, ConversationListItem, PrivateMessageDisplay } from "@/lib/types";
+import type { ActionResponse, ConversationListItem, PrivateMessageDisplay } from "@/lib/types";
 
 const SendMessageSchema = z.object({
     content: z.string().min(1, { message: "Message content cannot be empty." }).max(2000, {message: "Message content cannot exceed 2000 characters."}),
@@ -68,20 +68,19 @@ export async function sendPrivateMessageAction(prevState: ActionResponse | undef
     try {
         const newMessage = await dbSendPrivateMessage(currentUser.id, formReceiverId, content, existingConversation?.subject);
 
-        // Create notification for the receiver
         await createNotification({
             type: 'private_message',
             recipientUserId: receiverUser.id,
             senderId: currentUser.id,
             senderUsername: currentUser.username,
             conversationId: newMessage.conversationId,
-            message: content.substring(0, 50) + (content.length > 50 ? '...' : ''), // Short snippet for notification
+            message: content.substring(0, 50) + (content.length > 50 ? '...' : ''),
         });
 
         revalidatePath(`/messages/${newMessage.conversationId}`);
         revalidatePath('/messages'); 
-        revalidatePath('/', 'layout'); // Revalidate layout for header counts (notifications, messages)
-        revalidatePath('/notifications'); // Revalidate notifications page
+        revalidatePath('/', 'layout');
+        revalidatePath('/notifications');
 
         return { success: true, message: "Message sent successfully.", privateMessage: newMessage };
     } catch (error: any) {
@@ -111,7 +110,6 @@ export async function fetchConversationsAction(): Promise<ConversationListItem[]
         const lastMessage = messagesInConv.length > 0 ? messagesInConv[messagesInConv.length-1] : null;
         const unreadCount = messagesInConv.filter(m => m.senderId !== currentUser.id && !m.readBy.includes(currentUser.id)).length;
 
-
         conversationListItems.push({
             id: conv.id,
             otherParticipant,
@@ -122,7 +120,7 @@ export async function fetchConversationsAction(): Promise<ConversationListItem[]
             isLastMessageFromCurrentUser: lastMessage?.senderId === currentUser.id,
         });
     }
-    return conversationListItems.sort((a,b) => b.lastMessageAt.getTime() - a.lastMessageAt.getTime());
+    return conversationListItems.sort((a,b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime());
 }
 
 export async function fetchMessagesAction(conversationId: string): Promise<PrivateMessageDisplay[]> {
@@ -219,5 +217,6 @@ export async function startConversationWithUsernameAction(prevState: ActionRespo
   
   revalidatePath('/messages'); 
   redirect(`/messages/${conversation.id}`);
+  // Note: redirect will throw an error.
+  // return { success: true, message: "Conversation started.", conversationId: conversation.id };
 }
-

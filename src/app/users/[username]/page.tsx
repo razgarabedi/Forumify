@@ -1,18 +1,16 @@
 
 
-import { findUserByUsername, getUserPostCount, generateConversationId as dbGenerateConversationId } from '@/lib/placeholder-data';
+import { findUserByUsername, generateConversationId as dbGenerateConversationId } from '@/lib/db'; // Changed from placeholder-data
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { CalendarDays, MapPin, Link as LinkIcon, MessageSquare, Edit3, Activity, AlignLeft, MessageCircle, Star } from 'lucide-react'; // Added Star
+import { CalendarDays, MapPin, Link as LinkIcon, MessageSquare, Edit3, Activity, AlignLeft, MessageCircle, Star } from 'lucide-react';
 import { format, formatDistanceToNowStrict } from 'date-fns';
 import Link from 'next/link';
-import { notFound, redirect } from 'next/navigation';
+import { notFound } from 'next/navigation';
 import { getCurrentUser } from '@/lib/actions/auth';
-import Image from 'next/image';
-import { startConversationAndRedirectAction } from '@/lib/actions/privateMessages'; // Import the new action
-
+// import Image from 'next/image'; // Not used currently
 
 interface UserProfilePageProps {
   params: { username: string };
@@ -29,23 +27,21 @@ export async function generateMetadata({ params }: UserProfilePageProps) {
 export default async function UserProfilePage({ params }: UserProfilePageProps) {
   const viewingUser = await getCurrentUser();
   const decodedUsername = decodeURIComponent(params.username);
-  console.log(`[UserProfilePage] Attempting to fetch profile for username: "${decodedUsername}" (original: "${params.username}")`);
   const profileUser = await findUserByUsername(decodedUsername);
 
   if (!profileUser) {
     console.error(`[UserProfilePage] User not found for username "${decodedUsername}". Rendering 404 page.`);
     notFound();
   }
-  console.log(`[UserProfilePage] Successfully fetched profileUser: ${profileUser.id} - ${profileUser.username}`);
-
 
   const postCount = profileUser.postCount ?? 0;
-  const points = profileUser.points ?? 0; // Get points
+  const points = profileUser.points ?? 0;
   const lastActive = profileUser.lastActive ? new Date(profileUser.lastActive) : new Date(profileUser.createdAt);
 
   const isOwnProfile = viewingUser?.id === profileUser.id;
   let conversationIdWithProfileUser: string | null = null;
   if (viewingUser && !isOwnProfile) {
+    // generateConversationId is a utility and can be directly used if imported from db.ts or utils.ts
     conversationIdWithProfileUser = dbGenerateConversationId(viewingUser.id, profileUser.id);
   }
 
@@ -167,4 +163,3 @@ export default async function UserProfilePage({ params }: UserProfilePageProps) 
     </div>
   );
 }
-

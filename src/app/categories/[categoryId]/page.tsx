@@ -1,14 +1,13 @@
-import { getTopicsByCategory, getCategoryById } from '@/lib/placeholder-data'; // Using placeholder
+
+import { getTopicsByCategory, getCategoryById } from '@/lib/db'; // Changed from placeholder-data
 import { TopicList } from '@/components/forums/TopicList';
-// import { TopicForm } from '@/components/forms/TopicForm'; // No longer directly used here
 import { getCurrentUser } from '@/lib/actions/auth';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft } from 'lucide-react'; // Removed unused icons
-// import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"; // No longer directly used here
+import { ArrowLeft } from 'lucide-react';
 import { notFound } from 'next/navigation';
-import { Separator } from '@/components/ui/separator'; // Import Separator
-import { CreateTopicControl } from './_components/CreateTopicControl'; // Import the new component
+import { Separator } from '@/components/ui/separator';
+import { CreateTopicControl } from './_components/CreateTopicControl';
 
 interface CategoryPageProps {
     params: { categoryId: string };
@@ -16,7 +15,6 @@ interface CategoryPageProps {
 
 export default async function CategoryPage({ params }: CategoryPageProps) {
     const { categoryId } = params;
-    // Fetch user first to ensure cookie context is reliably accessed
     const user = await getCurrentUser();
     const [category, topics] = await Promise.all([
         getCategoryById(categoryId),
@@ -24,12 +22,11 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
     ]);
 
     if (!category) {
-        notFound(); // Render 404 if category doesn't exist
+        notFound();
     }
 
     return (
         <div className="space-y-6">
-            {/* Back Button and Category Title */}
              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
                  <Button variant="outline" size="sm" asChild>
                     <Link href="/">
@@ -44,12 +41,10 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
                 </div>
             </div>
 
-             <Separator /> {/* Separator for visual structure */}
+             <Separator />
 
-            {/* Control for creating a new topic */}
             <CreateTopicControl categoryId={categoryId} user={user} />
 
-            {/* Topic List */}
             <div>
                  <h2 className="text-xl sm:text-2xl font-semibold mb-4">Topics</h2>
                 <TopicList topics={topics} />
@@ -58,7 +53,6 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
     );
 }
 
-// Optional: Add metadata generation
 export async function generateMetadata({ params }: CategoryPageProps) {
   const category = await getCategoryById(params.categoryId);
   return {

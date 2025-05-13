@@ -1,15 +1,16 @@
-import { getTopicById } from '@/lib/placeholder-data'; // Using placeholder
-import { getPostsByTopic } from '@/lib/actions/forums'; // Use action to fetch posts
+
+import { getTopicById } from '@/lib/db'; // Changed from placeholder-data
+import { getPostsByTopic } from '@/lib/actions/forums'; // Action uses db.ts internally
 import { PostList } from '@/components/forums/PostList';
 import { PostForm } from '@/components/forms/PostForm';
 import { getCurrentUser } from '@/lib/actions/auth';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Info, MessageSquare, UserCircle, CalendarDays, LogIn, UserPlus } from 'lucide-react'; // Added more icons
+import { ArrowLeft, Info, MessageSquare, UserCircle, CalendarDays, LogIn, UserPlus } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { notFound } from 'next/navigation';
 import { format } from 'date-fns';
-import { Separator } from '@/components/ui/separator'; // Import Separator
+import { Separator } from '@/components/ui/separator';
 
 interface TopicPageProps {
     params: { topicId: string };
@@ -17,21 +18,18 @@ interface TopicPageProps {
 
 export default async function TopicPage({ params }: TopicPageProps) {
     const { topicId } = params;
-     // Fetch user first to ensure cookie context is reliably accessed
     const user = await getCurrentUser();
-    // console.log('[TopicPage] Current User:', user?.id); // Debug log
     const [topic, initialPosts] = await Promise.all([
         getTopicById(topicId),
-        getPostsByTopic(topicId),
+        getPostsByTopic(topicId), // This action already uses db.ts
     ]);
 
     if (!topic) {
-        notFound(); // Render 404 if topic doesn't exist
+        notFound();
     }
 
     return (
         <div className="space-y-6">
-             {/* Back Button and Topic Title */}
             <div>
                  {topic.category && (
                      <Button variant="outline" size="sm" asChild className="mb-4">
@@ -41,13 +39,12 @@ export default async function TopicPage({ params }: TopicPageProps) {
                     </Button>
                  )}
                 <h1 className="text-2xl sm:text-3xl font-bold leading-tight">{topic.title}</h1>
-                 {/* Enhanced Metadata */}
                  <div className="text-sm text-muted-foreground mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
                     <span className="flex items-center gap-1">
                         <UserCircle className="h-4 w-4"/> Started by: <strong>{topic.author?.username ?? 'Unknown'}</strong>
                     </span>
                     <span className="flex items-center gap-1">
-                         <CalendarDays className="h-4 w-4"/> {format(new Date(topic.createdAt), 'PPP')} {/* Simpler date format */}
+                         <CalendarDays className="h-4 w-4"/> {format(new Date(topic.createdAt), 'PPP')}
                     </span>
                      <span className="flex items-center gap-1">
                          <MessageSquare className="h-4 w-4"/> {topic.postCount ?? initialPosts.length} posts
@@ -55,31 +52,28 @@ export default async function TopicPage({ params }: TopicPageProps) {
                 </div>
             </div>
 
-            <Separator /> {/* Separator for visual structure */}
+            <Separator />
 
-            {/* Post List - Now requires client component for edit state */}
             <PostList initialPosts={initialPosts} topicId={topicId} currentUser={user} />
 
-
-            {/* Reply Form or Login Prompt */}
             {user ? (
-                 <div id="post-form-container"> {/* Add an ID for scrolling into view when editing */}
+                 <div id="post-form-container">
                     <PostForm topicId={topicId} />
                  </div>
             ) : (
-                 <Alert id="post-form-container" className="border-primary/30 bg-primary/5"> {/* Add ID here too */}
+                 <Alert id="post-form-container" className="border-primary/30 bg-primary/5">
                     <Info className="h-4 w-4 text-primary" />
                     <AlertTitle className="text-primary">Login Required</AlertTitle>
                     <AlertDescription>
                         You need to login or register to reply to this topic.
                          <div className="flex gap-2 mt-2">
                              <Button size="sm" asChild>
-                               <Link href={`/login?redirect=/topics/${topicId}`}> {/* Add redirect */}
+                               <Link href={`/login?redirect=/topics/${topicId}`}>
                                    <LogIn className="mr-1 h-4 w-4"/> Login
                                 </Link>
                             </Button>
                             <Button size="sm" variant="secondary" asChild>
-                               <Link href={`/register?redirect=/topics/${topicId}`}> {/* Add redirect */}
+                               <Link href={`/register?redirect=/topics/${topicId}`}>
                                    <UserPlus className="mr-1 h-4 w-4"/> Register
                                 </Link>
                              </Button>
@@ -91,8 +85,6 @@ export default async function TopicPage({ params }: TopicPageProps) {
     );
 }
 
-
-// Optional: Add metadata generation
 export async function generateMetadata({ params }: TopicPageProps) {
   const topic = await getTopicById(params.topicId);
   return {

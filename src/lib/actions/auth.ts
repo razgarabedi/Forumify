@@ -12,8 +12,8 @@ import {
     getAllUsers,
     updateUserProfile, 
     updateUserLastActive,
-    updateUserPassword // Added
-} from "@/lib/placeholder-data";
+    updateUserPassword
+} from "@/lib/db"; // Changed from placeholder-data to db
 import type { User, ActionResponse } from "@/lib/types";
 
 const SESSION_COOKIE_NAME = 'forum_session';
@@ -31,9 +31,8 @@ const RegisterSchema = z.object({
 });
 
 const ProfileUpdateSchema = z.object({
-    // avatarUrl can be an HTTP/S URL or a data URI, or empty for removal
     avatarUrl: z.string().optional().refine(val => {
-        if (val === undefined || val === '') return true; // Optional or empty string (for removal) is fine
+        if (val === undefined || val === '') return true;
         return val.startsWith('data:image/') || val.startsWith('http://') || val.startsWith('https://');
     }, { message: "Avatar must be a valid image data URI or an HTTP(S) URL." }),
     aboutMe: z.string().max(500, { message: "About me cannot exceed 500 characters." }).optional(),
@@ -42,7 +41,7 @@ const ProfileUpdateSchema = z.object({
         if (val && val.length > 0 && !val.startsWith('http://') && !val.startsWith('https://')) {
             return `https://${val}`;
         }
-        return val === '' ? undefined : val; // Ensure empty string becomes undefined if not a valid URL structure
+        return val === '' ? undefined : val;
     }).refine(val => {
         if (val === undefined || val === '') return true;
         try {
@@ -56,7 +55,7 @@ const ProfileUpdateSchema = z.object({
         if (val && val.length > 0 && !val.startsWith('http://') && !val.startsWith('https://')) {
             return `https://${val}`;
         }
-        return val === '' ? undefined : val; // Ensure empty string becomes undefined
+        return val === '' ? undefined : val;
     }).refine(val => {
         if (val === undefined || val === '') return true;
         try {
@@ -75,7 +74,7 @@ const ChangePasswordSchema = z.object({
     confirmNewPassword: z.string().min(6, "Confirm new password must be at least 6 characters."),
 }).refine(data => data.newPassword === data.confirmNewPassword, {
     message: "New passwords do not match.",
-    path: ["confirmNewPassword"], // Set error on confirmNewPassword field
+    path: ["confirmNewPassword"],
 });
 
 
@@ -99,7 +98,8 @@ export async function login(prevState: ActionResponse | undefined, formData: For
 
   try {
     const user = await findUserByEmail(email);
-    const passwordMatch = user && user.password === password;
+    // TODO: Replace with secure password comparison (e.g., bcrypt.compare)
+    const passwordMatch = user && user.password === password; // Placeholder comparison
 
     if (!user || !passwordMatch) {
       console.warn(`Login failed for ${email}. User found: ${!!user}, Password match: ${passwordMatch}`);
@@ -112,7 +112,7 @@ export async function login(prevState: ActionResponse | undefined, formData: For
         maxAge: 60 * 60 * 24 * 7,
         path: '/',
     });
-    await updateUserLastActive(user.id); // Update last active on login
+    await updateUserLastActive(user.id);
 
     revalidatePath('/', 'layout');
     return { message: `Welcome back, ${user.username}!`, success: true, user };
@@ -152,7 +152,7 @@ export async function register(prevState: ActionResponse | undefined, formData: 
     const newUser = await createUser({
       username,
       email,
-      password: password, // Store plain password (placeholder)
+      password: password, // This will be hashed by createUser in db.ts
       isAdmin: isFirstUser,
       lastActive: new Date(), 
     });
@@ -181,7 +181,6 @@ export async function logout() {
     }
     cookies().delete(SESSION_COOKIE_NAME);
     revalidatePath('/', 'layout');
-    // No redirect needed here, let the page handle UI update
 }
 
 export async function getCurrentUser(): Promise<User | null> {
@@ -191,7 +190,6 @@ export async function getCurrentUser(): Promise<User | null> {
     }
     try {
         const user = await findUserById(userId);
-        // if (user) await updateUserLastActive(user.id); 
         return user;
     } catch (error) {
         console.error("Error fetching current user:", error);
@@ -272,8 +270,6 @@ export async function changePasswordAction(prevState: ActionResponse | undefined
             return { success: false, message: result.message || "Failed to update password." };
         }
         
-        // Optionally, re-authenticate user or just show success message
-        // For simplicity, we'll just show a success message. In a real app, re-login might be forced.
         revalidatePath('/settings'); 
         return { success: true, message: "Password changed successfully." };
 
@@ -282,4 +278,3 @@ export async function changePasswordAction(prevState: ActionResponse | undefined
         return { success: false, message: "An unexpected error occurred while changing your password." };
     }
 }
-

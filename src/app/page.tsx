@@ -1,11 +1,12 @@
-import { getCategories } from '@/lib/placeholder-data'; // Using placeholder
+
+import { getCategories } from '@/lib/db'; // Changed from placeholder-data
 import { CategoryList } from '@/components/forums/CategoryList';
 import { CategoryForm } from '@/components/forms/CategoryForm';
 import { getCurrentUser } from '@/lib/actions/auth';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'; // Added CardContent
-import { Button } from '@/components/ui/button'; // Added Button
-import Link from 'next/link'; // Added Link
-import { LogIn, UserPlus } from 'lucide-react'; // Added icons
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import Link from 'next/link';
+import { LogIn, UserPlus } from 'lucide-react';
 
 export default async function Home() {
   const categories = await getCategories();
@@ -13,7 +14,6 @@ export default async function Home() {
 
   return (
     <div className="space-y-8">
-       {/* More engaging welcome card */}
        <Card className="bg-gradient-to-r from-primary/10 via-background to-background border border-primary/20 shadow-sm">
         <CardHeader>
            <CardTitle className="text-2xl sm:text-3xl font-bold text-primary">Welcome to ForumLite!</CardTitle>
@@ -37,7 +37,6 @@ export default async function Home() {
          )}
       </Card>
 
-      {/* Only show category form if user is admin */}
       {user?.isAdmin && <CategoryForm />}
 
       <div>

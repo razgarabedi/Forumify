@@ -13,11 +13,12 @@ import {
     findUserByUsername, 
     createNotification, 
     getTopicByIdSimple, 
-    togglePostReaction as dbTogglePostReaction, // Import reaction function
-} from "@/lib/placeholder-data"; 
+    togglePostReaction as dbTogglePostReaction,
+    getPostsByTopic as dbGetPostsByTopic // Import db version
+} from "@/lib/db"; // Changed from placeholder-data to db
 import { getCurrentUser } from "./auth";
 import { parseMentions } from "@/lib/utils"; 
-import type { ActionResponse, ReactionType } from "@/lib/types";
+import type { ActionResponse, ReactionType, Post } from "@/lib/types";
 
 // --- Schemas ---
 const CategorySchema = z.object({
@@ -51,7 +52,7 @@ const ToggleReactionSchema = z.object({
 // --- Actions ---
 
 // --- Categories ---
-export async function createCategory(prevState: any, formData: FormData) {
+export async function createCategory(prevState: ActionResponse | undefined, formData: FormData): Promise<ActionResponse> {
     const user = await getCurrentUser();
     if (!user?.isAdmin) {
         return { message: "Unauthorized: Only admins can create categories.", success: false };
@@ -84,7 +85,7 @@ export async function createCategory(prevState: any, formData: FormData) {
 }
 
 // --- Topics ---
-export async function createTopic(prevState: any, formData: FormData) {
+export async function createTopic(prevState: ActionResponse | undefined, formData: FormData): Promise<ActionResponse> {
     const user = await getCurrentUser();
     if (!user) {
         return { message: "Unauthorized: You must be logged in to create a topic.", success: false };
@@ -117,7 +118,6 @@ export async function createTopic(prevState: any, formData: FormData) {
             firstPostImageUrl: firstPostImageUrl === "" ? undefined : firstPostImageUrl,
         });
 
-        // Handle mentions in the first post
         const mentionedUsernames = parseMentions(firstPostContent);
         const uniqueMentionedUserIds = new Set<string>();
 
@@ -125,7 +125,7 @@ export async function createTopic(prevState: any, formData: FormData) {
             for (const username of mentionedUsernames) {
                 const mentionedUser = await findUserByUsername(username);
                 if (mentionedUser && mentionedUser.id !== user.id && !uniqueMentionedUserIds.has(mentionedUser.id)) {
-                    const firstPostInTopic = (await getPostsByTopic(newTopic.id))[0];
+                    const firstPostInTopic = (await dbGetPostsByTopic(newTopic.id))[0];
                     if (firstPostInTopic) {
                         await createNotification({
                             type: 'mention',
@@ -142,12 +142,16 @@ export async function createTopic(prevState: any, formData: FormData) {
             }
         }
 
-
         revalidatePath(`/categories/${categoryId}`);
         revalidatePath('/');
         revalidatePath('/notifications', 'layout'); 
 
         redirect(`/topics/${newTopic.id}`);
+        // Note: redirect will throw an error, so this part might not be reached in happy path.
+        // Return type is ActionResponse, but redirect interrups.
+        // For consistency, we can return a success object before redirect, but Next.js handles it.
+        // return { message: `Topic "${newTopic.title}" created. Redirecting...`, success: true, topicId: newTopic.id };
+
 
     } catch (error: any) {
         if (typeof error.digest === 'string' && error.digest.startsWith('NEXT_REDIRECT')) {
@@ -162,7 +166,7 @@ export async function createTopic(prevState: any, formData: FormData) {
 }
 
 // --- Posts ---
-export async function submitPost(prevState: any, formData: FormData) {
+export async function submitPost(prevState: ActionResponse | undefined, formData: FormData): Promise<ActionResponse> {
     const user = await getCurrentUser();
     if (!user) {
         return { message: "Unauthorized: You must be logged in to post.", success: false };
@@ -189,7 +193,7 @@ export async function submitPost(prevState: any, formData: FormData) {
     const removeImage = formData.get("removeImage") === "true";
 
     try {
-        let savedPost;
+        let savedPost: Post | null;
         if (postId) {
             savedPost = await dbUpdatePost(postId, content, user.id, removeImage ? null : finalImageUrl);
             if (!savedPost) {
@@ -199,7 +203,10 @@ export async function submitPost(prevState: any, formData: FormData) {
             savedPost = await dbCreatePost({ content, topicId, authorId: user.id, imageUrl: finalImageUrl });
         }
 
-        // Handle mentions
+        if (!savedPost) { // Double check after operations
+            return { message: "Error: Failed to save post.", success: false };
+        }
+
         const mentionedUsernames = parseMentions(savedPost.content);
         const uniqueMentionedUserIds = new Set<string>();
         const topicForNotification = await getTopicByIdSimple(topicId);
@@ -242,7 +249,7 @@ export async function submitPost(prevState: any, formData: FormData) {
     }
 }
 
-export async function deletePost(postId: string, topicId: string): Promise<{success: boolean, message: string}> {
+export async function deletePost(postId: string, topicId: string): Promise<ActionResponse> {
     const user = await getCurrentUser();
      if (!user) {
         return { success: false, message: "Unauthorized: You must be logged in to delete posts."};
@@ -267,9 +274,8 @@ export async function deletePost(postId: string, topicId: string): Promise<{succ
     }
 }
 
-export const getPostsByTopic = async (topicId: string) => {
-    const postsData = await import('@/lib/placeholder-data').then(mod => mod.getPostsByTopic(topicId));
-    return postsData;
+export const getPostsByTopic = async (topicId: string): Promise<Post[]> => {
+    return dbGetPostsByTopic(topicId);
 }
 
 // --- Reactions ---
@@ -301,12 +307,10 @@ export async function toggleReactionAction(prevState: ActionResponse | undefined
       return { success: false, message: "Failed to update reaction. Post not found." };
     }
     
-    // Create notification if a reaction was added/changed and not by the post author on their own post
     if (updatedPost.authorId !== user.id) {
         const reaction = updatedPost.reactions.find(r => r.userId === user.id && r.type === reactionType);
-        // Only notify if the reaction resulted in the reactionType being active for the current user (i.e., not a removal of reaction)
-        const existingReaction = prevState?.post?.reactions?.find((r: any) => r.userId === user.id);
-        const reactionIsNewOrChanged = !existingReaction || existingReaction.type !== reactionType;
+        const existingReactionInPrevState = prevState?.post?.reactions?.find((r: any) => r.userId === user.id);
+        const reactionIsNewOrChanged = !existingReactionInPrevState || existingReactionInPrevState.type !== reactionType;
 
         if (reaction && reactionIsNewOrChanged) { 
             const topicForNotification = await getTopicByIdSimple(updatedPost.topicId);
@@ -331,7 +335,7 @@ export async function toggleReactionAction(prevState: ActionResponse | undefined
        revalidatePath(`/topics/${topic.id}`);
     } else {
         console.warn(`[toggleReactionAction] Topic not found for post ${postId}, full revalidation might be needed for related pages.`);
-        revalidatePath('/'); // Fallback to broader revalidation
+        revalidatePath('/');
     }
 
     return { success: true, message: "Reaction updated.", post: updatedPost };
@@ -340,4 +344,3 @@ export async function toggleReactionAction(prevState: ActionResponse | undefined
     return { success: false, message: error.message || "Failed to update reaction." };
   }
 }
-

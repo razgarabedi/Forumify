@@ -1,15 +1,16 @@
 
-import { fetchMessagesAction, sendPrivateMessageAction } from '@/lib/actions/privateMessages';
+
+import { fetchMessagesAction } from '@/lib/actions/privateMessages'; // Action remains as it uses db.ts internally
 import { getCurrentUser } from '@/lib/actions/auth';
 import { MessageListClient } from './_components/MessageListClient';
 import { MessageForm } from '../_components/MessageForm';
 import { notFound, redirect } from 'next/navigation';
-import { findUserById, getConversationById as dbGetConversationById } from '@/lib/placeholder-data';
+import { findUserById, getConversationById as dbGetConversationById } from '@/lib/db'; // Changed from placeholder-data
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
-import type { User } from '@/lib/types';
+// import type { User } from '@/lib/types'; // User type is implicitly handled
 
 interface ConversationPageProps {
   params: { conversationId: string };
@@ -66,11 +67,10 @@ export default async function ConversationPage({ params }: ConversationPageProps
     notFound();
   }
 
-  // Refined parsing of conversationId
-  const idWithoutPrefix = conversationId.substring(5); // e.g., "userA__userB--s-subject" or "userA__userB"
-  const mainParts = idWithoutPrefix.split('--s-'); // Splits into ["userA__userB", "subject"] or ["userA__userB"]
-  const participantIdsString = mainParts[0]; // "userA__userB"
-  const participantIdParts = participantIdsString.split('__'); // ["userA", "userB"]
+  const idWithoutPrefix = conversationId.substring(5);
+  const mainParts = idWithoutPrefix.split('--s-');
+  const participantIdsString = mainParts[0];
+  const participantIdParts = participantIdsString.split('__');
 
 
   if (participantIdParts.length !== 2 || !participantIdParts[0] || !participantIdParts[1]) {
@@ -95,10 +95,8 @@ export default async function ConversationPage({ params }: ConversationPageProps
     notFound();
   }
 
-  // Fetch conversation details, including subject, using the full conversationId
   const conversationDetails = await dbGetConversationById(conversationId);
 
-  // If conversation exists in DB, verify current user is part of it (this is a stronger check using DB data)
   if (conversationDetails && !conversationDetails.participantIds.includes(currentUser.id)) {
       console.error(`ConversationPage: Mismatch - Current user ${currentUser.id} not in stored participant list for existing conversation ${conversationId}. Stored participants:`, conversationDetails.participantIds);
       notFound();
@@ -130,4 +128,3 @@ export default async function ConversationPage({ params }: ConversationPageProps
     </div>
   );
 }
-

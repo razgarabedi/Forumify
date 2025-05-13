@@ -1,5 +1,6 @@
 
-import { getCategories } from "@/lib/placeholder-data";
+
+import { getCategories } from "@/lib/db"; // Changed from placeholder-data
 import { CategoryForm } from "@/components/forms/CategoryForm";
 import {
   Table,
