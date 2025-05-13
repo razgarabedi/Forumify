@@ -1,23 +1,21 @@
+
 "use client";
 
 import React, { useState, RefObject, useCallback } from 'react';
 import {
     Bold, Italic, Link as LinkIcon, List, ListOrdered, Quote, Code, SmilePlus, Image as ImageIcon, Strikethrough,
-    Highlighter, // For [highlight]
-    AlignCenter, AlignLeft, AlignRight, AlignJustify, // For [align]
-    MoveRight, // For [float=right], generic icon
-    MoveLeft, // For [float=left], generic icon
-    SquareCode, // For [pre]
+    Highlighter, 
+    AlignCenter, AlignLeft, AlignRight, AlignJustify, 
     Superscript, Subscript,
-    Sparkles, // For [glow]
-    Droplets, // For [shadow] generic concept
-    EyeOff, // For [spoiler]
+    Sparkles, 
+    Droplets, 
+    EyeOff, 
     Youtube,
-    RemoveFormatting,
-    Palette, // For [color]
-    CaseSensitive, // For [size]
-    Table, // For [table]
-    Underline, // For [u]
+    Palette, 
+    CaseSensitive, 
+    Table, 
+    Underline,
+    SquareCode // Used for <pre>
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -35,15 +33,12 @@ interface SimpleHtmlElement {
     tagName: string;
     attributes: { [key: string]: string };
     children: (SimpleHtmlElement | string)[];
-    style?: CSSStyleDeclaration; // Add style property
+    style?: CSSStyleDeclaration; 
 }
 
 
 function parseHtmlToSimpleStructure(htmlString: string): (SimpleHtmlElement | string)[] {
     if (typeof window === 'undefined' || !window.DOMParser) {
-        // Fallback for environments without DOMParser (e.g., some test environments)
-        // This basic fallback will just return the string, losing HTML structure.
-        // For actual client-side operation, DOMParser is expected.
         return [htmlString];
     }
     const parser = new DOMParser();
@@ -62,7 +57,6 @@ function parseHtmlToSimpleStructure(htmlString: string): (SimpleHtmlElement | st
                 const attr = element.attributes[i];
                 attributes[attr.name] = attr.value;
             }
-            // Include style for parsing
             return { tagName: element.tagName.toUpperCase(), attributes, children, style: element.style };
         }
         return null;
@@ -74,25 +68,20 @@ function parseHtmlToSimpleStructure(htmlString: string): (SimpleHtmlElement | st
 function simpleStructureToMarkdown(nodes: (SimpleHtmlElement | string)[]): string {
     let markdown = "";
 
-    function processNode(node: SimpleHtmlElement | string, listMeta?: { type: 'UL' | 'OL', depth: number, counter?: number }): string {
+    function processNode(node: SimpleHtmlElement | string): string {
         if (typeof node === 'string') {
-            return node.replace(/\u00A0/g, ' ').replace(/  +/g, ' '); // Normalize spaces
+            return node.replace(/\u00A0/g, ' ').replace(/  +/g, ' ');
         }
 
         const element = node as SimpleHtmlElement;
-        let childrenMarkdown = element.children.map(child => processNode(child, listMeta)).join('');
-
-        // Inline elements might need trimming if they are the only child of a block.
-        // Block elements handle their own spacing.
+        let childrenMarkdown = element.children.map(child => processNode(child)).join('');
+        
         const blockTags = ['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'DIV', 'BLOCKQUOTE', 'PRE', 'UL', 'OL', 'TABLE', 'HR'];
         if (!blockTags.includes(element.tagName)) {
-           // Smart trim for inline elements or elements that behave like inline in certain contexts
-           // This is tricky; for now, let's trim childrenMarkdown for most inline tags
-           if (element.tagName !== 'A' && element.tagName !== 'CODE' && element.tagName !== 'SPAN') { // Links and code often need precise spacing
+           if (element.tagName !== 'A' && element.tagName !== 'CODE' && element.tagName !== 'SPAN') {
               childrenMarkdown = childrenMarkdown.trim();
            }
         }
-
 
         switch (element.tagName) {
             case 'H1': return `# ${childrenMarkdown.trim()}\n\n`;
@@ -104,111 +93,84 @@ function simpleStructureToMarkdown(nodes: (SimpleHtmlElement | string)[]): strin
             case 'P': return `${childrenMarkdown.trim()}\n\n`;
             case 'STRONG': case 'B': return `**${childrenMarkdown}**`;
             case 'EM': case 'I': return `*${childrenMarkdown}*`;
-            
-            case 'U': // Underline
-                if (element.style?.textDecorationLine === 'underline' || element.style?.textDecoration?.includes('underline')) {
-                    return `[u]${childrenMarkdown}[/u]`;
-                }
-                return `[u]${childrenMarkdown}[/u]`; // Fallback if style not present but tag is U
-
+            case 'U': return `<u>${childrenMarkdown}</u>`;
             case 'S': case 'STRIKE': return `~~${childrenMarkdown}~~`;
-            
             case 'A':
                 const href = element.attributes.href;
                 return href ? `[${childrenMarkdown.trim() || href}](${href})` : childrenMarkdown;
-
             case 'UL':
                 return Array.from(element.children)
-                    .map(child => (child as SimpleHtmlElement).tagName === 'LI' ? `* ${processNode(child as SimpleHtmlElement, { type: 'UL', depth: (listMeta?.depth || 0) + 1 }).trim()}` : processNode(child))
+                    .map(child => (child as SimpleHtmlElement).tagName === 'LI' ? `* ${processNode(child as SimpleHtmlElement).trim()}` : processNode(child))
                     .join('\n') + '\n\n';
             case 'OL':
                 let olCounter = 1;
                 return Array.from(element.children)
-                    .map(child => (child as SimpleHtmlElement).tagName === 'LI' ? `${olCounter++}. ${processNode(child as SimpleHtmlElement, { type: 'OL', depth: (listMeta?.depth || 0) + 1, counter: olCounter -1 }).trim()}` : processNode(child))
+                    .map(child => (child as SimpleHtmlElement).tagName === 'LI' ? `${olCounter++}. ${processNode(child as SimpleHtmlElement).trim()}` : processNode(child))
                     .join('\n') + '\n\n';
-            case 'LI':
-                 return childrenMarkdown; // Content of LI, prefix handled by UL/OL
-
+            case 'LI': return childrenMarkdown;
             case 'BLOCKQUOTE': return `> ${childrenMarkdown.trim().replace(/\n/g, '\n> ')}\n\n`;
-            
             case 'PRE':
                 const preCodeContent = element.children.length === 1 && (element.children[0] as SimpleHtmlElement).tagName === 'CODE'
-                    ? (element.children[0] as SimpleHtmlElement).children.join('').trim() // Assuming code content is text
+                    ? (element.children[0] as SimpleHtmlElement).children.join('').trim()
                     : childrenMarkdown.trim();
                 return `\`\`\`\n${preCodeContent}\n\`\`\`\n\n`;
-            case 'CODE': // Inline code
-                if (element.children.some(child => typeof child !== 'string' || (child as SimpleHtmlElement).tagName === 'PRE')) return childrenMarkdown; // Complex content or inside PRE
-                return `\`${childrenMarkdown}\``;
-
+            case 'CODE':
+                 if (element.parentElement?.tagName === 'PRE') return childrenMarkdown; // Already handled by PRE
+                 return `\`${childrenMarkdown}\``;
             case 'IMG':
                 const src = element.attributes.src;
                 const alt = element.attributes.alt || '';
                 return src ? `![${alt}](${src})` : '';
-            
             case 'BR': return '\n';
             case 'HR': return '\n---\n\n';
-
             case 'TABLE':
                 let tableMd = '\n';
-                const rows = element.children.filter(c => typeof c !== 'string' && c.tagName === 'TR' || (c.tagName === 'THEAD' || c.tagName === 'TBODY') && c.children.some(cr => typeof cr !== 'string' && cr.tagName === 'TR')) as SimpleHtmlElement[];
-                
+                const rows = element.children.filter(c => typeof c !== 'string' && (c.tagName === 'TR' || ((c.tagName === 'THEAD' || c.tagName === 'TBODY') && c.children.some(cr => typeof cr !== 'string' && cr.tagName === 'TR')))) as SimpleHtmlElement[];
                 let headerProcessed = false;
                 rows.forEach((row, rowIndex) => {
-                    const cells = (row.tagName === 'TR' ? row.children : (row.children[0] as SimpleHtmlElement)?.children || []) as (SimpleHtmlElement | string)[];
-                    const cellContent = cells.map(cell => processNode(cell).trim()).join(' | ');
+                    const cellsContainer = row.tagName === 'TR' ? row : (row.children.find(c => typeof c !== 'string' && c.tagName === 'TR') as SimpleHtmlElement | undefined);
+                    if (!cellsContainer) return;
+
+                    const cells = cellsContainer.children.filter(c => typeof c !== 'string' && (c.tagName === 'TD' || c.tagName === 'TH')) as SimpleHtmlElement[];
+                    const cellContent = cells.map(cell => processNode(cell).trim().replace(/\|/g, '\\|')).join(' | ');
                     tableMd += `| ${cellContent} |\n`;
+                    
                     if ((rowIndex === 0 || (row.parentElement as SimpleHtmlElement)?.tagName === 'THEAD') && !headerProcessed && cells.length > 0) {
                         tableMd += `| ${cells.map(() => '---').join(' | ')} |\n`;
                         headerProcessed = true;
                     }
                 });
                 return tableMd + '\n';
-            
-            case 'SUP': return `[sup]${childrenMarkdown}[/sup]`;
-            case 'SUB': return `[sub]${childrenMarkdown}[/sub]`;
-            
-            case 'SPAN': case 'FONT': // FONT is common from Word
-                let styles = '';
+            case 'TH': case 'TD': return childrenMarkdown.trim();
+            case 'SUP': return `<sup>${childrenMarkdown}</sup>`;
+            case 'SUB': return `<sub>${childrenMarkdown}</sub>`;
+            case 'SPAN': case 'FONT':
+                let styledContent = childrenMarkdown;
                 if (element.style) {
-                    if (element.style.fontWeight === 'bold' || parseInt(element.style.fontWeight, 10) >= 700) styles += `**${childrenMarkdown}**`;
-                    else if (element.style.fontStyle === 'italic') styles += `*${childrenMarkdown}*`;
-                    else if (element.style.textDecorationLine?.includes('underline') || element.style.textDecoration?.includes('underline')) styles += `[u]${childrenMarkdown}[/u]`;
-                    else if (element.style.textDecorationLine?.includes('line-through')) styles += `~~${childrenMarkdown}~~`;
-                    else if (element.style.color) styles += `[color=${element.style.color}]${childrenMarkdown}[/color]`;
-                    else if (element.style.backgroundColor && element.style.backgroundColor !== 'transparent') styles += `[highlight=${element.style.backgroundColor}]${childrenMarkdown}[/highlight]`;
-                    else if (element.style.fontSize) { // This is tricky, try to map to simple BBCode sizes
+                    if (element.style.fontWeight === 'bold' || parseInt(element.style.fontWeight, 10) >= 700) styledContent = `**${styledContent}**`;
+                    if (element.style.fontStyle === 'italic') styledContent = `*${styledContent}*`;
+                    if (element.style.textDecorationLine?.includes('underline') || element.style.textDecoration?.includes('underline')) styledContent = `<u>${styledContent}</u>`;
+                    if (element.style.textDecorationLine?.includes('line-through')) styledContent = `~~${styledContent}~~`;
+                    if (element.style.color) styledContent = `<span style="color: ${element.style.color};">${styledContent}</span>`; // Or use <font color="">
+                    if (element.style.backgroundColor && element.style.backgroundColor !== 'transparent') styledContent = `<mark>${styledContent}</mark>`; // Using <mark> for highlight
+                    if (element.style.fontSize) {
                         const size = element.style.fontSize;
-                        let bbSize = size; // Default to direct value
-                        if (size.endsWith('pt')) {
-                            const pt = parseInt(size);
-                            if (pt <= 8) bbSize = '1'; else if (pt <= 10) bbSize = '2'; else if (pt <= 12) bbSize = '3';
-                            else if (pt <= 14) bbSize = '4'; else if (pt <= 18) bbSize = '5'; else if (pt <= 24) bbSize = '6'; else bbSize = '7';
-                        }
-                        styles += `[size=${bbSize}]${childrenMarkdown}[/size]`;
+                        // Basic mapping for font size, or pass directly
+                        styledContent = `<span style="font-size: ${size};">${styledContent}</span>`;
                     }
-                     else if (element.classList && element.classList.contains('text-glow-paste')) styles += `[glow]${childrenMarkdown}[/glow]`; // Assuming pasted glow has a class
-                     else if (element.classList && element.classList.contains('text-shadow-paste')) styles += `[shadow]${childrenMarkdown}[/shadow]`;
-                    else styles = childrenMarkdown;
-                } else {
-                    styles = childrenMarkdown;
                 }
-                 // Check for FONT tag specific attributes if style parsing isn't enough
-                if (element.tagName === 'FONT') {
-                    if (element.attributes.color && !styles.includes('[color=')) {
-                         styles = `[color=${element.attributes.color}]${styles}[/color]`;
-                    }
-                    // Could attempt FONT size attribute, but it's deprecated and mapping is unreliable
-                }
-                return styles;
+                 if (element.tagName === 'FONT' && element.attributes.color && !styledContent.includes('style="color:')) {
+                     styledContent = `<span style="color: ${element.attributes.color};">${styledContent}</span>`;
+                 }
+                return styledContent;
 
             case 'DIV':
                 if (element.style?.textAlign) {
-                    return `[align=${element.style.textAlign}]${childrenMarkdown.trim()}[/align]\n\n`;
+                     return `<div style="text-align: ${element.style.textAlign};">${childrenMarkdown.trim()}</div>\n\n`;
                 }
-                return `${childrenMarkdown.trim()}\n\n`; // Treat DIV as block with newlines
+                return `${childrenMarkdown.trim()}\n\n`; 
 
             default:
-                // For unknown tags, try to preserve content, add newlines if it seems like a block from Word/HTML
                 const seemsBlock = element.style?.display === 'block' || blockTags.includes(element.tagName);
                 return childrenMarkdown + (seemsBlock ? '\n\n' : '');
         }
@@ -222,11 +184,11 @@ function simpleStructureToMarkdown(nodes: (SimpleHtmlElement | string)[]): strin
 
 function cleanupMarkdown(md: string): string {
     return md
-        .replace(/(\n\s*){3,}/g, '\n\n') // Reduce 3+ newlines to 2
-        .replace(/\*\*\s*\*\*/g, '') // Remove empty bold: ****
-        .replace(/\*\s*\*/g, '')     // Remove empty italic: **
-        .replace(/~~\s*~~/g, '')   // Remove empty strikethrough: ~~~~
-        .replace(/``/g, '')        // Remove empty inline code
+        .replace(/(\n\s*){3,}/g, '\n\n') 
+        .replace(/\*\*\s*\*\*/g, '') 
+        .replace(/\*\s*\*/g, '')     
+        .replace(/~~\s*~~/g, '')   
+        .replace(/``/g, '')        
         .trim();
 }
 
@@ -249,12 +211,23 @@ export function RichTextToolbar({ textareaRef, onContentChange, currentContent }
 
         if (isBlock) {
             const currentLineStart = currentContent.lastIndexOf('\n', start - 1) + 1;
-            const currentLineEnd = currentContent.indexOf('\n', end);
-            const lineIsEmpty = currentContent.substring(currentLineStart, start).trim() === '' && currentContent.substring(end, currentLineEnd === -1 ? currentContent.length : currentLineEnd).trim() === '';
+            // Check if the cursor is at the beginning of the line or if the line is empty
+            const isAtStartOfLineOrEmpty = start === currentLineStart || currentContent.substring(currentLineStart, start).trim() === '';
 
-            if (start > 0 && currentContent[start - 1] !== '\n' && !lineIsEmpty) prefix = '\n' + prefix;
-            if (end < currentContent.length && currentContent[end] !== '\n' && !lineIsEmpty) suffix = suffix + '\n';
-            if (prefix === before && start === 0 && !currentContent.substring(0, start).endsWith('\n\n')) prefix = '\n' + prefix; // Extra newline if at very beginning
+            if (start > 0 && currentContent[start - 1] !== '\n' && !isAtStartOfLineOrEmpty) {
+                 prefix = '\n' + prefix;
+            } else if (start > 0 && currentContent[start -1] === '\n' && currentContent[start-2] !== '\n' && !isAtStartOfLineOrEmpty ) {
+                // If already on a new line, but not a double new line, add one more for block elements
+                // prefix = '\n' + prefix; 
+            }
+
+
+            if (end < currentContent.length && currentContent[end] !== '\n') {
+                 suffix = suffix + '\n';
+            } else if (end < currentContent.length && currentContent[end] === '\n' && (end + 1 >= currentContent.length || currentContent[end+1] !== '\n')) {
+                // If followed by a single newline, add another for block elements
+                // suffix = suffix + '\n';
+            }
         }
         
         const newText = `${currentContent.substring(0, start)}${prefix}${textToInsert}${suffix}${currentContent.substring(end)}`;
@@ -263,9 +236,9 @@ export function RichTextToolbar({ textareaRef, onContentChange, currentContent }
         requestAnimationFrame(() => {
             if (textarea) {
                 textarea.focus();
-                if (selectedText && !replaceSelection) { // If there was a selection and we wrapped it
+                if (selectedText && !replaceSelection) { 
                     textarea.setSelectionRange(start + prefix.length, start + prefix.length + selectedText.length);
-                } else { // If we inserted default text or replaced selection
+                } else { 
                     textarea.setSelectionRange(start + prefix.length, start + prefix.length + textToInsert.length);
                 }
             }
@@ -276,21 +249,34 @@ export function RichTextToolbar({ textareaRef, onContentChange, currentContent }
     const insertList = useCallback((marker: string) => {
         const textarea = textareaRef.current;
         if (!textarea) return;
-        // Simplified: inserts the marker at the start of the current line or selection.
-        // A more complex version would handle multi-line selections properly.
         const start = textarea.selectionStart;
-        const currentLineStart = currentContent.lastIndexOf('\n', start - 1) + 1;
-        
-        const prefixText = marker === '1.' ? '1. ' : `${marker} `;
-        const newText = `${currentContent.substring(0, currentLineStart)}${prefixText}${currentContent.substring(currentLineStart)}`;
-        onContentChange(newText);
+        const end = textarea.selectionEnd;
+        const selectedText = currentContent.substring(start, end);
 
-        requestAnimationFrame(() => {
-            if (textarea) {
+        if (selectedText) { // Wrap selected lines
+            const lines = selectedText.split('\n');
+            const newLines = lines.map((line, index) => marker === '1.' ? `${index + 1}. ${line}` : `${marker} ${line}`);
+            const textToInsert = newLines.join('\n');
+            const newText = `${currentContent.substring(0, start)}${textToInsert}${currentContent.substring(end)}`;
+            onContentChange(newText);
+            requestAnimationFrame(() => {
                 textarea.focus();
-                textarea.setSelectionRange(start + prefixText.length, start + prefixText.length);
-            }
-        });
+                textarea.setSelectionRange(start, start + textToInsert.length);
+            });
+        } else { // Insert new list item
+            const currentLineStart = currentContent.lastIndexOf('\n', start - 1) + 1;
+            const prefix = currentContent.substring(0, currentLineStart);
+            const suffix = currentContent.substring(currentLineStart);
+            const linePrefix = (currentLineStart === 0 || currentContent[currentLineStart-1] === '\n') ? '' : '\n';
+            
+            const itemPrefix = marker === '1.' ? '1. ' : `${marker} `;
+            const newText = `${prefix}${linePrefix}${itemPrefix}${suffix}`;
+            onContentChange(newText);
+            requestAnimationFrame(() => {
+                textarea.focus();
+                textarea.setSelectionRange(currentLineStart + linePrefix.length + itemPrefix.length, currentLineStart + linePrefix.length + itemPrefix.length);
+            });
+        }
     }, [textareaRef, currentContent, onContentChange]);
 
     const insertEmoji = useCallback((emojiData: EmojiClickData) => {
@@ -309,93 +295,61 @@ export function RichTextToolbar({ textareaRef, onContentChange, currentContent }
         });
     }, [textareaRef, currentContent, onContentChange]);
 
-    const handlePromptAndInsert = useCallback((promptMessage: string, formatFn: (url: string) => { before: string, defaultText: string, after: string, isBlock?: boolean }) => {
-        const url = prompt(promptMessage, 'https://');
-        if (url) {
-            const { before, defaultText, after, isBlock = false } = formatFn(url);
-            insertText(before, defaultText, after, isBlock, true);
+    const handlePromptAndInsert = useCallback((promptMessage: string, formatFn: (input: string, selectedText: string) => { before: string, defaultText: string, after: string, isBlock?: boolean, replaceSelection?: boolean }) => {
+        const textarea = textareaRef.current;
+        if (!textarea) return;
+        const selectedText = currentContent.substring(textarea.selectionStart, textarea.selectionEnd);
+        const defaultPromptValue = selectedText.startsWith('http') ? selectedText : 'https://';
+        
+        const userInput = prompt(promptMessage, defaultPromptValue);
+        if (userInput) {
+            const { before, defaultText, after, isBlock = false, replaceSelection = false } = formatFn(userInput, selectedText);
+            insertText(before, defaultText, after, isBlock, replaceSelection);
         }
-    }, [insertText]);
+    }, [insertText, currentContent, textareaRef]);
 
     const handleAlignment = useCallback((alignType: 'left' | 'center' | 'right' | 'justify') => {
-        insertText(`[align=${alignType}]`, 'aligned text', '[/align]', true);
+        insertText(`<div style="text-align:${alignType};">\n`, 'aligned text', '\n</div>', true);
     }, [insertText]);
     
-    const handleFloat = useCallback((floatType: 'left' | 'right') => {
-        insertText(`[float=${floatType}]`, 'floated text', '[/float]', true);
-    }, [insertText]);
-
-    const handlePaste = useCallback((event: React.ClipboardEvent<HTMLTextAreaElement>) => {
-        event.preventDefault();
-        const clipboardData = event.clipboardData;
-        const html = clipboardData.getData('text/html');
-        const plainText = clipboardData.getData('text/plain');
-        let pastedMarkdown = '';
-
-        if (html) {
-            try {
-                const simpleStructure = parseHtmlToSimpleStructure(html);
-                pastedMarkdown = simpleStructureToMarkdown(simpleStructure);
-                pastedMarkdown = cleanupMarkdown(pastedMarkdown);
-            } catch (e) {
-                console.error("Error parsing pasted HTML, falling back to plain text:", e);
-                pastedMarkdown = plainText; // Fallback to plain text if HTML parsing fails
-            }
-        } else {
-            pastedMarkdown = plainText;
-        }
-        
-        const textarea = textareaRef.current;
-        if (textarea) {
-            const start = textarea.selectionStart;
-            const end = textarea.selectionEnd;
-            const newContent = currentContent.substring(0, start) + pastedMarkdown + currentContent.substring(end);
-            onContentChange(newContent);
-
-            requestAnimationFrame(() => {
-                if (textarea) {
-                    textarea.focus();
-                    textarea.setSelectionRange(start + pastedMarkdown.length, start + pastedMarkdown.length);
-                }
-            });
-        }
-    }, [textareaRef, currentContent, onContentChange]);
-
     const handleColor = () => {
         const color = prompt('Enter color (e.g., red, #FF0000):');
         if (color) {
-            insertText(`[color=${color}]`, 'colored text', '[/color]');
+            insertText(`<span style="color:${color};">`, 'colored text', '</span>');
         }
     };
 
     const handleFontSize = () => {
-        const size = prompt('Enter font size (1-7):');
-        if (size && /^[1-7]$/.test(size)) {
-            insertText(`[size=${size}]`, 'sized text', `[/size]`);
-        } else if (size) {
-            alert('Please enter a number between 1 and 7 for font size.');
+        const size = prompt('Enter font size (e.g., 12px, 1.5em, large):');
+        if (size) {
+            insertText(`<span style="font-size:${size};">`, 'sized text', `</span>`);
         }
     };
+    
+    const handleTable = () => {
+        const tableMarkdown = "\n| Header 1 | Header 2 | Header 3 |\n|---|---|---|\n| Cell 1.1 | Cell 1.2 | Cell 1.3 |\n| Cell 2.1 | Cell 2.2 | Cell 2.3 |\n";
+        insertText(tableMarkdown, '', '', true, true);
+    };
+
 
     return (
         <div className="flex flex-wrap items-center gap-1 p-2 border border-input rounded-t-md bg-background sticky top-0 z-10">
             <Button type="button" variant="outline" size="icon" className="h-7 w-7" title="Bold (Ctrl+B)" onClick={() => insertText('**', 'bold text', '**')}> <Bold className="h-4 w-4" /> </Button>
             <Button type="button" variant="outline" size="icon" className="h-7 w-7" title="Italic (Ctrl+I)" onClick={() => insertText('*', 'italic text', '*')}> <Italic className="h-4 w-4" /> </Button>
-            <Button type="button" variant="outline" size="icon" className="h-7 w-7" title="Underline (Ctrl+U)" onClick={() => insertText('[u]', 'underlined text', '[/u]')}> <Underline className="h-4 w-4" /> </Button>
+            <Button type="button" variant="outline" size="icon" className="h-7 w-7" title="Underline (Ctrl+U)" onClick={() => insertText('<u>', 'underlined text', '</u>')}> <Underline className="h-4 w-4" /> </Button>
             <Button type="button" variant="outline" size="icon" className="h-7 w-7" title="Strikethrough" onClick={() => insertText('~~', 'strikethrough text', '~~')}> <Strikethrough className="h-4 w-4" /> </Button>
             
-            <Button type="button" variant="outline" size="icon" className="h-7 w-7" title="Link (Ctrl+K)" onClick={() => handlePromptAndInsert('Enter URL:', url => ({ before: '[', defaultText: 'Link Text', after: `](${url})`}))}> <LinkIcon className="h-4 w-4" /> </Button>
-            <Button type="button" variant="outline" size="icon" className="h-7 w-7" title="Image" onClick={() => handlePromptAndInsert('Enter Image URL:', url => ({ before: '![', defaultText: 'Image Alt Text', after: `](${url})`, isBlock: true }))}> <ImageIcon className="h-4 w-4" /> </Button>
-            <Button type="button" variant="outline" size="icon" className="h-7 w-7" title="YouTube Video" onClick={() => handlePromptAndInsert('Enter YouTube Video URL:', url => ({ before: '[youtube]', defaultText: url, after: '[/youtube]', isBlock: true }))}> <Youtube className="h-4 w-4" /> </Button>
+            <Button type="button" variant="outline" size="icon" className="h-7 w-7" title="Link (Ctrl+K)" onClick={() => handlePromptAndInsert('Enter URL:', (url, selected) => ({ before: '[', defaultText: selected || 'Link Text', after: `](${url})`, replaceSelection: !!selected }))}> <LinkIcon className="h-4 w-4" /> </Button>
+            <Button type="button" variant="outline" size="icon" className="h-7 w-7" title="Image" onClick={() => handlePromptAndInsert('Enter Image URL:', (url, selected) => ({ before: '![', defaultText: selected || 'Image Alt Text', after: `](${url})`, isBlock: true, replaceSelection: true }))}> <ImageIcon className="h-4 w-4" /> </Button>
+            <Button type="button" variant="outline" size="icon" className="h-7 w-7" title="YouTube Video" onClick={() => handlePromptAndInsert('Enter YouTube Video URL:', (url) => ({ before: '', defaultText: url, after: '', isBlock: true, replaceSelection: true }))}> <Youtube className="h-4 w-4" /> </Button>
 
             <Button type="button" variant="outline" size="icon" className="h-7 w-7" title="Blockquote" onClick={() => insertText('> ', 'quoted text', '', true)}> <Quote className="h-4 w-4" /> </Button>
-            <Button type="button" variant="outline" size="icon" className="h-7 w-7" title="Code" onClick={() => insertText('`', 'code', '`')}> <Code className="h-4 w-4" /> </Button>
-            <Button type="button" variant="outline" size="icon" className="h-7 w-7" title="Preformatted Text" onClick={() => insertText('```\n', 'preformatted text', '\n```', true)}> <SquareCode className="h-4 w-4" /> </Button>
+            <Button type="button" variant="outline" size="icon" className="h-7 w-7" title="Inline Code" onClick={() => insertText('`', 'code', '`')}> <Code className="h-4 w-4" /> </Button>
+            <Button type="button" variant="outline" size="icon" className="h-7 w-7" title="Code Block" onClick={() => insertText('```\n', 'code block', '\n```', true)}> <SquareCode className="h-4 w-4" /> </Button>
             
             <Button type="button" variant="outline" size="icon" className="h-7 w-7" title="Bulleted List" onClick={() => insertList('-')}> <List className="h-4 w-4" /> </Button>
             <Button type="button" variant="outline" size="icon" className="h-7 w-7" title="Numbered List" onClick={() => insertList('1.')}> <ListOrdered className="h-4 w-4" /> </Button>
-            <Button type="button" variant="outline" size="icon" className="h-7 w-7" title="Table" onClick={() => insertText('\n| Header 1 | Header 2 |\n|---|---|\n| Cell 1 | Cell 2 |\n', '', '', true)}> <Table className="h-4 w-4" /> </Button>
-
+            <Button type="button" variant="outline" size="icon" className="h-7 w-7" title="Table" onClick={handleTable}> <Table className="h-4 w-4" /> </Button>
 
             <Popover>
                 <PopoverTrigger asChild>
@@ -406,69 +360,24 @@ export function RichTextToolbar({ textareaRef, onContentChange, currentContent }
                 </PopoverContent>
             </Popover>
 
-            {/* Advanced Formatting */}
-            <Button type="button" variant="outline" size="icon" className="h-7 w-7" title="Highlight" onClick={() => insertText('[highlight]', 'highlighted text', '[/highlight]')}> <Highlighter className="h-4 w-4" /> </Button>
-            <Button type="button" variant="outline" size="icon" className="h-7 w-7" title="Superscript" onClick={() => insertText('[sup]', 'superscript', '[/sup]')}> <Superscript className="h-4 w-4" /> </Button>
-            <Button type="button" variant="outline" size="icon" className="h-7 w-7" title="Subscript" onClick={() => insertText('[sub]', 'subscript', '[/sub]')}> <Subscript className="h-4 w-4" /> </Button>
-            <Button type="button" variant="outline" size="icon" className="h-7 w-7" title="Glow" onClick={() => insertText('[glow]', 'glowing text', '[/glow]')}> <Sparkles className="h-4 w-4" /> </Button>
-            <Button type="button" variant="outline" size="icon" className="h-7 w-7" title="Shadow" onClick={() => insertText('[shadow]', 'shadowed text', '[/shadow]')}> <Droplets className="h-4 w-4" /> </Button> {/* Using Droplets as a placeholder for shadow */}
-            <Button type="button" variant="outline" size="icon" className="h-7 w-7" title="Spoiler" onClick={() => insertText('[spoiler]', 'spoiler content', '[/spoiler]')}> <EyeOff className="h-4 w-4" /> </Button>
+            {/* Advanced Formatting using HTML tags */}
+            <Button type="button" variant="outline" size="icon" className="h-7 w-7" title="Highlight" onClick={() => insertText('<mark>', 'highlighted text', '</mark>')}> <Highlighter className="h-4 w-4" /> </Button>
+            <Button type="button" variant="outline" size="icon" className="h-7 w-7" title="Superscript" onClick={() => insertText('<sup>', 'superscript', '</sup>')}> <Superscript className="h-4 w-4" /> </Button>
+            <Button type="button" variant="outline" size="icon" className="h-7 w-7" title="Subscript" onClick={() => insertText('<sub>', 'subscript', '</sub>')}> <Subscript className="h-4 w-4" /> </Button>
+            <Button type="button" variant="outline" size="icon" className="h-7 w-7" title="Glow" onClick={() => insertText('<span class="text-glow">', 'glowing text', '</span>')}> <Sparkles className="h-4 w-4" /> </Button>
+            <Button type="button" variant="outline" size="icon" className="h-7 w-7" title="Shadow" onClick={() => insertText('<span class="text-shadow">', 'shadowed text', '</span>')}> <Droplets className="h-4 w-4" /> </Button>
+            <Button type="button" variant="outline" size="icon" className="h-7 w-7" title="Spoiler" onClick={() => insertText('<span class="spoiler"><span class="spoiler-content">', 'spoiler content', '</span></span>')}> <EyeOff className="h-4 w-4" /> </Button>
             
             <Button type="button" variant="outline" size="icon" className="h-7 w-7" title="Text Color" onClick={handleColor}> <Palette className="h-4 w-4" /> </Button>
             <Button type="button" variant="outline" size="icon" className="h-7 w-7" title="Font Size" onClick={handleFontSize}> <CaseSensitive className="h-4 w-4" /> </Button>
 
-
-            {/* Alignment Buttons */}
             <Button type="button" variant="outline" size="icon" className="h-7 w-7" title="Align Left" onClick={() => handleAlignment('left')}> <AlignLeft className="h-4 w-4" /> </Button>
             <Button type="button" variant="outline" size="icon" className="h-7 w-7" title="Align Center" onClick={() => handleAlignment('center')}> <AlignCenter className="h-4 w-4" /> </Button>
             <Button type="button" variant="outline" size="icon" className="h-7 w-7" title="Align Right" onClick={() => handleAlignment('right')}> <AlignRight className="h-4 w-4" /> </Button>
             <Button type="button" variant="outline" size="icon" className="h-7 w-7" title="Align Justify" onClick={() => handleAlignment('justify')}> <AlignJustify className="h-4 w-4" /> </Button>
 
-            {/* Float - conceptual, actual rendering needs CSS in Post.tsx */}
-            {/* <Button type="button" variant="outline" size="icon" className="h-7 w-7" title="Float Left" onClick={() => handleFloat('left')}> <MoveLeft className="h-4 w-4" /> </Button> */}
-            {/* <Button type="button" variant="outline" size="icon" className="h-7 w-7" title="Float Right" onClick={() => handleFloat('right')}> <MoveRight className="h-4 w-4" /> </Button> */}
-            
-            {/* <Button type="button" variant="outline" size="icon" className="h-7 w-7" title="Remove Formatting" onClick={handleRemoveFormatting}><RemoveFormatting className="h-4 w-4" /></Button> */}
-             {/* onPaste should be on the Textarea component itself */}
         </div>
     );
 }
 
-// Add the onPaste prop to the Textarea component where it's used:
-// <Textarea ... onPaste={handlePaste} />
-// This means the parent component (PostForm or TopicForm) needs to receive `handlePaste` or `RichTextToolbar`
-// needs to directly apply it if it wraps the Textarea.
-// For now, the Textarea in PostForm/TopicForm should have onPaste={handlePaste} passed from this component's scope.
-// Let's adjust: RichTextToolbar is a separate component. The Textarea it controls is passed via ref.
-// So, the onPaste handler must be attached to the Textarea component in PostForm.tsx and TopicForm.tsx.
-// This component (`RichTextToolbar`) can export the `handlePaste` logic or be refactored.
-
-// For simplicity, I'll keep handlePaste logic here for now.
-// PostForm and TopicForm will need to import and use the `handlePaste` function from here if it's exported,
-// or RichTextToolbar would need to take onPaste as a prop and attach it to its controlled textarea.
-// A better way: the parent form (PostForm/TopicForm) implements the onPaste on its Textarea,
-// and can call a utility function for the HTML-to-Markdown conversion.
-
-// Let's assume the Textarea component used in PostForm/TopicForm will have the onPaste={handlePaste} attached.
-// And this RichTextToolbar component definition does NOT include the Textarea itself.
-// The `handlePaste` function needs access to `textareaRef`, `currentContent`, and `onContentChange`.
-// This can be achieved if `handlePaste` is defined within `PostForm` and `TopicForm`
-// and they call the parsing utilities (parseHtmlToSimpleStructure, simpleStructureToMarkdown, cleanupMarkdown)
-// which can be exported from here or a utils file.
-
-// For this change, I will modify RichTextToolbar to pass down the handlePaste function
-// to be used by the Textarea in the parent components. This is not ideal.
-// A better approach is to make the paste handling logic a utility function.
-// For now, I'm just defining the functions here. Their attachment will be in PostForm and TopicForm.
-
 export { parseHtmlToSimpleStructure, simpleStructureToMarkdown, cleanupMarkdown };
-
-// The Textarea component in PostForm.tsx and TopicForm.tsx will need this:
-// import { parseHtmlToSimpleStructure, simpleStructureToMarkdown, cleanupMarkdown } from './RichTextToolbar';
-// ...
-// const handlePaste = useCallback((event: React.ClipboardEvent<HTMLTextAreaElement>) => {
-//   // ... (implementation using the imported functions and local state/refs)
-// }, [textareaRef, textContent, handleTextChange]);
-// ...
-// <Textarea onPaste={handlePaste} ... />
-

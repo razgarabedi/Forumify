@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useActionState, useEffect, useRef, useState, useCallback } from 'react';
@@ -12,7 +13,7 @@ import { MessageSquarePlus, Edit, UploadCloud, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
 import { Input } from '../ui/input';
-import { RichTextToolbar, parseHtmlToSimpleStructure, simpleStructureToMarkdown, cleanupMarkdown } from './RichTextToolbar'; // Import the toolbar and paste utils
+import { RichTextToolbar, parseHtmlToSimpleStructure, simpleStructureToMarkdown, cleanupMarkdown } from './RichTextToolbar'; 
 
 interface PostFormProps {
     topicId: string;
@@ -164,7 +165,7 @@ export function PostForm({ topicId, editingPost, onEditCancel }: PostFormProps) 
             const start = textarea.selectionStart;
             const end = textarea.selectionEnd;
             const newPastedContent = textContent.substring(0, start) + pastedMarkdown + textContent.substring(end);
-            handleTextChange(newPastedContent); // Use the state updater
+            handleTextChange(newPastedContent);
 
             requestAnimationFrame(() => {
                 if (textarea) {
@@ -195,6 +196,7 @@ export function PostForm({ topicId, editingPost, onEditCancel }: PostFormProps) 
                     } else if (editingPost?.imageUrl && !imageFile && !removeCurrentImage) { 
                         formData.set('imageUrl', editingPost.imageUrl);
                     } else {
+                        // Ensure imageUrl is not sent if no image or if it's cleared and there was no original
                         formData.delete('imageUrl'); 
                     }
                     formAction(formData);
@@ -222,7 +224,7 @@ export function PostForm({ topicId, editingPost, onEditCancel }: PostFormProps) 
                             placeholder={isEditing ? "Update your post..." : "Write your reply here... Use markdown for formatting."}
                             value={textContent} 
                             onChange={(e) => handleTextChange(e.target.value)} 
-                            onPaste={handlePaste} // Added onPaste handler
+                            onPaste={handlePaste} 
                             aria-invalid={!!state?.errors?.content}
                             aria-describedby="content-error"
                             className="rounded-t-none focus:z-10 focus:ring-offset-0 focus:ring-1" 
@@ -311,4 +313,3 @@ export function PostForm({ topicId, editingPost, onEditCancel }: PostFormProps) 
         </Card>
     );
 }
-

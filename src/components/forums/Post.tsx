@@ -1,3 +1,4 @@
+
 "use client"; 
 
 import type { Post as PostType, User } from '@/lib/types';
@@ -21,11 +22,12 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
-import React, { useState, createElement, Fragment } from 'react'; 
+import React, { useState, useMemo } from 'react'; 
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import rehypeRaw from 'rehype-raw'; // Added for HTML processing
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism/one-dark';
 import Link from 'next/link'; 
 import type { CodeProps, Options as ReactMarkdownOptions } from 'react-markdown/lib/ast-to-react';
 import { ReactionButtons } from './ReactionButtons';
@@ -44,126 +46,35 @@ const getYouTubeVideoId = (url: string): string | null => {
     return (match && match[2].length === 11) ? match[2] : null;
 };
 
-// Custom component to handle BBCode-like tags and general text processing
-const CustomTextRenderer: React.FC<{children: React.ReactNode}> = ({ children }) => {
-    if (typeof children !== 'string') {
-        // If children is not a string (e.g., it's already a React element from another rule), render as is.
-        return <>{children}</>;
-    }
-
-    let currentText = children;
-    const elements: React.ReactNode[] = [];
+// Function to process mentions in text content
+const processMentions = (text: string): React.ReactNode[] => {
+    const parts: React.ReactNode[] = [];
     let lastIndex = 0;
-
-    // Regex to match BBCode-like tags including [youtube]
-    const bbCodeRegex = /\[(u|s|sup|sub|glow|shadow|spoiler|highlight|color|size|align|youtube|table|tr|td|th)](?:=([^\]]+))?]([\s\S]*?)\[\/\1]/gi;
-    
-    // Also handle @mentions
     const mentionRegex = /@([a-zA-Z0-9_]+)/g;
-    const combinedRegex = new RegExp(`(${bbCodeRegex.source})|(${mentionRegex.source})`, 'gi');
-
-
     let match;
-    while ((match = combinedRegex.exec(currentText)) !== null) {
-        const fullMatch = match[0];
-        const bbCodeFullMatch = match[1]; // Entire BBCode match if this was a BBCode
-        const mentionFullMatch = match[7]; // Entire mention match if this was a mention
 
+    while ((match = mentionRegex.exec(text)) !== null) {
+        const username = match[1];
         const index = match.index;
 
-        // Add preceding text
+        // Add text before mention
         if (index > lastIndex) {
-            elements.push(currentText.substring(lastIndex, index));
+            parts.push(text.substring(lastIndex, index));
         }
-
-        if (bbCodeFullMatch) {
-            // It's a BBCode match
-            const bbMatch = /\[(u|s|sup|sub|glow|shadow|spoiler|highlight|color|size|align|youtube|table|tr|td|th)](?:=([^\]]+))?]([\s\S]*?)\[\/\1]/i.exec(bbCodeFullMatch);
-            if (bbMatch) {
-                const tag = bbMatch[1].toLowerCase();
-                const value = bbMatch[2];
-                const content = bbMatch[3];
-                
-                let style: React.CSSProperties = {};
-                let className = '';
-                let elementTag: keyof JSX.IntrinsicElements = 'span';
-
-                switch (tag) {
-                    case 'u': elementTag = 'u'; break;
-                    case 's': elementTag = 's'; break;
-                    case 'sup': elementTag = 'sup'; break;
-                    case 'sub': elementTag = 'sub'; break;
-                    case 'glow': className = 'text-glow'; break;
-                    case 'shadow': className = 'text-shadow'; break;
-                    case 'spoiler':
-                        className = 'spoiler';
-                        elements.push(
-                            <span key={index} className={className}>
-                                <span className="spoiler-content">{content}</span>
-                            </span>
-                        );
-                        lastIndex = index + fullMatch.length;
-                        continue;
-                    case 'highlight': if(value) style.backgroundColor = value; break;
-                    case 'color': if(value) style.color = value; break;
-                    case 'size':
-                        // Map 1-7 to pixel sizes or ems
-                        const sizeMap: {[key: string]: string} = {'1':'0.75em', '2':'0.875em', '3':'1em', '4':'1.125em', '5':'1.5em', '6':'2em', '7':'2.5em'};
-                        if(value && sizeMap[value]) style.fontSize = sizeMap[value];
-                        break;
-                    case 'align': 
-                        elementTag = 'div'; // Alignment needs a block-level element
-                        if(value) style.textAlign = value as any; 
-                        break;
-                    case 'youtube':
-                        const videoId = getYouTubeVideoId(content);
-                        if (videoId) {
-                            elements.push(
-                                <div key={index} className="my-4 aspect-video max-w-xl mx-auto">
-                                    <iframe width="100%" height="100%" src={`https://www.youtube.com/embed/${videoId}`} title="YouTube video player" frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowFullScreen className="rounded-md shadow-md" sandbox="allow-forms allow-scripts allow-popups allow-same-origin"></iframe>
-                                </div>
-                            );
-                        } else {
-                            elements.push(`[youtube]${content}[/youtube]`); // Fallback if not a valid URL
-                        }
-                        lastIndex = index + fullMatch.length;
-                        continue;
-                    // Table tags are complex and best handled by remark-gfm and direct markdown table syntax
-                    // If BBCode tables are strictly needed, this would require a much more involved parser
-                    case 'table': case 'tr': case 'td': case 'th':
-                         elements.push(fullMatch); // Output BBCode as is for now, let Markdown parser handle if it's valid MD
-                         lastIndex = index + fullMatch.length;
-                         continue;
-
-                }
-                 elements.push(createElement(elementTag, { key: index, style: Object.keys(style).length ? style : undefined, className: className || undefined }, <CustomTextRenderer>{content}</CustomTextRenderer>));
-            } else {
-                 elements.push(fullMatch); // Not a valid BBCode structure, push as text
-            }
-        } else if (mentionFullMatch) {
-            // It's a mention match
-            const username = match[8]; // username is the 8th capture group (from combinedRegex's mention part)
-            if (username) {
-                 elements.push(
-                    <Link key={`${index}-mention`} href={`/users/${encodeURIComponent(username)}`} className="text-accent hover:underline font-semibold">
-                        @{username}
-                    </Link>
-                );
-            } else {
-                elements.push(mentionFullMatch);
-            }
-        }
-
-
-        lastIndex = index + fullMatch.length;
+        // Add mention link
+        parts.push(
+            <Link key={`${index}-mention`} href={`/users/${encodeURIComponent(username)}`} className="text-accent hover:underline font-semibold">
+                @{username}
+            </Link>
+        );
+        lastIndex = index + match[0].length;
     }
 
-    // Add any remaining text
-    if (lastIndex < currentText.length) {
-        elements.push(currentText.substring(lastIndex));
+    // Add remaining text
+    if (lastIndex < text.length) {
+        parts.push(text.substring(lastIndex));
     }
-
-    return <>{elements}</>;
+    return parts;
 };
 
 
@@ -195,11 +106,9 @@ export function Post({ post, currentUser, onEdit, isFirstPost = false }: PostPro
     };
     
     const markdownComponents: ReactMarkdownOptions['components'] = {
-        // Handle paragraph to allow CustomTextRenderer for BBCode and mentions
         p: ({node, children, ...props}) => {
-            // Check for lone YouTube links (already handled by CustomTextRenderer if [youtube] tag is used)
-            // This part is for auto-embedding raw YouTube links.
-             if (node && node.children.length === 1 && node.children[0].type === 'element' && node.children[0].tagName === 'a') {
+            // Auto-embed lone YouTube links
+            if (node && node.children.length === 1 && node.children[0].type === 'element' && node.children[0].tagName === 'a') {
                 const linkNode = node.children[0];
                 const href = linkNode.properties?.href as string | undefined;
                 if (href) {
@@ -213,17 +122,34 @@ export function Post({ post, currentUser, onEdit, isFirstPost = false }: PostPro
                     }
                 }
             }
-            return <p {...props}><CustomTextRenderer>{children}</CustomTextRenderer></p>;
+            // Process mentions within paragraphs
+            const processedChildren = React.Children.map(children, child => {
+                if (typeof child === 'string') {
+                    return processMentions(child);
+                }
+                return child;
+            });
+            return <p {...props}>{processedChildren}</p>;
         },
-        // Handle other text elements to pass through CustomTextRenderer
-        span: ({node, children, ...props}) => <span {...props}><CustomTextRenderer>{children}</CustomTextRenderer></span>,
-        strong: ({node, children, ...props}) => <strong {...props}><CustomTextRenderer>{children}</CustomTextRenderer></strong>,
-        em: ({node, children, ...props}) => <em {...props}><CustomTextRenderer>{children}</CustomTextRenderer></em>,
-        // ... potentially for li, blockquote text content etc. if direct children are text nodes
-
+        // Handle mentions in other text elements if needed by processing their children
+        // For example, if mentions can appear directly in list items without a <p>
+        li: ({node, children, ...props}) => {
+            const processedChildren = React.Children.map(children, child => {
+                 if (typeof child === 'string') return processMentions(child);
+                 // If child is a React element (e.g., nested <p>), recursively process its children if they are strings
+                 if (React.isValidElement(child) && child.props.children && typeof child.props.children === 'string') {
+                     return React.cloneElement(child, { children: processMentions(child.props.children)});
+                 }
+                 return child;
+            });
+            return <li {...props}>{processedChildren}</li>
+        },
+        // Allow basic HTML tags from the toolbar like <u>, <sup>, <sub>, <mark>, <span> with styles for color/size
+        // These will be handled by rehypeRaw.
+        // Custom classes like .text-glow, .text-shadow, .spoiler will also be handled if they are on HTML tags.
         a: ({node, children, ...props}) => (
             <a {...props} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
-                <CustomTextRenderer>{children}</CustomTextRenderer>
+                {children}
             </a>
         ),
         img: ({node, ...props}) => (
@@ -243,28 +169,34 @@ export function Post({ post, currentUser, onEdit, isFirstPost = false }: PostPro
         ),
         code({ node, inline, className, children, ...props }: CodeProps) {
             const match = /language-(\w+)/.exec(className || '');
+            const codeContent = String(children).replace(/\n$/, '');
             return !inline && match ? (
             <SyntaxHighlighter
-                style={oneDark as any} // Cast to any if type issues with oneDark
+                style={oneDark} 
                 language={match[1]}
                 PreTag="div"
                 {...props}
             >
-                {String(children).replace(/\n$/, '')}
+                {codeContent}
             </SyntaxHighlighter>
             ) : (
             <code className={cn("bg-muted/50 px-1 py-0.5 rounded text-sm font-mono", className)} {...props}>
-                <CustomTextRenderer>{children}</CustomTextRenderer>
+                {codeContent}
             </code>
             );
         },
-        blockquote: ({node, children, ...props}) => <blockquote className="border-l-4 border-border pl-4 italic my-4 text-muted-foreground" {...props}><CustomTextRenderer>{children}</CustomTextRenderer></blockquote>,
-        ul: ({node, ordered, ...props}) => <ul className="list-disc list-inside my-2 space-y-1 pl-4" {...props} />,
-        ol: ({node, ordered, ...props}) => <ol className="list-decimal list-inside my-2 space-y-1 pl-4" {...props} />,
-        li: ({node, ordered, index, checked, ...props}) => <li className="pl-2" {...props}><CustomTextRenderer>{props.children}</CustomTextRenderer></li>,
-        // Table rendering is handled by remark-gfm by default if Markdown table syntax is used.
-        // If BBCode [table] is used, it would be output as text unless a custom renderer for that BBCode is made.
+        blockquote: ({node, children, ...props}) => <blockquote className="border-l-4 border-border pl-4 italic my-4 text-muted-foreground" {...props}>{children}</blockquote>,
+        // Standard ul, ol, table are handled well by remark-gfm
     };
+    
+    const processedContent = useMemo(() => {
+        // This is a fallback if mentions are not caught by paragraph or list item processing.
+        // Ideally, text processing should happen within the specific components like `p` or `li`.
+        // However, for simple top-level text nodes in Markdown, this might be needed.
+        // But ReactMarkdown typically wraps text in <p> anyway.
+        // For now, let's rely on the `p` and `li` component overrides.
+        return post.content;
+    }, [post.content]);
 
 
     return (
@@ -376,9 +308,10 @@ export function Post({ post, currentUser, onEdit, isFirstPost = false }: PostPro
                     <article className="prose prose-sm dark:prose-invert max-w-none break-words">
                         <ReactMarkdown
                             remarkPlugins={[remarkGfm]}
+                            rehypePlugins={[rehypeRaw]} // Add rehypeRaw to process HTML
                             components={markdownComponents}
                         >
-                            {post.content}
+                            {processedContent}
                         </ReactMarkdown>
                     </article>
                     <ReactionButtons 
@@ -391,4 +324,3 @@ export function Post({ post, currentUser, onEdit, isFirstPost = false }: PostPro
         </Card>
     );
 }
-

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useActionState, useEffect, useRef, useState, useCallback } from 'react';
@@ -11,7 +12,7 @@ import { SubmitButton } from '@/components/SubmitButton';
 import { PlusCircle, UploadCloud, XCircle } from 'lucide-react';
 import Image from 'next/image';
 import { Button } from '../ui/button';
-import { RichTextToolbar, parseHtmlToSimpleStructure, simpleStructureToMarkdown, cleanupMarkdown } from './RichTextToolbar'; // Import the toolbar and paste utils
+import { RichTextToolbar, parseHtmlToSimpleStructure, simpleStructureToMarkdown, cleanupMarkdown } from './RichTextToolbar'; 
 
 interface TopicFormProps {
     categoryId: string;
@@ -147,7 +148,7 @@ export function TopicForm({ categoryId }: TopicFormProps) {
             const start = textarea.selectionStart;
             const end = textarea.selectionEnd;
             const newPastedContent = firstPostTextContent.substring(0, start) + pastedMarkdown + firstPostTextContent.substring(end);
-            handleTextChange(newPastedContent); // Use the state updater
+            handleTextChange(newPastedContent); 
 
             requestAnimationFrame(() => {
                 if (textarea) {
@@ -214,7 +215,7 @@ export function TopicForm({ categoryId }: TopicFormProps) {
                             placeholder="Start the discussion here... Use markdown for formatting."
                             value={firstPostTextContent} 
                             onChange={(e) => handleTextChange(e.target.value)} 
-                            onPaste={handlePaste} // Added onPaste handler
+                            onPaste={handlePaste} 
                             aria-invalid={!!state?.errors?.firstPostContent}
                             aria-describedby="firstPostContent-error"
                              className="rounded-t-none focus:z-10 focus:ring-offset-0 focus:ring-1" 
@@ -288,4 +289,3 @@ export function TopicForm({ categoryId }: TopicFormProps) {
         </Card>
     );
 }
-
