@@ -1,9 +1,10 @@
+
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { getCurrentUser, logout } from '@/lib/actions/auth';
 import { getUnreadNotificationCountAction } from '@/lib/actions/notifications';
-import { LogIn, LogOut, UserPlus, Home, ShieldCheck, Settings, User as UserIcon } from 'lucide-react';
-import { HeaderNotificationDropdown } from './HeaderNotificationDropdown'; // Import the new component
+import { LogIn, LogOut, UserPlus, Home, ShieldCheck, Settings, User as UserIcon, Settings2 } from 'lucide-react'; // Added Settings2
+import { HeaderNotificationDropdown } from './HeaderNotificationDropdown'; 
 
 export async function Header() {
   const user = await getCurrentUser();
@@ -39,13 +40,22 @@ export async function Header() {
               </Link>
            )}
            {user && (
-             <Link
-                href={`/users/${user.username}`}
-                className="transition-colors hover:text-primary text-foreground/80 flex items-center gap-1"
-             >
-                <UserIcon className="h-4 w-4" />
-                <span className="hidden sm:inline">My Profile</span>
-             </Link>
+             <>
+               <Link
+                  href={`/users/${user.username}`}
+                  className="transition-colors hover:text-primary text-foreground/80 flex items-center gap-1"
+               >
+                  <UserIcon className="h-4 w-4" />
+                  <span className="hidden sm:inline">My Profile</span>
+               </Link>
+               <Link
+                  href="/settings"
+                  className="transition-colors hover:text-primary text-foreground/80 flex items-center gap-1"
+               >
+                  <Settings2 className="h-4 w-4" />
+                  <span className="hidden sm:inline">Settings</span>
+               </Link>
+             </>
            )}
         </nav>
 
@@ -88,3 +98,4 @@ export async function Header() {
     </header>
   );
 }
+

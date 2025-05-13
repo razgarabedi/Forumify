@@ -68,3 +68,4 @@ export interface ActionResponse {
   errors?: Record<string, string[]>;
   [key: string]: any; // Allow other properties like 'user' or 'topicId'
 }
+

@@ -48,13 +48,13 @@ export const findUserById = async (id: string): Promise<User | null> => {
 
 export const findUserByUsername = async (username: string): Promise<User | null> => {
     await new Promise(resolve => setTimeout(resolve, 10));
-    console.log(`[DB findUserByUsername] Attempting to find user with username: "${username}" (lowercase: "${username.toLowerCase()}")`);
+    // console.log(`[DB findUserByUsername] Attempting to find user with username: "${username}" (lowercase: "${username.toLowerCase()}")`);
     const user = users.find(u => u.username.toLowerCase() === username.toLowerCase());
     if (!user) {
-        console.warn(`[DB findUserByUsername] User "${username}" NOT FOUND.`);
+        // console.warn(`[DB findUserByUsername] User "${username}" NOT FOUND.`);
         return null;
     }
-    console.log(`[DB findUserByUsername] User "${username}" FOUND. ID: ${user.id}`);
+    // console.log(`[DB findUserByUsername] User "${username}" FOUND. ID: ${user.id}`);
     return { ...user, postCount: await getUserPostCount(user.id), lastActive: user.lastActive || user.createdAt };
 };
 
@@ -69,6 +69,7 @@ interface CreateUserParams {
     websiteUrl?: string;
     socialMediaUrl?: string;
     signature?: string;
+    lastActive: Date;
 }
 
 export const createUser = async (userData: CreateUserParams): Promise<User> => {
@@ -81,7 +82,7 @@ export const createUser = async (userData: CreateUserParams): Promise<User> => {
     password: userData.password,
     isAdmin: userData.isAdmin ?? false,
     createdAt: now,
-    lastActive: now,
+    lastActive: userData.lastActive,
     aboutMe: userData.aboutMe || `Hello, I'm ${userData.username}!`,
     location: userData.location,
     websiteUrl: userData.websiteUrl,
@@ -115,6 +116,23 @@ export const updateUserLastActive = async (userId: string): Promise<void> => {
     if (userIndex !== -1) {
         users[userIndex].lastActive = new Date();
     }
+};
+
+export const updateUserPassword = async (userId: string, currentPasswordPlain: string, newPasswordPlain: string): Promise<{success: boolean, message?: string}> => {
+    await new Promise(resolve => setTimeout(resolve, 50));
+    const userIndex = users.findIndex(u => u.id === userId);
+    if (userIndex === -1) {
+        return { success: false, message: "User not found." };
+    }
+    // In a real app, currentPasswordPlain would be hashed and compared to a stored hash.
+    // NewPasswordPlain would be hashed before storing.
+    if (users[userIndex].password !== currentPasswordPlain) {
+        return { success: false, message: "Incorrect current password." };
+    }
+    users[userIndex].password = newPasswordPlain;
+    users[userIndex].lastActive = new Date();
+    console.log(`[DB updateUserPassword] Password updated for user ${userId}`);
+    return { success: true };
 };
 
 
@@ -240,7 +258,7 @@ export const getTopicByIdSimple = async (id: string): Promise<Topic | null> => {
 }
 
 
-interface CreateTopicParams extends Omit<Topic, 'id' | 'createdAt' | 'lastActivity' | 'postCount'> {
+interface CreateTopicParams extends Omit<Topic, 'id' | 'createdAt' | 'lastActivity' | 'postCount' | 'author' | 'category'> {
     firstPostContent: string;
     firstPostImageUrl?: string;
 }
@@ -463,3 +481,4 @@ export const markAllNotificationsAsRead = async (userId: string): Promise<boolea
     if (markedAny) console.log(`[DB markAllNotificationsAsRead] Marked all unread notifications as read for user ${userId}`);
     return markedAny;
 };
+

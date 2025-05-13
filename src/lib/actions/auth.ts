@@ -10,8 +10,9 @@ import {
     createUser, 
     findUserById, 
     getAllUsers,
-    updateUserProfile, // Added
-    updateUserLastActive // Added
+    updateUserProfile, 
+    updateUserLastActive,
+    updateUserPassword // Added
 } from "@/lib/placeholder-data";
 import type { User, ActionResponse } from "@/lib/types";
 
@@ -66,6 +67,15 @@ const ProfileUpdateSchema = z.object({
         }
     }, { message: "Invalid URL format for social media." }).optional(),
     signature: z.string().max(150, { message: "Signature cannot exceed 150 characters." }).optional(),
+});
+
+const ChangePasswordSchema = z.object({
+    currentPassword: z.string().min(1, "Current password is required."),
+    newPassword: z.string().min(6, "New password must be at least 6 characters."),
+    confirmNewPassword: z.string().min(6, "Confirm new password must be at least 6 characters."),
+}).refine(data => data.newPassword === data.confirmNewPassword, {
+    message: "New passwords do not match.",
+    path: ["confirmNewPassword"], // Set error on confirmNewPassword field
 });
 
 
@@ -142,9 +152,9 @@ export async function register(prevState: ActionResponse | undefined, formData: 
     const newUser = await createUser({
       username,
       email,
-      password: password,
+      password: password, // Store plain password (placeholder)
       isAdmin: isFirstUser,
-      lastActive: new Date(), // Set last active on registration
+      lastActive: new Date(), 
     });
 
      cookies().set(SESSION_COOKIE_NAME, newUser.id, {
@@ -153,7 +163,7 @@ export async function register(prevState: ActionResponse | undefined, formData: 
         maxAge: 60 * 60 * 24 * 7,
         path: '/',
     });
-    await updateUserLastActive(newUser.id); // Update last active on registration login
+    await updateUserLastActive(newUser.id); 
 
     revalidatePath('/', 'layout');
     return { message: `Registration successful! Welcome, ${newUser.username}!${isFirstUser ? ' You have been granted admin privileges.' : ''}`, success: true, user: newUser };
@@ -167,10 +177,11 @@ export async function register(prevState: ActionResponse | undefined, formData: 
 export async function logout() {
     const user = await getCurrentUser();
     if (user) {
-        await updateUserLastActive(user.id); // Update last active on logout
+        await updateUserLastActive(user.id); 
     }
     cookies().delete(SESSION_COOKIE_NAME);
     revalidatePath('/', 'layout');
+    // No redirect needed here, let the page handle UI update
 }
 
 export async function getCurrentUser(): Promise<User | null> {
@@ -180,7 +191,7 @@ export async function getCurrentUser(): Promise<User | null> {
     }
     try {
         const user = await findUserById(userId);
-        // if (user) await updateUserLastActive(user.id); // Optionally update last active on every check
+        // if (user) await updateUserLastActive(user.id); 
         return user;
     } catch (error) {
         console.error("Error fetching current user:", error);
@@ -195,7 +206,7 @@ export async function updateUserProfileAction(prevState: ActionResponse | undefi
     }
     
     const rawData = {
-        avatarUrl: formData.get("avatarUrl") || undefined, // This will be data URI or existing URL or empty string
+        avatarUrl: formData.get("avatarUrl") || undefined, 
         aboutMe: formData.get("aboutMe") || undefined,
         location: formData.get("location") || undefined,
         websiteUrl: formData.get("websiteUrl") || undefined,
@@ -214,7 +225,6 @@ export async function updateUserProfileAction(prevState: ActionResponse | undefi
         };
     }
     
-    // Use validatedFields.data which includes transformed values
     const updateData = validatedFields.data;
 
     try {
@@ -233,3 +243,43 @@ export async function updateUserProfileAction(prevState: ActionResponse | undefi
         return { success: false, message: "An unexpected error occurred while updating your profile." };
     }
 }
+
+export async function changePasswordAction(prevState: ActionResponse | undefined, formData: FormData): Promise<ActionResponse> {
+    const user = await getCurrentUser();
+    if (!user) {
+        return { success: false, message: "Unauthorized: You must be logged in." };
+    }
+
+    const validatedFields = ChangePasswordSchema.safeParse({
+        currentPassword: formData.get("currentPassword"),
+        newPassword: formData.get("newPassword"),
+        confirmNewPassword: formData.get("confirmNewPassword"),
+    });
+
+    if (!validatedFields.success) {
+        return {
+            errors: validatedFields.error.flatten().fieldErrors,
+            message: "Password change failed. Please check your inputs.",
+            success: false,
+        };
+    }
+
+    const { currentPassword, newPassword } = validatedFields.data;
+
+    try {
+        const result = await updateUserPassword(user.id, currentPassword, newPassword);
+        if (!result.success) {
+            return { success: false, message: result.message || "Failed to update password." };
+        }
+        
+        // Optionally, re-authenticate user or just show success message
+        // For simplicity, we'll just show a success message. In a real app, re-login might be forced.
+        revalidatePath('/settings'); 
+        return { success: true, message: "Password changed successfully." };
+
+    } catch (error) {
+        console.error("Change Password Error:", error);
+        return { success: false, message: "An unexpected error occurred while changing your password." };
+    }
+}
+
