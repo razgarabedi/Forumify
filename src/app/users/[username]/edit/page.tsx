@@ -1,5 +1,6 @@
+
 'use client';
-import { useEffect, useActionState } from 'react';
+import { useEffect, useActionState, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { getCurrentUser, updateUserProfileAction } from '@/lib/actions/auth'; // Create this action
@@ -179,8 +180,8 @@ function EditProfileForm({ user: initialUser }: EditProfileFormProps) {
 
 
 export default function EditUserProfilePage() {
-    const [user, setUser] = React.useState<User | null>(null);
-    const [loading, setLoading] = React.useState(true);
+    const [user, setUser] = useState<User | null>(null);
+    const [loading, setLoading] = useState(true);
     const router = useRouter();
 
     useEffect(() => {
@@ -217,3 +218,4 @@ export default function EditUserProfilePage() {
         </div>
     );
 }
+
