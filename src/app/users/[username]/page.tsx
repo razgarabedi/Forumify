@@ -5,7 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { CalendarDays, MapPin, Link as LinkIcon, MessageSquare, Edit3, Activity, AlignLeft, MessageCircle } from 'lucide-react'; // Added MessageCircle
+import { CalendarDays, MapPin, Link as LinkIcon, MessageSquare, Edit3, Activity, AlignLeft, MessageCircle, Star } from 'lucide-react'; // Added Star
 import { format, formatDistanceToNowStrict } from 'date-fns';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
@@ -40,6 +40,7 @@ export default async function UserProfilePage({ params }: UserProfilePageProps) 
 
 
   const postCount = profileUser.postCount ?? 0;
+  const points = profileUser.points ?? 0; // Get points
   const lastActive = profileUser.lastActive ? new Date(profileUser.lastActive) : new Date(profileUser.createdAt);
 
   const isOwnProfile = viewingUser?.id === profileUser.id;
@@ -123,6 +124,10 @@ export default async function UserProfilePage({ params }: UserProfilePageProps) 
                         <span>Posts: {postCount}</span>
                     </div>
                      <div className="flex items-center gap-2">
+                        <Star className="h-4 w-4 text-muted-foreground" />
+                        <span>Points: {points}</span>
+                    </div>
+                     <div className="flex items-center gap-2">
                         <Activity className="h-4 w-4 text-muted-foreground" />
                         <span>
                           Last active: {formatDistanceToNowStrict(lastActive, { addSuffix: true })}
@@ -162,3 +167,4 @@ export default async function UserProfilePage({ params }: UserProfilePageProps) 
     </div>
   );
 }
+

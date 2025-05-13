@@ -24,16 +24,46 @@ let notifications: Notification[] = [];
 let conversations: Conversation[] = [];
 let privateMessages: PrivateMessage[] = [];
 
+// --- Points Calculation ---
+export const calculateUserPoints = async (postAuthorId: string): Promise<number> => {
+    await new Promise(resolve => setTimeout(resolve, 5)); // simulate async
+    let totalPoints = 0;
+    const authorPosts = posts.filter(p => p.authorId === postAuthorId);
+
+    for (const post of authorPosts) {
+        if (post.reactions && post.reactions.length > 0) {
+            for (const reaction of post.reactions) {
+                // Points are awarded to the post author for reactions from *other* users.
+                if (reaction.userId !== postAuthorId) {
+                    switch (reaction.type) {
+                        case 'like':
+                        case 'love':
+                            totalPoints += 2;
+                            break;
+                        case 'haha':
+                        case 'wow':
+                            totalPoints += 1;
+                            break;
+                        // 'sad' and 'angry' give 0 points, so no action needed here
+                    }
+                }
+            }
+        }
+    }
+    return totalPoints;
+};
+
 
 // --- Simulation Functions ---
 
 // Fetch Users
 export const getAllUsers = async (): Promise<User[]> => {
     await new Promise(resolve => setTimeout(resolve, 10));
-    return users.map(user => ({
+    return Promise.all(users.map(async user => ({
         ...user,
-        postCount: posts.filter(p => p.authorId === user.id).length
-    }));
+        postCount: posts.filter(p => p.authorId === user.id).length,
+        points: await calculateUserPoints(user.id),
+    })));
 };
 
 
@@ -41,14 +71,18 @@ export const findUserByEmail = async (email: string): Promise<User | null> => {
   await new Promise(resolve => setTimeout(resolve, 10));
   const user = users.find(u => u.email === email);
   if (!user) return null;
-  return { ...user, postCount: await getUserPostCount(user.id), lastActive: user.lastActive || user.createdAt };
+  const postCount = await getUserPostCount(user.id);
+  const points = await calculateUserPoints(user.id);
+  return { ...user, postCount, points, lastActive: user.lastActive || user.createdAt };
 };
 
 export const findUserById = async (id: string): Promise<User | null> => {
     await new Promise(resolve => setTimeout(resolve, 10));
     const user = users.find(u => u.id === id);
     if (!user) return null;
-    return { ...user, postCount: await getUserPostCount(user.id), lastActive: user.lastActive || user.createdAt };
+    const postCount = await getUserPostCount(user.id);
+    const points = await calculateUserPoints(user.id);
+    return { ...user, postCount, points, lastActive: user.lastActive || user.createdAt };
 }
 
 export const findUserByUsername = async (username: string): Promise<User | null> => {
@@ -57,7 +91,9 @@ export const findUserByUsername = async (username: string): Promise<User | null>
     if (!user) {
         return null;
     }
-    return { ...user, postCount: await getUserPostCount(user.id), lastActive: user.lastActive || user.createdAt };
+    const postCount = await getUserPostCount(user.id);
+    const points = await calculateUserPoints(user.id);
+    return { ...user, postCount, points, lastActive: user.lastActive || user.createdAt };
 };
 
 
@@ -92,13 +128,14 @@ export const createUser = async (userData: CreateUserParams): Promise<User> => {
     signature: userData.signature || `Regards, ${userData.username}`,
     avatarUrl: `https://avatar.vercel.sh/${userData.username}.png?size=128`,
     postCount: 0,
+    points: 0, // New users start with 0 points
   };
   users.push(newUser);
   console.log("[DB createUser] Created User:", newUser.id, newUser.username, `isAdmin: ${newUser.isAdmin}`);
   return { ...newUser };
 };
 
-export const updateUserProfile = async (userId: string, profileData: Partial<Omit<User, 'id' | 'email' | 'password' | 'isAdmin' | 'createdAt' | 'postCount'>>): Promise<User | null> => {
+export const updateUserProfile = async (userId: string, profileData: Partial<Omit<User, 'id' | 'email' | 'password' | 'isAdmin' | 'createdAt' | 'postCount' | 'points'>>): Promise<User | null> => {
     await new Promise(resolve => setTimeout(resolve, 50));
     const userIndex = users.findIndex(u => u.id === userId);
     if (userIndex === -1) return null;
@@ -108,7 +145,9 @@ export const updateUserProfile = async (userId: string, profileData: Partial<Omi
         ...profileData,
         lastActive: new Date()
     };
-    return { ...users[userIndex], postCount: await getUserPostCount(userId) };
+    const postCount = await getUserPostCount(userId);
+    const points = await calculateUserPoints(userId);
+    return { ...users[userIndex], postCount, points };
 };
 
 
@@ -146,7 +185,9 @@ export const setUserAdminStatus = async (userId: string, isAdmin: boolean): Prom
     users[userIndex].isAdmin = isAdmin;
     users[userIndex].lastActive = new Date();
     console.log(`[DB setUserAdminStatus] Set admin status for user ${userId} to ${isAdmin}`);
-    return { ...users[userIndex], postCount: await getUserPostCount(userId) };
+    const postCount = await getUserPostCount(userId);
+    const points = await calculateUserPoints(userId);
+    return { ...users[userIndex], postCount, points };
 }
 
 export const deleteUser = async (userId: string): Promise<boolean> => {
@@ -452,7 +493,7 @@ export const togglePostReaction = async (postId: string, userId: string, usernam
   // This can be revisited if needed.
 
   // Return a copy of the updated post object
-  const author = await findUserById(post.authorId);
+  const author = await findUserById(post.authorId); // Fetch author with potentially updated points
   const topic = await getTopicByIdSimple(post.topicId);
   return { ...post, author: author ?? undefined, topic: topic ?? undefined, reactions: [...post.reactions] };
 };

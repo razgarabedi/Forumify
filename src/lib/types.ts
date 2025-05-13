@@ -13,6 +13,7 @@ export type User = {
   lastActive?: Date;
   avatarUrl?: string; // For custom avatar uploads, or keep using Vercel Avatars
   postCount?: number; // Denormalized, can be calculated
+  points?: number; // Points accumulated from post reactions
 };
 
 export type Category = {
