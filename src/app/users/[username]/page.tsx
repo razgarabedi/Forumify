@@ -10,6 +10,7 @@ import { format, formatDistanceToNowStrict } from 'date-fns';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getCurrentUser } from '@/lib/actions/auth';
+import { isValidDate } from '@/lib/utils'; // Import isValidDate
 // import Image from 'next/image'; // Not used currently
 
 interface UserProfilePageProps {
@@ -36,7 +37,24 @@ export default async function UserProfilePage({ params }: UserProfilePageProps) 
 
   const postCount = profileUser.postCount ?? 0;
   const points = profileUser.points ?? 0;
-  const lastActive = profileUser.lastActive ? new Date(profileUser.lastActive) : new Date(profileUser.createdAt);
+  
+  const createdAtDate = profileUser.createdAt; // From User type, expected to be Date
+  const lastActiveDateInput = profileUser.lastActive; // From User type, expected to be Date | undefined
+
+  const displayCreatedAt = isValidDate(createdAtDate) 
+    ? format(createdAtDate, 'MMMM d, yyyy') 
+    : 'N/A';
+
+  let displayLastActive = 'N/A';
+  // Use lastActive if valid, otherwise fallback to createdAt if valid
+  const dateToFormatForLastActive = isValidDate(lastActiveDateInput) 
+    ? lastActiveDateInput 
+    : (isValidDate(createdAtDate) ? createdAtDate : null);
+
+  if (dateToFormatForLastActive) {
+    displayLastActive = formatDistanceToNowStrict(dateToFormatForLastActive, { addSuffix: true });
+  }
+
 
   const isOwnProfile = viewingUser?.id === profileUser.id;
   let conversationIdWithProfileUser: string | null = null;
@@ -113,7 +131,7 @@ export default async function UserProfilePage({ params }: UserProfilePageProps) 
                 <CardContent className="p-3 sm:p-4 text-sm space-y-2">
                     <div className="flex items-center gap-2">
                         <CalendarDays className="h-4 w-4 text-muted-foreground" />
-                        <span>Joined: {format(new Date(profileUser.createdAt), 'MMMM d, yyyy')}</span>
+                        <span>Joined: {displayCreatedAt}</span>
                     </div>
                     <div className="flex items-center gap-2">
                         <MessageSquare className="h-4 w-4 text-muted-foreground" />
@@ -126,7 +144,7 @@ export default async function UserProfilePage({ params }: UserProfilePageProps) 
                      <div className="flex items-center gap-2">
                         <Activity className="h-4 w-4 text-muted-foreground" />
                         <span>
-                          Last active: {formatDistanceToNowStrict(lastActive, { addSuffix: true })}
+                          Last active: {displayLastActive}
                         </span>
                     </div>
                 </CardContent>
@@ -163,3 +181,4 @@ export default async function UserProfilePage({ params }: UserProfilePageProps) 
     </div>
   );
 }
+

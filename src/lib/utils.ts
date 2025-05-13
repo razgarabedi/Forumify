@@ -20,3 +20,12 @@ export function parseMentions(content: string): string[] {
   }
   return Array.from(usernames);
 }
+
+/**
+ * Checks if a value is a valid Date object.
+ * @param d The value to check.
+ * @returns True if d is a Date object and represents a valid date, false otherwise.
+ */
+export function isValidDate(d: any): d is Date {
+  return d instanceof Date && !isNaN(d.getTime());
+}
