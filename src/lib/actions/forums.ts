@@ -1,4 +1,3 @@
-
 "use server";
 
 import { z } from "zod";
@@ -116,24 +115,21 @@ export async function createTopic(prevState: any, formData: FormData) {
 
         // If dbCreateTopic and revalidatePath succeed, redirect.
         // This call throws a NEXT_REDIRECT error internally to signal Next.js
-        // It should not normally be caught by the catch block below unless dbCreateTopic or revalidatePath fail.
         redirect(`/topics/${newTopic.id}`);
 
     } catch (error: any) {
-        // This catch block should ideally only catch errors from dbCreateTopic or revalidatePath
-        console.error("[Action createTopic] Error during topic creation or revalidation:", error);
+        console.error("[Action createTopic] Error during topic creation, revalidation, or redirect:", error);
 
-        // Check if it's the special redirect error, though it shouldn't normally be caught here.
-        if (error.message?.includes('NEXT_REDIRECT')) {
-             console.warn("[Action createTopic] Caught NEXT_REDIRECT error unexpectedly. This usually indicates an issue after successful creation but before client navigation.");
-             // Return a generic error, as the redirect *should* have been initiated.
-             // The client-side might be showing the error due to the redirect interrupting the normal flow.
-             return { message: "Topic created, but an issue occurred during navigation.", success: false };
+        // Check if it's the special redirect error. If so, re-throw it.
+        // Next.js redirect() throws an error with a specific digest.
+        if (typeof error.digest === 'string' && error.digest.startsWith('NEXT_REDIRECT')) {
+            console.warn("[Action createTopic] Caught NEXT_REDIRECT error, re-throwing for Next.js to handle navigation.");
+            throw error;
         }
 
-        // Provide a clearer message for actual database/validation errors
+        // Handle other errors (from dbCreateTopic or revalidatePath)
         let errorMessage = "Database Error: Failed to create topic.";
-        if (error instanceof Error) {
+        if (error instanceof Error && error.message) { // Check if error.message exists
             errorMessage = `${errorMessage} ${error.message}`;
         }
         return { message: errorMessage, success: false };
@@ -213,7 +209,7 @@ export async function submitPost(prevState: any, formData: FormData) {
         const actionType = postId ? 'update' : 'create';
         // Provide a clearer message for actual database/validation errors
         let errorMessage = `Database Error: Failed to ${actionType} post.`;
-        if (error instanceof Error) {
+        if (error instanceof Error && error.message) { // Check if error.message exists
             errorMessage = `${errorMessage} ${error.message}`;
         }
         return { message: errorMessage, success: false };
@@ -250,7 +246,7 @@ export async function deletePost(postId: string, topicId: string): Promise<{succ
         return { message: "Post deleted successfully.", success: true };
     } catch (error: any) {
         console.error("[Action deletePost] Error:", error);
-        return { success: false, message: error.message || "Database Error: Failed to delete post." };
+        return { success: false, message: (error instanceof Error && error.message) ? error.message : "Database Error: Failed to delete post." };
     }
 }
 
