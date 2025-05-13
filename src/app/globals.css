@@ -9,7 +9,7 @@ body {
 
 @layer base {
   :root {
-    /* Updated color palette */
+    /* Updated color palette for better contrast */
     --background: 0 0% 100%; /* White background */
     --foreground: 240 10% 3.9%; /* Dark gray foreground */
 
@@ -19,24 +19,24 @@ body {
     --popover: 0 0% 100%;
     --popover-foreground: 240 10% 3.9%;
 
-    --primary: 207 68% 53%; /* Calm Blue (#3498db) */
-    --primary-foreground: 0 0% 98%; /* Light text on primary */
+    --primary: 207 68% 45%; /* Darker Blue for better contrast with white text (#277EC3) */
+    --primary-foreground: 0 0% 100%; /* Pure White */
 
     --secondary: 0 0% 95%; /* Light Gray (#f2f2f2) */
     --secondary-foreground: 240 10% 3.9%; /* Dark text on secondary */
 
     --muted: 0 0% 95%; /* Use secondary for muted */
-    --muted-foreground: 0 0% 45.1%; /* Muted text */
+    --muted-foreground: 0 0% 40%; /* Darker muted text (#666666) for better contrast */
 
-    --accent: 145 63% 49%; /* Teal (#2ecc71) */
-    --accent-foreground: 0 0% 98%; /* Light text on accent */
+    --accent: 145 63% 35%; /* Darker Teal for better contrast with white text (#1F9050) */
+    --accent-foreground: 0 0% 100%; /* Pure White */
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
+    --destructive: 0 70% 45%; /* Darker Red (#C93D3D) */
+    --destructive-foreground: 0 0% 100%; /* Pure White */
 
     --border: 0 0% 89.8%; /* Slightly darker than secondary for borders */
     --input: 0 0% 89.8%;
-    --ring: 207 68% 53%; /* Use primary for ring */
+    --ring: 207 68% 45%; /* Use new primary for ring */
 
     --chart-1: 12 76% 61%;
     --chart-2: 173 58% 39%;
@@ -67,24 +67,26 @@ body {
     --popover: 240 10% 3.9%;
     --popover-foreground: 0 0% 98%;
 
-    --primary: 207 68% 53%; /* Calm Blue */
-    --primary-foreground: 0 0% 98%;
+    --primary: 207 68% 45%; /* Darker Blue (#277EC3) - consistent with light for button bg */
+    --primary-foreground: 0 0% 100%; /* Pure White */
 
     --secondary: 240 4% 10%; /* Darker Gray */
     --secondary-foreground: 0 0% 98%;
 
     --muted: 240 4% 10%;
-    --muted-foreground: 0 0% 63.9%;
+    --muted-foreground: 0 0% 63.9%; /* Original dark muted-foreground was fine */
 
-    --accent: 145 63% 49%; /* Teal */
-    --accent-foreground: 0 0% 98%;
+    --accent: 145 63% 35%; /* Darker Teal (#1F9050) - consistent */
+    --accent-foreground: 0 0% 100%; /* Pure White */
 
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%; /* Original dark destructive was fine */
+    --destructive-foreground: 0 0% 100%; /* Pure White */
 
     --border: 240 4% 15%; /* Darker border */
     --input: 240 4% 15%;
-    --ring: 207 68% 53%; /* Primary ring */
+    --ring: 207 68% 45%; /* Use new primary for ring */
+    
+    --link-dark: 207 70% 65%; /* Lighter blue for dark mode links (#67ABE9) */
 
     --chart-1: 220 70% 50%;
     --chart-2: 160 60% 45%;
