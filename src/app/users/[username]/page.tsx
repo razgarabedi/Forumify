@@ -1,16 +1,18 @@
 
 
-import { findUserByUsername, getUserPostCount } from '@/lib/placeholder-data';
+import { findUserByUsername, getUserPostCount, generateConversationId as dbGenerateConversationId } from '@/lib/placeholder-data';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { CalendarDays, MapPin, Link as LinkIcon, MessageSquare, Edit3, Activity, AlignLeft } from 'lucide-react';
+import { CalendarDays, MapPin, Link as LinkIcon, MessageSquare, Edit3, Activity, AlignLeft, MessageCircle } from 'lucide-react'; // Added MessageCircle
 import { format, formatDistanceToNowStrict } from 'date-fns';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { getCurrentUser } from '@/lib/actions/auth';
 import Image from 'next/image';
+import { startConversationAndRedirectAction } from '@/lib/actions/privateMessages'; // Import the new action
+
 
 interface UserProfilePageProps {
   params: { username: string };
@@ -37,16 +39,20 @@ export default async function UserProfilePage({ params }: UserProfilePageProps) 
   console.log(`[UserProfilePage] Successfully fetched profileUser: ${profileUser.id} - ${profileUser.username}`);
 
 
-  // Ensure postCount is a number, default to 0 if undefined
   const postCount = profileUser.postCount ?? 0;
   const lastActive = profileUser.lastActive ? new Date(profileUser.lastActive) : new Date(profileUser.createdAt);
+
+  const isOwnProfile = viewingUser?.id === profileUser.id;
+  let conversationIdWithProfileUser: string | null = null;
+  if (viewingUser && !isOwnProfile) {
+    conversationIdWithProfileUser = dbGenerateConversationId(viewingUser.id, profileUser.id);
+  }
 
 
   return (
     <div className="space-y-8">
       <Card className="shadow-lg border border-border overflow-hidden">
         <div className="relative h-32 sm:h-40 bg-gradient-to-r from-primary/20 to-accent/20" data-ai-hint="profile banner abstract">
-           {/* Placeholder for a banner image if desired */}
         </div>
         <CardHeader className="flex flex-col sm:flex-row items-center sm:items-end space-y-4 sm:space-y-0 sm:space-x-6 p-4 sm:p-6 relative -mt-16 sm:-mt-20">
           <Avatar className="h-24 w-24 sm:h-32 sm:w-32 border-4 border-background shadow-md">
@@ -66,17 +72,25 @@ export default async function UserProfilePage({ params }: UserProfilePageProps) 
               )}
             </CardDescription>
           </div>
-          {viewingUser?.id === profileUser.id && (
-            <Button asChild variant="outline" size="sm">
-              <Link href={`/users/${profileUser.username}/edit`}>
-                <Edit3 className="mr-2 h-4 w-4" /> Edit Profile
-              </Link>
-            </Button>
-          )}
+          <div className="flex flex-col sm:flex-row gap-2 items-center">
+            {isOwnProfile && (
+                <Button asChild variant="outline" size="sm">
+                <Link href={`/users/${profileUser.username}/edit`}>
+                    <Edit3 className="mr-2 h-4 w-4" /> Edit Profile
+                </Link>
+                </Button>
+            )}
+            {viewingUser && !isOwnProfile && conversationIdWithProfileUser && (
+                 <Button asChild size="sm">
+                    <Link href={`/messages/${conversationIdWithProfileUser}`}>
+                        <MessageCircle className="mr-2 h-4 w-4" /> Send Message
+                    </Link>
+                </Button>
+            )}
+          </div>
         </CardHeader>
 
         <CardContent className="p-4 sm:p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Left Column / Main Info */}
           <div className="md:col-span-2 space-y-6">
             {profileUser.aboutMe && (
               <section>
@@ -94,7 +108,6 @@ export default async function UserProfilePage({ params }: UserProfilePageProps) 
             )}
           </div>
 
-          {/* Right Column / Stats & Links */}
           <div className="space-y-6">
              <Card className="border-border/70 shadow-sm">
                 <CardHeader className="p-3 sm:p-4">
@@ -132,9 +145,8 @@ export default async function UserProfilePage({ params }: UserProfilePageProps) 
                         </a>
                     </div>
                     )}
-                    {profileUser.socialMediaUrl && ( // Assuming generic social media link
+                    {profileUser.socialMediaUrl && ( 
                     <div className="flex items-center gap-2">
-                        {/* Placeholder for a more specific social icon */}
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"></path></svg>
                         <a href={profileUser.socialMediaUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate">
                         {profileUser.socialMediaUrl.replace(/^https?:\/\//, '')}
@@ -147,17 +159,6 @@ export default async function UserProfilePage({ params }: UserProfilePageProps) 
           </div>
         </CardContent>
       </Card>
-
-      {/* Placeholder for user's recent activity/posts */}
-      {/* <Card>
-        <CardHeader>
-          <CardTitle>Recent Activity</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-muted-foreground">User's recent posts will be displayed here.</p>
-        </CardContent>
-      </Card> */}
     </div>
   );
 }
-

@@ -3,14 +3,18 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { getCurrentUser, logout } from '@/lib/actions/auth';
 import { getUnreadNotificationCountAction } from '@/lib/actions/notifications';
-import { LogIn, LogOut, UserPlus, Home, ShieldCheck, Settings, User as UserIcon, Settings2 } from 'lucide-react'; // Added Settings2
+import { getUnreadPrivateMessageCountAction } from '@/lib/actions/privateMessages'; // Import PM count action
+import { LogIn, LogOut, UserPlus, Home, ShieldCheck, Settings, User as UserIcon, Settings2, MessageSquare } from 'lucide-react'; // Added MessageSquare
 import { HeaderNotificationDropdown } from './HeaderNotificationDropdown'; 
 
 export async function Header() {
   const user = await getCurrentUser();
-  let initialUnreadCount = 0;
+  let initialUnreadNotifCount = 0;
+  let initialUnreadPMCount = 0;
+
   if (user) {
-    initialUnreadCount = await getUnreadNotificationCountAction();
+    initialUnreadNotifCount = await getUnreadNotificationCountAction();
+    initialUnreadPMCount = await getUnreadPrivateMessageCountAction();
   }
 
   return (
@@ -49,6 +53,19 @@ export async function Header() {
                   <span className="hidden sm:inline">My Profile</span>
                </Link>
                <Link
+                href="/messages"
+                className="transition-colors hover:text-primary text-foreground/80 flex items-center gap-1 relative"
+               >
+                <MessageSquare className="h-4 w-4" />
+                <span className="hidden sm:inline">Messages</span>
+                {initialUnreadPMCount > 0 && (
+                    <span className="absolute top-0 right-0 -mt-1 -mr-1 flex h-2 w-2 items-center justify-center rounded-full bg-accent text-xs">
+                         <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-75"></span>
+                        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-accent"></span>
+                    </span>
+                )}
+               </Link>
+               <Link
                   href="/settings"
                   className="transition-colors hover:text-primary text-foreground/80 flex items-center gap-1"
                >
@@ -68,7 +85,7 @@ export async function Header() {
                  </span>
              )}
              
-             <HeaderNotificationDropdown user={user} initialUnreadCount={initialUnreadCount} />
+             <HeaderNotificationDropdown user={user} initialUnreadCount={initialUnreadNotifCount} />
 
               <span className="text-sm font-medium mr-2 hidden md:inline">
                 Welcome, {user.username}
@@ -98,4 +115,3 @@ export async function Header() {
     </header>
   );
 }
-

@@ -1,5 +1,5 @@
 
-import type { User, Category, Topic, Post, Notification } from './types';
+import type { User, Category, Topic, Post, Notification, Conversation, PrivateMessage } from './types';
 
 // Placeholder Users
 let users: User[] = [];
@@ -19,6 +19,11 @@ let posts: Post[] = [];
 
 // Placeholder Notifications
 let notifications: Notification[] = [];
+
+// Placeholder Private Messages & Conversations
+let conversations: Conversation[] = [];
+let privateMessages: PrivateMessage[] = [];
+
 
 // --- Simulation Functions ---
 
@@ -48,13 +53,10 @@ export const findUserById = async (id: string): Promise<User | null> => {
 
 export const findUserByUsername = async (username: string): Promise<User | null> => {
     await new Promise(resolve => setTimeout(resolve, 10));
-    // console.log(`[DB findUserByUsername] Attempting to find user with username: "${username}" (lowercase: "${username.toLowerCase()}")`);
     const user = users.find(u => u.username.toLowerCase() === username.toLowerCase());
     if (!user) {
-        // console.warn(`[DB findUserByUsername] User "${username}" NOT FOUND.`);
         return null;
     }
-    // console.log(`[DB findUserByUsername] User "${username}" FOUND. ID: ${user.id}`);
     return { ...user, postCount: await getUserPostCount(user.id), lastActive: user.lastActive || user.createdAt };
 };
 
@@ -124,8 +126,6 @@ export const updateUserPassword = async (userId: string, currentPasswordPlain: s
     if (userIndex === -1) {
         return { success: false, message: "User not found." };
     }
-    // In a real app, currentPasswordPlain would be hashed and compared to a stored hash.
-    // NewPasswordPlain would be hashed before storing.
     if (users[userIndex].password !== currentPasswordPlain) {
         return { success: false, message: "Incorrect current password." };
     }
@@ -156,6 +156,9 @@ export const deleteUser = async (userId: string): Promise<boolean> => {
 
     if (users.length < initialLength) {
         console.log(`[DB deleteUser] User ${userId} successfully deleted.`);
+        // Also delete their conversations and messages
+        conversations = conversations.filter(c => !c.participantIds.includes(userId));
+        privateMessages = privateMessages.filter(pm => pm.senderId !== userId && !conversations.find(c => c.id === pm.conversationId && c.participantIds.includes(userId)));
         return true;
     } else {
         console.error(`[DB deleteUser] Delete User failed: User ${userId} not found.`);
@@ -273,13 +276,13 @@ export const createTopic = async (topicData: CreateTopicParams): Promise<Topic> 
         id: `topic${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
         createdAt: now,
         lastActivity: now,
-        postCount: 0, // Will be incremented by createPost
+        postCount: 0, 
     };
     topics.push(newTopic);
     console.log("[DB createTopic] Created Topic:", newTopic.id, newTopic.title);
     await updateUserLastActive(topicData.authorId);
 
-    await createPost({ // This will increment postCount on topic and category
+    await createPost({ 
         content: topicData.firstPostContent,
         topicId: newTopic.id,
         authorId: topicData.authorId,
@@ -291,9 +294,8 @@ export const createTopic = async (topicData: CreateTopicParams): Promise<Topic> 
         categories[catIndex].topicCount = (categories[catIndex].topicCount || 0) + 1;
     }
     
-    // Fetch the topic again to get updated postCount from createPost
     const finalTopic = await getTopicById(newTopic.id);
-    return finalTopic || { ...newTopic, postCount: 1 }; // Fallback if somehow not found
+    return finalTopic || { ...newTopic, postCount: 1 }; 
 }
 
 // Fetch Posts
@@ -302,7 +304,7 @@ export const getPostsByTopic = async (topicId: string): Promise<Post[]> => {
   const topicPosts = posts.filter(p => p.topicId === topicId).sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
   return Promise.all(topicPosts.map(async post => {
     const author = await findUserById(post.authorId);
-    const topic = await getTopicByIdSimple(post.topicId); // Get simple topic for context
+    const topic = await getTopicByIdSimple(post.topicId); 
     return { ...post, author, topic: topic ?? undefined };
   }));
 };
@@ -368,12 +370,11 @@ export const updatePost = async (postId: string, content: string, userId: string
     await updateUserLastActive(userId);
 
     post.content = content;
-    if (imageUrl === null) { // Explicitly remove
+    if (imageUrl === null) { 
         delete post.imageUrl;
-    } else if (imageUrl !== undefined) { // Set or update
+    } else if (imageUrl !== undefined) { 
         post.imageUrl = imageUrl;
     }
-    // If imageUrl is undefined, do nothing (keep existing)
 
     post.updatedAt = new Date();
     const author = await findUserById(post.authorId);
@@ -450,7 +451,7 @@ export const getNotificationsByUserId = async (userId: string): Promise<Notifica
     await new Promise(resolve => setTimeout(resolve, 10));
     return notifications
         .filter(n => n.mentionedUserId === userId)
-        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()); // Newest first
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()); 
 };
 
 export const getUnreadNotificationCount = async (userId: string): Promise<number> => {
@@ -482,3 +483,112 @@ export const markAllNotificationsAsRead = async (userId: string): Promise<boolea
     return markedAny;
 };
 
+
+// --- Private Messaging Functions ---
+
+export const generateConversationId = (userId1: string, userId2: string): string => {
+    const ids = [userId1, userId2].sort();
+    return `conv-${ids[0]}-${ids[1]}`;
+};
+
+export const getOrCreateConversation = async (userId1: string, userId2: string): Promise<Conversation> => {
+    await new Promise(resolve => setTimeout(resolve, 10));
+    const conversationId = generateConversationId(userId1, userId2);
+    let conversation = conversations.find(c => c.id === conversationId);
+
+    if (!conversation) {
+        const now = new Date();
+        conversation = {
+            id: conversationId,
+            participantIds: [userId1, userId2],
+            createdAt: now,
+            lastMessageAt: now, // Initially same as createdAt
+        };
+        conversations.push(conversation);
+        console.log(`[DB getOrCreateConversation] Created new conversation: ${conversationId}`);
+    }
+    return { ...conversation };
+};
+
+export const sendPrivateMessage = async (
+    senderId: string,
+    receiverId: string, // Changed from conversationId to receiverId for clarity in this function
+    content: string
+): Promise<PrivateMessage> => {
+    await new Promise(resolve => setTimeout(resolve, 50));
+    const conversation = await getOrCreateConversation(senderId, receiverId);
+    const now = new Date();
+
+    const newMessage: PrivateMessage = {
+        id: `pm-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+        conversationId: conversation.id,
+        senderId,
+        content,
+        createdAt: now,
+        readBy: [senderId], // Sender has "read" it by sending
+    };
+    privateMessages.push(newMessage);
+
+    // Update conversation's lastMessageAt and snippet
+    const convIndex = conversations.findIndex(c => c.id === conversation.id);
+    if (convIndex !== -1) {
+        conversations[convIndex].lastMessageAt = now;
+        conversations[convIndex].lastMessageSnippet = content.substring(0, 50) + (content.length > 50 ? '...' : '');
+        conversations[convIndex].lastMessageSenderId = senderId;
+    }
+    await updateUserLastActive(senderId);
+    console.log(`[DB sendPrivateMessage] Sent PM ${newMessage.id} in conversation ${conversation.id}`);
+    return { ...newMessage };
+};
+
+export const getConversationsForUser = async (userId: string): Promise<Conversation[]> => {
+    await new Promise(resolve => setTimeout(resolve, 20));
+    return conversations
+        .filter(c => c.participantIds.includes(userId))
+        .sort((a, b) => b.lastMessageAt.getTime() - a.lastMessageAt.getTime());
+};
+
+export const getMessagesForConversation = async (conversationId: string, currentUserId: string): Promise<PrivateMessage[]> => {
+    await new Promise(resolve => setTimeout(resolve, 20));
+    const messagesInConv = privateMessages
+        .filter(pm => pm.conversationId === conversationId)
+        .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+
+    // Mark messages as read by the current user
+    messagesInConv.forEach(msg => {
+        if (msg.senderId !== currentUserId && !msg.readBy.includes(currentUserId)) {
+            msg.readBy.push(currentUserId);
+            const pmIndex = privateMessages.findIndex(pm => pm.id === msg.id);
+            if (pmIndex !== -1) {
+                privateMessages[pmIndex] = msg;
+            }
+        }
+    });
+    console.log(`[DB getMessagesForConversation] Fetched messages for ${conversationId} and marked as read for ${currentUserId}`);
+    return messagesInConv;
+};
+
+export const getUnreadPrivateMessagesCountForConversation = async (conversationId: string, userId: string): Promise<number> => {
+    await new Promise(resolve => setTimeout(resolve, 5));
+    return privateMessages.filter(pm => 
+        pm.conversationId === conversationId &&
+        pm.senderId !== userId &&
+        !pm.readBy.includes(userId)
+    ).length;
+};
+
+export const getTotalUnreadPrivateMessagesCountForUser = async (userId: string): Promise<number> => {
+    await new Promise(resolve => setTimeout(resolve, 10));
+    const userConversations = await getConversationsForUser(userId);
+    let totalUnread = 0;
+    for (const conv of userConversations) {
+        totalUnread += await getUnreadPrivateMessagesCountForConversation(conv.id, userId);
+    }
+    return totalUnread;
+};
+
+export const getConversationById = async (conversationId: string): Promise<Conversation | null> => {
+    await new Promise(resolve => setTimeout(resolve, 10));
+    const conversation = conversations.find(c => c.id === conversationId);
+    return conversation ? { ...conversation } : null;
+};
