@@ -1,13 +1,14 @@
 import { getTopicsByCategory, getCategoryById } from '@/lib/placeholder-data'; // Using placeholder
 import { TopicList } from '@/components/forums/TopicList';
-import { TopicForm } from '@/components/forms/TopicForm';
+// import { TopicForm } from '@/components/forms/TopicForm'; // No longer directly used here
 import { getCurrentUser } from '@/lib/actions/auth';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Info, LogIn, UserPlus } from 'lucide-react'; // Added login/register icons
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { ArrowLeft } from 'lucide-react'; // Removed unused icons
+// import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"; // No longer directly used here
 import { notFound } from 'next/navigation';
 import { Separator } from '@/components/ui/separator'; // Import Separator
+import { CreateTopicControl } from './_components/CreateTopicControl'; // Import the new component
 
 interface CategoryPageProps {
     params: { categoryId: string };
@@ -17,7 +18,6 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
     const { categoryId } = params;
     // Fetch user first to ensure cookie context is reliably accessed
     const user = await getCurrentUser();
-    // console.log('[CategoryPage] Current User:', user?.id); // Debug log
     const [category, topics] = await Promise.all([
         getCategoryById(categoryId),
         getTopicsByCategory(categoryId),
@@ -46,30 +46,8 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
 
              <Separator /> {/* Separator for visual structure */}
 
-            {/* Topic Form or Login Prompt */}
-            {user ? (
-                 <TopicForm categoryId={categoryId} />
-            ) : (
-                 <Alert className="border-primary/30 bg-primary/5">
-                    <Info className="h-4 w-4 text-primary" />
-                    <AlertTitle className="text-primary">Login Required</AlertTitle>
-                    <AlertDescription>
-                        You need to login or register to start a new topic.
-                         <div className="flex gap-2 mt-2">
-                            <Button size="sm" asChild>
-                               <Link href="/login">
-                                   <LogIn className="mr-1 h-4 w-4"/> Login
-                                </Link>
-                            </Button>
-                            <Button size="sm" variant="secondary" asChild>
-                               <Link href="/register">
-                                   <UserPlus className="mr-1 h-4 w-4"/> Register
-                                </Link>
-                             </Button>
-                        </div>
-                    </AlertDescription>
-                </Alert>
-            )}
+            {/* Control for creating a new topic */}
+            <CreateTopicControl categoryId={categoryId} user={user} />
 
             {/* Topic List */}
             <div>
