@@ -36,6 +36,14 @@ export type Topic = {
   category?: Category; // Optional: include category details
 };
 
+export type ReactionType = 'like' | 'love' | 'haha' | 'wow' | 'sad' | 'angry';
+
+export type Reaction = {
+  userId: string;
+  username: string; 
+  type: ReactionType;
+};
+
 export type Post = {
   id: string;
   content: string;
@@ -46,6 +54,7 @@ export type Post = {
   imageUrl?: string; // For uploaded images as data URIs
   author?: User; // Optional: include author details
   topic?: Topic;   // Optional: include topic details
+  reactions: Reaction[]; // Array of reactions on the post
 };
 
 export type Notification = {
@@ -74,7 +83,7 @@ export interface ActionResponse {
 
 // --- Private Messaging Types ---
 export type Conversation = {
-  id: string; // Deterministic ID: conv-${sortedUserId1}-${sortedUserId2}
+  id: string; // Deterministic ID: conv-${sortedUserId1}-${sortedUserId2} or with subject
   participantIds: string[];
   subject?: string; // Subject for the conversation
   createdAt: Date;

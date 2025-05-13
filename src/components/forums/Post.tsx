@@ -1,11 +1,11 @@
 
-"use client"; // Need client for state, hooks, event handlers
+"use client"; 
 
 import type { Post as PostType, User } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from '@/components/ui/button';
-import { Edit, Trash2, Clock, UserCircle, ShieldCheck } from 'lucide-react'; // Removed LinkIcon as it's not used here
+import { Edit, Trash2, Clock, UserCircle, ShieldCheck } from 'lucide-react'; 
 import { formatDistanceToNow } from 'date-fns';
 import { deletePost } from '@/lib/actions/forums';
 import {
@@ -22,13 +22,14 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
-import React, { useState } from 'react'; // Ensure React is imported
+import React, { useState } from 'react'; 
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import Link from 'next/link'; // Import Link from next/link
+import Link from 'next/link'; 
 import type { CodeProps } from 'react-markdown/lib/ast-to-react';
+import { ReactionButtons } from './ReactionButtons';
 
 
 interface PostProps {
@@ -159,7 +160,6 @@ export function Post({ post, currentUser, onEdit, isFirstPost = false }: PostPro
                         remarkPlugins={[remarkGfm]}
                         components={{
                             p: ({ node, children, ...props }) => {
-                                // 1. Check for YouTube embed (existing logic)
                                 if (node.children.length === 1 && node.children[0].type === 'element' && node.children[0].tagName === 'a') {
                                     const linkNode = node.children[0];
                                     const href = linkNode.properties?.href as string | undefined;
@@ -185,18 +185,16 @@ export function Post({ post, currentUser, onEdit, isFirstPost = false }: PostPro
                                     }
                                 }
 
-                                // 2. If not a YouTube embed, process for mentions
                                 const processedChildren = React.Children.map(children, child => {
                                     if (typeof child === 'string') {
-                                    const parts = child.split(/(@[a-zA-Z0-9_]+)/g); // Split by @username, keeping the mention
+                                    const parts = child.split(/(@[a-zA-Z0-9_]+)/g); 
                                     return parts.map((part, index) => {
                                         if (part.startsWith('@') && part.length > 1) {
                                         const username = part.substring(1);
-                                        // Validate username format (alphanumeric and underscore)
                                         if (/^[a-zA-Z0-9_]+$/.test(username)) { 
                                             return (
                                             <Link
-                                                key={`${index}-${username}`} // Unique key for the link
+                                                key={`${index}-${username}`} 
                                                 href={`/users/${encodeURIComponent(username)}`}
                                                 className="text-accent hover:underline font-semibold"
                                             >
@@ -205,10 +203,10 @@ export function Post({ post, currentUser, onEdit, isFirstPost = false }: PostPro
                                             );
                                         }
                                         }
-                                        return part; // Return non-mention part or invalid mention as is
+                                        return part; 
                                     });
                                     }
-                                    return child; // Return non-string children (e.g., <strong>, <em>)
+                                    return child; 
                                 });
 
                                 return <p {...props}>{processedChildren}</p>;
@@ -221,9 +219,7 @@ export function Post({ post, currentUser, onEdit, isFirstPost = false }: PostPro
                             img: ({node, ...props}) => (
                                 <span className="block text-center my-4">
                                     <Image
-                                        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
                                         src={props.src!}
-                                        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
                                         alt={props.alt!}
                                         width={500}
                                         height={300}
@@ -261,6 +257,11 @@ export function Post({ post, currentUser, onEdit, isFirstPost = false }: PostPro
                         {post.content}
                     </ReactMarkdown>
                 </article>
+                 <ReactionButtons 
+                    postId={post.id} 
+                    initialReactions={post.reactions || []} 
+                    currentUser={currentUser} 
+                />
             </CardContent>
         </Card>
     );

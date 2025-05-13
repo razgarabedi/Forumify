@@ -10,12 +10,14 @@ import {
     createPost as dbCreatePost,
     updatePost as dbUpdatePost,
     deletePost as dbDeletePost,
-    findUserByUsername, // Import for mention resolution
-    createNotification, // Import for creating notifications
-    getTopicByIdSimple, // To get topic title for notifications
-} from "@/lib/placeholder-data"; // Using placeholder functions
+    findUserByUsername, 
+    createNotification, 
+    getTopicByIdSimple, 
+    togglePostReaction as dbTogglePostReaction, // Import reaction function
+} from "@/lib/placeholder-data"; 
 import { getCurrentUser } from "./auth";
-import { parseMentions } from "@/lib/utils"; // Import mention parser
+import { parseMentions } from "@/lib/utils"; 
+import type { ActionResponse, ReactionType } from "@/lib/types";
 
 // --- Schemas ---
 const CategorySchema = z.object({
@@ -27,15 +29,22 @@ const TopicSchema = z.object({
     title: z.string().min(5, { message: "Topic title must be at least 5 characters." }).max(150),
     categoryId: z.string().min(1, {message: "Category is required."}),
     firstPostContent: z.string().min(10, { message: "First post content must be at least 10 characters." }),
-    firstPostImageUrl: z.string().optional(), // Optional: For image in the first post
+    firstPostImageUrl: z.string().optional(), 
 });
 
 const PostSchema = z.object({
     content: z.string().min(10, { message: "Post content must be at least 10 characters." }),
     topicId: z.string().min(1, {message: "Topic ID is required."}),
-    postId: z.string().optional(), // For editing existing posts
-    imageUrl: z.string().optional(), // Optional: For image in the post
-    removeImage: z.string().optional(), // Flag to explicitly remove image
+    postId: z.string().optional(), 
+    imageUrl: z.string().optional(), 
+    removeImage: z.string().optional(), 
+});
+
+const ToggleReactionSchema = z.object({
+  postId: z.string().min(1, { message: "Post ID is required."}),
+  reactionType: z.enum(['like', 'love', 'haha', 'wow', 'sad', 'angry'], {
+    errorMap: () => ({ message: "Invalid reaction type." })
+  }),
 });
 
 
@@ -116,7 +125,6 @@ export async function createTopic(prevState: any, formData: FormData) {
             for (const username of mentionedUsernames) {
                 const mentionedUser = await findUserByUsername(username);
                 if (mentionedUser && mentionedUser.id !== user.id && !uniqueMentionedUserIds.has(mentionedUser.id)) {
-                     // Assuming the first post is always posts[0] after topic creation by dbCreateTopic
                     const firstPostInTopic = (await getPostsByTopic(newTopic.id))[0];
                     if (firstPostInTopic) {
                         await createNotification({
@@ -137,7 +145,7 @@ export async function createTopic(prevState: any, formData: FormData) {
 
         revalidatePath(`/categories/${categoryId}`);
         revalidatePath('/');
-        revalidatePath('/notifications', 'layout'); // Revalidate notifications for potential new ones
+        revalidatePath('/notifications', 'layout'); 
 
         redirect(`/topics/${newTopic.id}`);
 
@@ -219,7 +227,7 @@ export async function submitPost(prevState: any, formData: FormData) {
             revalidatePath(`/categories/${savedPost.topic.categoryId}`);
         }
         revalidatePath('/');
-        revalidatePath('/notifications', 'layout'); // Revalidate notifications page/count in header
+        revalidatePath('/notifications', 'layout'); 
 
         return { message: postId ? "Post updated successfully." : "Reply posted successfully.", success: true, post: savedPost };
 
@@ -262,5 +270,49 @@ export async function deletePost(postId: string, topicId: string): Promise<{succ
 export const getPostsByTopic = async (topicId: string) => {
     const postsData = await import('@/lib/placeholder-data').then(mod => mod.getPostsByTopic(topicId));
     return postsData;
+}
+
+// --- Reactions ---
+export async function toggleReactionAction(prevState: ActionResponse | undefined, formData: FormData): Promise<ActionResponse> {
+  const user = await getCurrentUser();
+  if (!user) {
+    return { success: false, message: "Unauthorized: You must be logged in to react." };
+  }
+
+  const validatedFields = ToggleReactionSchema.safeParse({
+    postId: formData.get("postId"),
+    reactionType: formData.get("reactionType"),
+  });
+
+  if (!validatedFields.success) {
+    console.log("ToggleReactionAction validation errors:", validatedFields.error.flatten().fieldErrors);
+    return {
+      errors: validatedFields.error.flatten().fieldErrors,
+      message: "Invalid reaction data.",
+      success: false,
+    };
+  }
+
+  const { postId, reactionType } = validatedFields.data;
+
+  try {
+    const updatedPost = await dbTogglePostReaction(postId, user.id, user.username, reactionType as ReactionType);
+    if (!updatedPost) {
+      return { success: false, message: "Failed to update reaction. Post not found." };
+    }
+    
+    const topic = await getTopicByIdSimple(updatedPost.topicId);
+    if (topic) {
+       revalidatePath(`/topics/${topic.id}`);
+    } else {
+        console.warn(`[toggleReactionAction] Topic not found for post ${postId}, full revalidation might be needed for related pages.`);
+        revalidatePath('/'); // Fallback to broader revalidation
+    }
+
+    return { success: true, message: "Reaction updated.", post: updatedPost };
+  } catch (error: any) {
+    console.error("Toggle Reaction Error:", error);
+    return { success: false, message: error.message || "Failed to update reaction." };
+  }
 }
 

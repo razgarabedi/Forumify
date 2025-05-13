@@ -1,5 +1,5 @@
 
-import type { User, Category, Topic, Post, Notification, Conversation, PrivateMessage } from './types';
+import type { User, Category, Topic, Post, Notification, Conversation, PrivateMessage, Reaction, ReactionType } from './types';
 
 // Placeholder Users
 let users: User[] = [];
@@ -305,7 +305,7 @@ export const getPostsByTopic = async (topicId: string): Promise<Post[]> => {
   return Promise.all(topicPosts.map(async post => {
     const author = await findUserById(post.authorId);
     const topic = await getTopicByIdSimple(post.topicId); 
-    return { ...post, author, topic: topic ?? undefined };
+    return { ...post, author, topic: topic ?? undefined, reactions: post.reactions || [] };
   }));
 };
 
@@ -314,7 +314,7 @@ export const getUserPostCount = async (userId: string): Promise<number> => {
     return posts.filter(p => p.authorId === userId).length;
 };
 
-interface CreatePostParams extends Omit<Post, 'id' | 'createdAt' | 'updatedAt' | 'author' | 'topic'> {
+interface CreatePostParams extends Omit<Post, 'id' | 'createdAt' | 'updatedAt' | 'author' | 'topic' | 'reactions'> {
     imageUrl?: string;
 }
 
@@ -328,6 +328,7 @@ export const createPost = async (postData: CreatePostParams): Promise<Post> => {
         imageUrl: postData.imageUrl,
         id: `post${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
         createdAt: now,
+        reactions: [], // Initialize reactions
     };
     posts.push(newPost);
     console.log(`[DB createPost] Created Post: ${newPost.id} in Topic ${newPost.topicId}`);
@@ -379,7 +380,7 @@ export const updatePost = async (postId: string, content: string, userId: string
     post.updatedAt = new Date();
     const author = await findUserById(post.authorId);
     const topic = await getTopicByIdSimple(post.topicId);
-    return { ...post, author: author ?? undefined, topic: topic ?? undefined };
+    return { ...post, author: author ?? undefined, topic: topic ?? undefined, reactions: post.reactions || [] };
 };
 
 export const deletePost = async (postId: string, userId: string, isAdmin: boolean): Promise<boolean> => {
@@ -411,6 +412,51 @@ export const deletePost = async (postId: string, userId: string, isAdmin: boolea
     }
     return true;
 };
+
+// --- Post Reactions ---
+export const togglePostReaction = async (postId: string, userId: string, username: string, reactionType: ReactionType): Promise<Post | null> => {
+  await new Promise(resolve => setTimeout(resolve, 30));
+  const postIndex = posts.findIndex(p => p.id === postId);
+  if (postIndex === -1) {
+    console.error(`[DB togglePostReaction] Post with ID ${postId} not found.`);
+    return null;
+  }
+
+  const post = posts[postIndex];
+  // Ensure reactions array exists
+  if (!post.reactions) {
+    post.reactions = [];
+  }
+
+  const existingReactionIndex = post.reactions.findIndex(r => r.userId === userId);
+
+  if (existingReactionIndex !== -1) {
+    // User has an existing reaction
+    if (post.reactions[existingReactionIndex].type === reactionType) {
+      // Clicking the same reaction again, remove it
+      post.reactions.splice(existingReactionIndex, 1);
+      console.log(`[DB togglePostReaction] User ${userId} removed reaction ${reactionType} from post ${postId}`);
+    } else {
+      // Clicking a different reaction, update it
+      post.reactions[existingReactionIndex].type = reactionType;
+      console.log(`[DB togglePostReaction] User ${userId} changed reaction to ${reactionType} on post ${postId}`);
+    }
+  } else {
+    // User has no reaction yet, add new one
+    post.reactions.push({ userId, username, type: reactionType });
+    console.log(`[DB togglePostReaction] User ${userId} added reaction ${reactionType} to post ${postId}`);
+  }
+  
+  await updateUserLastActive(userId); // Update user's last active time
+  // Note: We are not updating topic.lastActivity for reactions to avoid bumping topics for minor interactions.
+  // This can be revisited if needed.
+
+  // Return a copy of the updated post object
+  const author = await findUserById(post.authorId);
+  const topic = await getTopicByIdSimple(post.topicId);
+  return { ...post, author: author ?? undefined, topic: topic ?? undefined, reactions: [...post.reactions] };
+};
+
 
 // --- Count Functions for Admin Dashboard ---
 export const getTotalUserCount = async (): Promise<number> => {
@@ -532,7 +578,6 @@ export const getOrCreateConversation = async (userId1: string, userId2: string, 
         conversations.push(conversation);
         console.log(`[DB getOrCreateConversation] Created new conversation: ${conversationId} with original subject: "${subject || 'N/A'}"`);
     }
-    // No need to update subject if found, as ID is now subject-specific
     return { ...conversation };
 };
 
@@ -619,3 +664,4 @@ export const getConversationById = async (conversationId: string): Promise<Conve
     const conversation = conversations.find(c => c.id === conversationId);
     return conversation ? { ...conversation } : null;
 };
+
