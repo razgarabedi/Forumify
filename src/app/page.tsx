@@ -11,18 +11,17 @@ import { LogIn, UserPlus, AlertTriangle } from 'lucide-react'; // Added AlertTri
 
 export default async function Home() {
   let categories: Category[] = [];
-  let dbError: string | null = null;
+  let pageError: string | null = null; // Changed from dbError to pageError for clarity
 
   try {
     categories = await getCategories();
+    // If getCategories falls back to placeholder data, it will log warnings in db.ts
+    // but won't throw an error here unless placeholder.getCategories itself throws.
   } catch (error: any) {
-    if (error.message && error.message.includes('Database service is unavailable')) {
-      dbError = "Failed to connect to the database. Please ensure your DATABASE_URL is correctly configured in your .env.local file and your PostgreSQL server is running and accessible. Refer to the README.md for setup instructions.";
-      console.error("Database connection error on homepage:", error.message);
-    } else {
-      dbError = "An unexpected error occurred while loading forum categories. Please try again later.";
-      console.error("Error loading categories:", error);
-    }
+    // This catch block would now primarily catch errors from placeholder.getCategories,
+    // or truly unexpected errors from the db.ts wrapper if its try/catch fails.
+    pageError = "An unexpected error occurred while loading forum categories. Please check server logs or try again later.";
+    console.error("Error loading categories on homepage:", error);
   }
 
   const user = await getCurrentUser();
@@ -52,19 +51,20 @@ export default async function Home() {
          )}
       </Card>
 
-      {user?.isAdmin && !dbError && <CategoryForm />}
+      {user?.isAdmin && !pageError && <CategoryForm />}
 
       <div>
          <h2 className="text-xl sm:text-2xl font-semibold mb-4 border-b pb-2 text-foreground">Forum Categories</h2>
-        {dbError ? (
+        {pageError ? (
           <Card className="mt-4 border-destructive bg-destructive/10">
             <CardHeader>
               <CardTitle className="text-destructive flex items-center text-lg">
-                <AlertTriangle className="mr-2 h-5 w-5" /> Database Connection Error
+                <AlertTriangle className="mr-2 h-5 w-5" /> Application Error
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-destructive-foreground">{dbError}</p>
+              <p className="text-sm text-destructive-foreground">{pageError}</p>
+              <p className="text-xs text-muted-foreground mt-2">If the database is unavailable, the application may be using placeholder data. Check server console logs for details.</p>
             </CardContent>
           </Card>
         ) : (
@@ -74,3 +74,4 @@ export default async function Home() {
     </div>
   );
 }
+
