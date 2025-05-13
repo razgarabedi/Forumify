@@ -27,7 +27,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw'; // Added for HTML processing
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism/one-dark';
+import oneDark from 'react-syntax-highlighter/dist/esm/styles/prism/one-dark';
 import Link from 'next/link'; 
 import type { CodeProps, Options as ReactMarkdownOptions } from 'react-markdown/lib/ast-to-react';
 import { ReactionButtons } from './ReactionButtons';
@@ -127,6 +127,10 @@ export function Post({ post, currentUser, onEdit, isFirstPost = false }: PostPro
                 if (typeof child === 'string') {
                     return processMentions(child);
                 }
+                // If child is a React Element that represents a basic HTML tag allowed by rehypeRaw and might contain further text nodes
+                if (React.isValidElement(child) && typeof child.props.children === 'string' && ['span', 'strong', 'em', 'u', 's', 'sup', 'sub', 'mark', 'code', 'a'].includes(child.type as string)) {
+                    return React.cloneElement(child, { children: processMentions(child.props.children)});
+                }
                 return child;
             });
             return <p {...props}>{processedChildren}</p>;
@@ -137,12 +141,12 @@ export function Post({ post, currentUser, onEdit, isFirstPost = false }: PostPro
             const processedChildren = React.Children.map(children, child => {
                  if (typeof child === 'string') return processMentions(child);
                  // If child is a React element (e.g., nested <p>), recursively process its children if they are strings
-                 if (React.isValidElement(child) && child.props.children && typeof child.props.children === 'string') {
+                 if (React.isValidElement(child) && child.props.children && typeof child.props.children === 'string' && ['span', 'strong', 'em', 'u', 's', 'sup', 'sub', 'mark', 'code', 'a'].includes(child.type as string)) {
                      return React.cloneElement(child, { children: processMentions(child.props.children)});
                  }
                  return child;
             });
-            return <li {...props}>{processedChildren}</li>
+            return <li {...props}>{processedChildren}</li>;
         },
         // Allow basic HTML tags from the toolbar like <u>, <sup>, <sub>, <mark>, <span> with styles for color/size
         // These will be handled by rehypeRaw.
@@ -172,7 +176,7 @@ export function Post({ post, currentUser, onEdit, isFirstPost = false }: PostPro
             const codeContent = String(children).replace(/\n$/, '');
             return !inline && match ? (
             <SyntaxHighlighter
-                style={oneDark} 
+                style={oneDark as any} // Cast to any if style type mismatch
                 language={match[1]}
                 PreTag="div"
                 {...props}
@@ -187,14 +191,31 @@ export function Post({ post, currentUser, onEdit, isFirstPost = false }: PostPro
         },
         blockquote: ({node, children, ...props}) => <blockquote className="border-l-4 border-border pl-4 italic my-4 text-muted-foreground" {...props}>{children}</blockquote>,
         // Standard ul, ol, table are handled well by remark-gfm
+        
+        // Handle divs created by align tags
+        div: ({ node, children, className, ...props }) => {
+          if (className && (className.includes('text-align-') || className.includes('float-'))) {
+            return <div className={className} {...props}>{children}</div>;
+          }
+          // If it's a <pre> tag wrapper for code block, render as pre
+          const firstChild = node?.children?.[0] as any;
+          if (firstChild?.tagName === 'code' && firstChild?.properties?.className?.some((c: string) => c.startsWith('language-'))) {
+            return <pre {...props}>{children}</pre>;
+          }
+          // Default div rendering (useful for some HTML structures)
+          return <div {...props}>{children}</div>;
+        },
+        span: ({ node, children, className, ...props }) => {
+          // Allow spans with specific classes from our toolbar
+          if (className && (className.includes('text-glow') || className.includes('text-shadow') || className.includes('spoiler'))) {
+            return <span className={className} {...props}>{children}</span>;
+          }
+          // Default span rendering
+          return <span {...props}>{children}</span>;
+        },
     };
     
     const processedContent = useMemo(() => {
-        // This is a fallback if mentions are not caught by paragraph or list item processing.
-        // Ideally, text processing should happen within the specific components like `p` or `li`.
-        // However, for simple top-level text nodes in Markdown, this might be needed.
-        // But ReactMarkdown typically wraps text in <p> anyway.
-        // For now, let's rely on the `p` and `li` component overrides.
         return post.content;
     }, [post.content]);
 
@@ -308,8 +329,11 @@ export function Post({ post, currentUser, onEdit, isFirstPost = false }: PostPro
                     <article className="prose prose-sm dark:prose-invert max-w-none break-words">
                         <ReactMarkdown
                             remarkPlugins={[remarkGfm]}
-                            rehypePlugins={[rehypeRaw]} // Add rehypeRaw to process HTML
+                            rehypePlugins={[rehypeRaw]} 
                             components={markdownComponents}
+                            // Allow specific HTML tags based on RichTextToolbar
+                            // rehypeRaw handles this, but this could be a safety net
+                            // allowedElements={['p', 'strong', 'em', 'ul', 'ol', 'li', 'a', 'img', 'blockquote', 'pre', 'code', 'br', 'hr', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'span', 'div', 'u', 's', 'sup', 'sub', 'mark', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'iframe']}
                         >
                             {processedContent}
                         </ReactMarkdown>
