@@ -535,6 +535,7 @@ export const createNotification = async (data: Omit<Notification, 'id' | 'create
         topicId: data.topicId,
         topicTitle: data.topicTitle,
         conversationId: data.conversationId,
+        reactionType: data.reactionType,
         message: data.message,
     };
     notifications.push(newNotification);

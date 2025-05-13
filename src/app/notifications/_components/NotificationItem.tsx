@@ -2,11 +2,11 @@
 "use client";
 
 import React from 'react';
-import type { Notification } from '@/lib/types';
+import type { Notification, ReactionType } from '@/lib/types';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { BellRing, CheckCircle2, Eye, ExternalLink, MessageSquare } from 'lucide-react';
+import { BellRing, CheckCircle2, Eye, ExternalLink, MessageSquare, ThumbsUp, Heart, Laugh, SmilePlus, Frown, Angry } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { markNotificationReadAction } from '@/lib/actions/notifications';
@@ -18,6 +18,15 @@ interface NotificationItemProps {
 }
 
 const initialActionStateForButton = { success: false, message: '' };
+
+const reactionIcons: Record<ReactionType, React.ElementType> = {
+  like: ThumbsUp,
+  love: Heart,
+  haha: Laugh,
+  wow: SmilePlus,
+  sad: Frown,
+  angry: Angry,
+};
 
 export function NotificationItem({ notification }: NotificationItemProps) {
   const { toast } = useToast();
@@ -37,7 +46,7 @@ export function NotificationItem({ notification }: NotificationItemProps) {
     }
     if (notification.type === 'private_message' && notification.conversationId) {
       router.push(`/messages/${notification.conversationId}`);
-    } else if (notification.type === 'mention' && notification.topicId && notification.postId) {
+    } else if ((notification.type === 'mention' || notification.type === 'reaction') && notification.topicId && notification.postId) {
       router.push(`/topics/${notification.topicId}#post-${notification.postId}`);
     } else {
         console.warn("NotificationItem: Could not determine navigation path for notification:", notification);
@@ -58,14 +67,22 @@ export function NotificationItem({ notification }: NotificationItemProps) {
     if (notification.type === 'private_message') {
       return "New Private Message";
     }
+    if (notification.type === 'reaction') {
+      return "New Reaction";
+    }
     return "New Mention";
   };
 
   const getNotificationIcon = () => {
+    const iconClass = cn("h-4 w-4 mr-2 flex-shrink-0", notification.isRead ? "text-muted-foreground" : "text-primary");
     if (notification.type === 'private_message') {
-      return <MessageSquare className={cn("h-4 w-4 mr-2 flex-shrink-0", notification.isRead ? "text-muted-foreground" : "text-primary")} />;
+      return <MessageSquare className={iconClass} />;
     }
-    return <BellRing className={cn("h-4 w-4 mr-2 flex-shrink-0", notification.isRead ? "text-muted-foreground" : "text-primary")} />;
+    if (notification.type === 'reaction' && notification.reactionType) {
+        const ReactionIcon = reactionIcons[notification.reactionType] || ThumbsUp;
+        return <ReactionIcon className={iconClass} />;
+    }
+    return <BellRing className={iconClass} />;
   };
   
   const getNotificationContent = () => {
@@ -77,6 +94,21 @@ export function NotificationItem({ notification }: NotificationItemProps) {
           </span>
           {' sent you a private message.'}
           {notification.message && <span className="block text-xs text-muted-foreground italic mt-1">"{notification.message}"</span>}
+        </>
+      );
+    }
+    if (notification.type === 'reaction' && notification.reactionType) {
+      return (
+        <>
+          <span className="font-semibold text-primary group-hover:underline">
+            {notification.senderUsername}
+          </span>
+          {` reacted with `}
+          <span className="font-semibold">{notification.reactionType}</span>
+          {` to your post in `}
+          <span className="font-semibold text-primary group-hover:underline">
+            {notification.topicTitle || 'your post'}
+          </span>.
         </>
       );
     }

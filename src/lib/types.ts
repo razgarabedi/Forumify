@@ -60,14 +60,15 @@ export type Post = {
 
 export type Notification = {
   id: string;
-  type: 'mention' | 'private_message'; // Type of notification
+  type: 'mention' | 'private_message' | 'reaction'; // Type of notification
   recipientUserId: string; // User who receives the notification (was mentionedUserId)
   senderId: string; // User who triggered the notification (was mentionerId)
   senderUsername: string; // Username of the sender (was mentionerUsername)
-  postId?: string; // Post where the mention occurred (optional for PM)
+  postId?: string; // Post where the mention/reaction occurred (optional for PM)
   topicId?: string; // Topic of the post (optional for PM)
   topicTitle?: string; // Title of the topic for display (optional for PM)
   conversationId?: string; // Conversation ID if it's a private message notification
+  reactionType?: ReactionType; // Type of reaction if notification.type is 'reaction'
   createdAt: Date;
   isRead: boolean;
   message?: string; // Optional: A short message for PM notifications e.g., "sent you a message."

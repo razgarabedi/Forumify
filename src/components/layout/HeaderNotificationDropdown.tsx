@@ -4,7 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Bell, CheckCheck, ExternalLink, Loader2, MessageSquare } from 'lucide-react';
+import { Bell, CheckCheck, ExternalLink, Loader2, MessageSquare, ThumbsUp, Heart, Laugh, SmilePlus, Frown, Angry } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -15,7 +15,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import type { Notification, User } from '@/lib/types';
+import type { Notification, User, ReactionType } from '@/lib/types';
 import { fetchNotificationsAction, markNotificationReadAction, getUnreadNotificationCountAction } from '@/lib/actions/notifications';
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
@@ -27,6 +27,16 @@ interface HeaderNotificationDropdownProps {
 }
 
 const MAX_NOTIFICATIONS_IN_DROPDOWN = 5;
+
+const reactionIcons: Record<ReactionType, React.ElementType> = {
+  like: ThumbsUp,
+  love: Heart,
+  haha: Laugh,
+  wow: SmilePlus,
+  sad: Frown,
+  angry: Angry,
+};
+
 
 export function HeaderNotificationDropdown({ user, initialUnreadCount }: HeaderNotificationDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -89,7 +99,7 @@ export function HeaderNotificationDropdown({ user, initialUnreadCount }: HeaderN
     
     if (notification.type === 'private_message' && notification.conversationId) {
       router.push(`/messages/${notification.conversationId}`);
-    } else if (notification.type === 'mention' && notification.topicId && notification.postId) {
+    } else if ((notification.type === 'mention' || notification.type === 'reaction') && notification.topicId && notification.postId) {
       router.push(`/topics/${notification.topicId}#post-${notification.postId}`);
     } else {
       console.warn("HeaderNotificationDropdown: Could not determine navigation path for notification:", notification);
@@ -111,6 +121,16 @@ export function HeaderNotificationDropdown({ user, initialUnreadCount }: HeaderN
         </>
       );
     }
+    if (notif.type === 'reaction' && notif.reactionType) {
+      return (
+        <>
+          <span className="font-semibold">{notif.senderUsername}</span>
+          {` reacted with ${notif.reactionType} to "`}
+          <span className="truncate font-medium text-primary">{notif.topicTitle || 'your post'}</span>
+          {'"'}
+        </>
+      );
+    }
     // Default to mention
     return (
       <>
@@ -125,6 +145,10 @@ export function HeaderNotificationDropdown({ user, initialUnreadCount }: HeaderN
   const getNotificationIcon = (notif: Notification) => {
     if (notif.type === 'private_message') {
         return <MessageSquare className="h-4 w-4 text-primary" />;
+    }
+    if (notif.type === 'reaction' && notif.reactionType) {
+        const ReactionIcon = reactionIcons[notif.reactionType] || ThumbsUp; // Fallback to ThumbsUp
+        return <ReactionIcon className="h-4 w-4 text-primary" />;
     }
     return <Bell className="h-4 w-4 text-primary" />;
   };

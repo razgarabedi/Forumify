@@ -17,6 +17,7 @@ ForumLite is a lightweight forum application built using Next.js, TypeScript, Ta
     *   Users can reply to existing topics.
     *   Post editing and deletion are supported (by author or admin).
     *   "Start a New Topic" button on category pages to toggle the topic creation form, improving UX.
+    *   **Reactions:** Users can react to posts with emojis (like, love, haha, wow, sad, angry). Reactions are counted and displayed, and users earn points for reactions on their posts.
 *   **Rich Content Creation & Display:**
     *   **Markdown Support:** Posts are rendered using Markdown, allowing for rich text formatting.
     *   **Rich Text Editor:** A toolbar provides easy access to common Markdown formatting options:
@@ -32,7 +33,7 @@ ForumLite is a lightweight forum application built using Next.js, TypeScript, Ta
     *   Profile displays:
         *   Username and Avatar (uploadable as data URI, with Vercel Avatars as fallback).
         *   "About Me" section.
-        *   Join Date and Post Count.
+        *   Join Date, Post Count, and **Points** (earned from post reactions).
         *   Optional: Location, Website URL, Social Media Link, Signature.
         *   Last Active timestamp.
     *   **Profile Editing:** Logged-in users can edit their own profiles at `/users/[username]/edit`, including avatar upload and updating personal information. Website and social media links automatically get `https://` prefixed if not present.
@@ -42,11 +43,12 @@ ForumLite is a lightweight forum application built using Next.js, TypeScript, Ta
     *   **Category Management:** Create new categories, view existing categories, edit category details (name, description), delete categories (which also removes associated topics and posts).
 *   **Notifications & Mentions:**
     *   **User Mentions:** Users can mention each other in posts using the "@username" syntax.
-    *   **Notification System:** Mentioned users receive notifications.
+    *   **Reaction Notifications:** Users receive notifications when someone reacts to their posts.
+    *   **Notification System:** Mentioned users and post authors (for reactions) receive notifications.
     *   **Header Dropdown:** A notification icon in the header displays a count of unread notifications and a dropdown with recent notifications (max 5 shown, with link to all).
     *   **Dedicated Notifications Page (`/notifications`):** Users can view all their notifications, sorted by most recent.
     *   **Mark as Read:** Notifications can be marked as read individually or all at once. Clicking a notification also marks it as read.
-    *   **Navigation:** Clicking a notification directly navigates the user to the relevant post where the mention occurred.
+    *   **Navigation:** Clicking a notification directly navigates the user to the relevant post where the mention or reaction occurred.
     *   **Profile Links:** "@username" mentions in posts are automatically linked to the respective user's profile page.
 *   **Private Messaging (`/messages`):**
     *   **One-on-One Conversations:** Users can engage in private conversations with other users.
@@ -132,10 +134,10 @@ This command starts the Next.js development server, typically on `http://localho
     *   Browse the forum.
     *   Create categories (if logged in as admin via the Admin Panel).
     *   Navigate to a category and click "Start a New Topic" to create discussions.
-    *   Reply to topics, try out the rich text editor features (Markdown, image upload, emoji, @mentions).
+    *   Reply to topics, try out the rich text editor features (Markdown, image upload, emoji, @mentions, reactions).
 3.  **Admin Panel:** If logged in as the admin user, access the Admin Panel via the link in the header or by navigating to `/admin`. Here you can manage users and categories.
-4.  **User Profiles:** Click on a username (e.g., in a post or a mention) to view their profile. If it's your own profile, you'll see an "Edit Profile" button.
-5.  **Notifications:** Try mentioning another user in a post (if you have a second account, or mention yourself to test). Check the notification dropdown in the header and the `/notifications` page.
+4.  **User Profiles:** Click on a username (e.g., in a post or a mention) to view their profile. If it's your own profile, you'll see an "Edit Profile" button. Check out their post count and points.
+5.  **Notifications:** Try mentioning another user in a post or reacting to someone's post. Check the notification dropdown in the header and the `/notifications` page.
 6.  **Private Messages:**
     *   Navigate to a user's profile and click "Send Message".
     *   Or, go to `/messages` and use the "Start a New Conversation" form.
@@ -339,7 +341,7 @@ This provides a comprehensive guide to transitioning to a persistent PostgreSQL 
 │   ├── components/     # Reusable UI components
 │   │   ├── forms/      # Form components (Login, Register, Post, Topic, Category, PM etc.)
 │   │   │   └── RichTextToolbar.tsx # Toolbar for markdown editing
-│   │   ├── forums/     # Forum-specific components (CategoryList, TopicList, Post, PostList)
+│   │   ├── forums/     # Forum-specific components (CategoryList, TopicList, Post, PostList, ReactionButtons)
 │   │   ├── layout/     # Layout components (Header, HeaderNotificationDropdown)
 │   │   └── ui/         # ShadCN UI components
 │   ├── hooks/          # Custom React hooks (useToast, useMobile)

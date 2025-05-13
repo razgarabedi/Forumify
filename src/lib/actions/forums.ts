@@ -301,6 +301,31 @@ export async function toggleReactionAction(prevState: ActionResponse | undefined
       return { success: false, message: "Failed to update reaction. Post not found." };
     }
     
+    // Create notification if a reaction was added/changed and not by the post author on their own post
+    if (updatedPost.authorId !== user.id) {
+        const reaction = updatedPost.reactions.find(r => r.userId === user.id && r.type === reactionType);
+        // Only notify if the reaction resulted in the reactionType being active for the current user (i.e., not a removal of reaction)
+        const existingReaction = prevState?.post?.reactions?.find((r: any) => r.userId === user.id);
+        const reactionIsNewOrChanged = !existingReaction || existingReaction.type !== reactionType;
+
+        if (reaction && reactionIsNewOrChanged) { 
+            const topicForNotification = await getTopicByIdSimple(updatedPost.topicId);
+            if (topicForNotification) {
+                await createNotification({
+                    type: 'reaction',
+                    recipientUserId: updatedPost.authorId,
+                    senderId: user.id,
+                    senderUsername: user.username,
+                    postId: updatedPost.id,
+                    topicId: updatedPost.topicId,
+                    topicTitle: topicForNotification.title,
+                    reactionType: reactionType,
+                });
+                revalidatePath('/notifications', 'layout'); 
+            }
+        }
+    }
+
     const topic = await getTopicByIdSimple(updatedPost.topicId);
     if (topic) {
        revalidatePath(`/topics/${topic.id}`);
