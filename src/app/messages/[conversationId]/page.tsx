@@ -9,6 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
+import type { User } from '@/lib/types';
 
 interface ConversationPageProps {
   params: { conversationId: string };
@@ -18,7 +19,6 @@ export async function generateMetadata({ params }: ConversationPageProps) {
   const currentUser = await getCurrentUser();
   if (!currentUser) return { title: 'Private Message - ForumLite' };
 
-  // Attempt to parse conversationId to find other participant for metadata title
   let otherParticipantUsername: string | null = null;
   if (params.conversationId.startsWith('conv-')) {
     const ids = params.conversationId.substring(5).split('-');
@@ -37,7 +37,6 @@ export async function generateMetadata({ params }: ConversationPageProps) {
     return { title: `Chat with ${otherParticipantUsername} - ForumLite` };
   }
 
-  // Fallback if conversation or other participant can't be determined early for metadata
   const conversation = await getConversationById(params.conversationId);
   if (conversation) {
     const otherParticipantId = conversation.participantIds.find(id => id !== currentUser.id);
@@ -60,46 +59,48 @@ export default async function ConversationPage({ params }: ConversationPageProps
     redirect(`/login?redirect=/messages/${conversationId}`);
   }
 
-  let participantIdsFromConvId: string[] = [];
-  if (conversationId.startsWith('conv-')) {
-    participantIdsFromConvId = conversationId.substring(5).split('-');
+  // Validate conversationId and extract participant IDs
+  if (!conversationId.startsWith('conv-')) {
+    console.error(`ConversationPage: Invalid conversationId format. Expected 'conv-id1-id2', got: ${conversationId}`);
+    notFound();
   }
 
-  // Validate conversationId format and if current user is part of it (if format is parsable)
-  if (conversationId.startsWith('conv-') && (participantIdsFromConvId.length !== 2 || !participantIdsFromConvId.includes(currentUser.id))) {
-    console.warn(`User ${currentUser.id} attempting to access conversation ${conversationId} with invalid format or not being a participant.`);
-    notFound(); // Invalid format or user not part of this conv ID
+  const participantIdParts = conversationId.substring(5).split('-');
+  if (participantIdParts.length !== 2 || !participantIdParts[0] || !participantIdParts[1]) {
+    console.error(`ConversationPage: conversationId must contain two valid participant IDs. Got: ${conversationId}, Parsed parts:`, participantIdParts);
+    notFound();
   }
 
+  if (!participantIdParts.includes(currentUser.id)) {
+    console.error(`ConversationPage: Current user (${currentUser.id}) is not a participant in conversationId: ${conversationId}. Participants from ID:`, participantIdParts);
+    notFound();
+  }
 
-  const conversation = await getConversationById(conversationId); // Fetch conversation details
+  const otherParticipantId = participantIdParts.find(id => id !== currentUser.id);
+  if (!otherParticipantId) {
+    console.error(`ConversationPage: Could not determine other participant ID. CurrentUser: ${currentUser.id}, Parsed IDs: ${participantIdParts.join(', ')} from ${conversationId}`);
+    notFound();
+  }
 
-  let otherParticipant: Awaited<ReturnType<typeof findUserById>>;
+  const otherParticipant = await findUserById(otherParticipantId);
+  if (!otherParticipant) {
+    console.error(`ConversationPage: Other participant with ID ${otherParticipantId} not found (from conversationId ${conversationId}).`);
+    notFound();
+  }
+
+  // At this point, otherParticipant is valid. Now fetch existing conversation details if any.
+  const conversation = await getConversationById(conversationId);
+
+  // Sanity check: if a conversation object exists in DB, ensure current user is part of its stored participant list.
+  // This should typically be true if ID parsing was correct.
+  if (conversation && !conversation.participantIds.includes(currentUser.id)) {
+      console.error(`ConversationPage: Mismatch - Current user ${currentUser.id} not in stored participant list for existing conversation ${conversationId}. Stored participants:`, conversation.participantIds);
+      notFound();
+  }
 
   if (!conversation) {
-    // This can happen if the conversationId is valid format but no messages exist yet (new chat),
-    // or if conversationId is not 'conv-...' type (which getConversationById would return null for).
-    
-    // If conversationId wasn't in 'conv-id-id' format, or if it was but user wasn't part of it,
-    // participantIdsFromConvId might be empty or not include current user.
-    if (!conversationId.startsWith('conv-') || participantIdsFromConvId.length !== 2) {
-        console.error("Cannot determine participants for new conversation from invalid ID format:", conversationId);
-        notFound();
-    }
-
-    const otherParticipantIdStr = participantIdsFromConvId.find(id => id !== currentUser.id);
-    if (!otherParticipantIdStr) {
-        console.error("Could not determine other participant for new conversation:", conversationId, "Participant IDs derived:", participantIdsFromConvId, "Current User ID:", currentUser.id);
-        notFound();
-    }
-    
-    otherParticipant = await findUserById(otherParticipantIdStr);
-    if (!otherParticipant) {
-        console.error("Other participant not found for new conversation:", otherParticipantIdStr);
-        notFound();
-    }
-    
-    // Render UI for starting a new conversation
+    // This is a new chat (conversationId is synthetically generated for two users, but no messages/DB record yet).
+    // `otherParticipant` is already fetched and validated.
      return (
         <div className="flex flex-col h-[calc(100vh-12rem)] border rounded-lg shadow-sm overflow-hidden">
             <div className="flex items-center p-3 border-b bg-card">
@@ -115,31 +116,18 @@ export default async function ConversationPage({ params }: ConversationPageProps
             <div className="flex-1 p-4 text-center text-muted-foreground flex items-center justify-center">
                 <p>Start your conversation with {otherParticipant.username}.</p>
             </div>
-            {/* Ensure messages array is empty as it's a new chat */}
+            {/* Pass empty array for initialMessages as it's a new chat */}
             <MessageListClient initialMessages={[]} currentUserId={currentUser.id} />
             <MessageForm conversationId={conversationId} receiverId={otherParticipant.id} />
         </div>
     );
   }
   
-  // If conversation exists
-  const otherParticipantId = conversation.participantIds.find(id => id !== currentUser.id);
-  if (!otherParticipantId) {
-    console.error("Could not determine other participant in existing conversation:", conversationId);
-    notFound(); // Should not happen if conversation exists and user is part of it
-  }
-  
-  otherParticipant = await findUserById(otherParticipantId);
-   if (!otherParticipant) {
-        console.error("Other participant not found for existing conversation:", otherParticipantId);
-        notFound();
-    }
-
+  // If conversation exists in DB and user is part of it (otherParticipant already fetched).
   const initialMessages = await fetchMessagesAction(conversationId);
 
   return (
     <div className="flex flex-col h-[calc(100vh-12rem)] border rounded-lg shadow-sm overflow-hidden">
-      {/* Header with other participant's info */}
       <div className="flex items-center p-3 border-b bg-card">
          <Button variant="ghost" size="icon" asChild className="mr-2">
             <Link href="/messages"><ArrowLeft className="h-5 w-5"/></Link>
@@ -150,11 +138,7 @@ export default async function ConversationPage({ params }: ConversationPageProps
         </Avatar>
         <h2 className="text-lg font-semibold">{otherParticipant.username}</h2>
       </div>
-
-      {/* Message List */}
       <MessageListClient initialMessages={initialMessages} currentUserId={currentUser.id} />
-
-      {/* Message Input Form */}
       <MessageForm conversationId={conversationId} receiverId={otherParticipant.id} />
     </div>
   );
