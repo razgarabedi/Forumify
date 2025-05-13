@@ -1,3 +1,4 @@
+
 import { getAllUsers } from "@/lib/placeholder-data";
 import {
   Table,
@@ -11,8 +12,8 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { format } from 'date-fns';
-import { UserActions } from './_components/UserActions'; // Component for actions (toggle admin, delete)
-import Link from "next/link"; // Import Link
+import { UserActions } from './_components/UserActions';
+import Link from "next/link";
 
 export default async function AdminUsersPage() {
   const users = await getAllUsers();
