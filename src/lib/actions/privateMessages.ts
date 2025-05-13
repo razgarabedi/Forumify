@@ -13,7 +13,7 @@ import {
     findUserById,
     generateConversationId,
     getConversationById as dbGetConversationById,
-    getOrCreateConversation, // Import getOrCreateConversation
+    getOrCreateConversation,
 } from "@/lib/placeholder-data";
 import { getCurrentUser } from "./auth";
 import type { ActionResponse, Conversation, PrivateMessage, User, ConversationListItem, PrivateMessageDisplay } from "@/lib/types";
@@ -44,9 +44,9 @@ export async function sendPrivateMessageAction(prevState: ActionResponse | undef
         };
     }
 
-    const { content, receiverId, conversationId: providedConvIdFromForm } = validatedFields.data;
+    const { content, receiverId: formReceiverId, conversationId: formConversationId } = validatedFields.data;
     
-    const receiverUser = await findUserById(receiverId);
+    const receiverUser = await findUserById(formReceiverId);
     if(!receiverUser) {
         return { success: false, message: "Receiver not found." };
     }
@@ -54,22 +54,27 @@ export async function sendPrivateMessageAction(prevState: ActionResponse | undef
         return { success: false, message: "You cannot send a message to yourself." };
     }
 
-    const expectedConvId = generateConversationId(currentUser.id, receiverId);
-
-    if (providedConvIdFromForm !== expectedConvId) {
-        console.error(`Conversation ID mismatch: Form ID "${providedConvIdFromForm}" does not match expected ID "${expectedConvId}" for sender ${currentUser.id} and receiver ${receiverId}.`);
-        return { success: false, message: "Conversation ID mismatch. Please refresh the page." };
-    }
-    
-    const existingConversationInDb = await dbGetConversationById(expectedConvId);
-    if (existingConversationInDb && !existingConversationInDb.participantIds.includes(currentUser.id)) {
-        return { success: false, message: "Security check failed: You are not part of this conversation." };
+    // Fetch the existing conversation to get its subject (if any) and validate participants
+    const existingConversation = await dbGetConversationById(formConversationId);
+    if (!existingConversation) {
+        // This case should ideally not happen if the formConversationId is from a valid URL/context.
+        // If it can happen (e.g. first message to a "general" chat ID not yet in DB),
+        // then getOrCreateConversation in dbSendPrivateMessage will handle creation.
+        // For now, let's proceed, dbSendPrivateMessage will use getOrCreateConversation.
+        console.warn(`[sendPrivateMessageAction] Conversation with ID ${formConversationId} not found. dbSendPrivateMessage will attempt to create it.`);
+    } else {
+        // Security check: ensure current user and receiver from form are actual participants
+        if (!existingConversation.participantIds.includes(currentUser.id) || !existingConversation.participantIds.includes(formReceiverId)) {
+            console.error(`Security check failed: User ${currentUser.id} or receiver ${formReceiverId} not in conversation ${formConversationId}. Participants: ${existingConversation.participantIds.join(', ')}`);
+            return { success: false, message: "Security check failed: You are not part of this conversation or receiver is incorrect." };
+        }
     }
     
     try {
-        // dbSendPrivateMessage now internally calls getOrCreateConversation without subject,
-        // as the subject should already be set if the conversation was started via StartConversationForm.
-        const newMessage = await dbSendPrivateMessage(currentUser.id, receiverId, content);
+        // Pass the original subject from the existing conversation (if any)
+        // dbSendPrivateMessage uses this subject with sender/receiver to call getOrCreateConversation,
+        // which generates the correct ID.
+        const newMessage = await dbSendPrivateMessage(currentUser.id, formReceiverId, content, existingConversation?.subject);
 
         revalidatePath(`/messages/${newMessage.conversationId}`);
         revalidatePath('/messages'); 
@@ -107,7 +112,7 @@ export async function fetchConversationsAction(): Promise<ConversationListItem[]
         conversationListItems.push({
             id: conv.id,
             otherParticipant,
-            subject: conv.subject, // Include subject
+            subject: conv.subject, 
             lastMessageSnippet: conv.lastMessageSnippet || (lastMessage ? lastMessage.content.substring(0, 30) + (lastMessage.content.length > 30 ? '...' : '') : "No messages yet"),
             lastMessageAt: conv.lastMessageAt,
             unreadCount: unreadCount, 
@@ -129,7 +134,6 @@ export async function fetchMessagesAction(conversationId: string): Promise<Priva
         return []; 
     }
 
-    // dbGetMessagesForConversation will mark messages as read if the third param is true
     const messagesData = await dbGetMessagesForConversation(conversationId, currentUser.id, true);
     
     const messageDisplays = await Promise.all(messagesData.map(async msg => {
@@ -144,7 +148,6 @@ export async function fetchMessagesAction(conversationId: string): Promise<Priva
     return messageDisplays;
 }
 
-// New action specifically for revalidation, to be called from a client component
 export async function triggerMessageRevalidationAction(conversationId: string): Promise<void> {
     const currentUser = await getCurrentUser();
     if (!currentUser) {
@@ -158,9 +161,9 @@ export async function triggerMessageRevalidationAction(conversationId: string): 
         return;
     }
 
-    revalidatePath('/messages'); // Revalidates the list of conversations
-    revalidatePath(`/messages/${conversationId}`); // Revalidates the current conversation page
-    revalidatePath('/', 'layout'); // Revalidates the header for unread counts
+    revalidatePath('/messages'); 
+    revalidatePath(`/messages/${conversationId}`); 
+    revalidatePath('/', 'layout'); 
     console.log(`[triggerMessageRevalidationAction] Triggered revalidation for conversation ${conversationId} and related paths.`);
 }
 
@@ -187,7 +190,7 @@ export async function startConversationWithUsernameAction(prevState: ActionRespo
 
   const validatedFields = StartConversationSchema.safeParse({
     username: formData.get("username"),
-    subject: formData.get("subject") || undefined, // Ensure optional empty string becomes undefined
+    subject: formData.get("subject") || undefined, 
   });
 
   if (!validatedFields.success) {
@@ -209,10 +212,9 @@ export async function startConversationWithUsernameAction(prevState: ActionRespo
     return { success: false, message: "You cannot start a conversation with yourself.", errors: { username: ["You cannot start a conversation with yourself."] } };
   }
   
-  // Explicitly create or get the conversation with the subject
   const conversation = await getOrCreateConversation(currentUser.id, receiver.id, subject);
   
-  revalidatePath('/messages'); // Revalidate list page in case it's the first conversation
+  revalidatePath('/messages'); 
   redirect(`/messages/${conversation.id}`);
 }
 
