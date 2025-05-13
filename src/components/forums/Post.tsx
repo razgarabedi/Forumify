@@ -29,7 +29,7 @@ import rehypeRaw from 'rehype-raw';
 import { PrismAsyncLight as SyntaxHighlighter } from 'react-syntax-highlighter'; // Use PrismAsyncLight for smaller bundle
 import oneDark from 'react-syntax-highlighter/dist/esm/styles/prism/one-dark';
 import Link from 'next/link'; 
-import type { CodeProps, Options as ReactMarkdownOptions, Components } from 'react-markdown/lib/ast-to-react';
+import type { CodeProps, Components } from 'react-markdown/lib/ast-to-react';
 import { ReactionButtons } from './ReactionButtons';
 
 
@@ -154,7 +154,7 @@ export function Post({ post, currentUser, onEdit, isFirstPost = false }: PostPro
                     height={300}
                     className="max-w-full h-auto inline-block rounded-md shadow-sm border"
                     onError={(e) => (e.currentTarget.style.display = 'none')}
-                    unoptimized={!props.src?.startsWith('data:image')}
+                    unoptimized={true} // Always unoptimized for pasted/markdown images
                     data-ai-hint="embedded image markdown"
                 />
                 {props.alt && <em className="text-xs text-muted-foreground block mt-1">{props.alt}</em>}
@@ -181,29 +181,14 @@ export function Post({ post, currentUser, onEdit, isFirstPost = false }: PostPro
             );
         },
         blockquote: ({node, children, ...props}) => <blockquote className="border-l-4 border-border pl-4 italic my-4 text-muted-foreground" {...props}>{processChildrenForMentions(children)}</blockquote>,
-        // For custom HTML tags like <div style="text-align:center"> or <span class="text-glow">,
-        // rehypeRaw will handle them. We only need to ensure they are valid HTML structures.
-        // The processChildrenForMentions will handle @mentions inside these tags if they contain text nodes.
         div: ({ node, children, className, style, ...props }) => {
-             // Ensure className is a string for includes check
-            const stringClassName = typeof className === 'string' ? className : '';
-            if (stringClassName.includes('text-align-') || stringClassName.includes('float-') || style) {
-              return <div className={stringClassName} style={style} {...props}>{processChildrenForMentions(children)}</div>;
-            }
-            const firstChild = node?.children?.[0] as any;
-            if (firstChild?.tagName === 'code' && firstChild?.properties?.className?.some((c: string) => c.startsWith('language-'))) {
-              return <pre {...props}>{processChildrenForMentions(children)}</pre>;
-            }
-            return <div {...props}>{processChildrenForMentions(children)}</div>;
+             // Pass through className and style, process children for mentions
+            return <div className={cn(className)} style={style} {...props}>{processChildrenForMentions(children)}</div>;
         },
         span: ({ node, children, className, style, ...props }) => {
-            const stringClassName = typeof className === 'string' ? className : '';
-            if (stringClassName.includes('text-glow') || stringClassName.includes('text-shadow') || stringClassName.includes('spoiler') || style) {
-              return <span className={stringClassName} style={style} {...props}>{processChildrenForMentions(children)}</span>;
-            }
-            return <span {...props}>{processChildrenForMentions(children)}</span>;
+            // Pass through className and style, process children for mentions
+            return <span className={cn(className)} style={style} {...props}>{processChildrenForMentions(children)}</span>;
         },
-        // Ensure headings also process mentions
         h1: ({node, children, ...props}) => <h1 {...props}>{processChildrenForMentions(children)}</h1>,
         h2: ({node, children, ...props}) => <h2 {...props}>{processChildrenForMentions(children)}</h2>,
         h3: ({node, children, ...props}) => <h3 {...props}>{processChildrenForMentions(children)}</h3>,
