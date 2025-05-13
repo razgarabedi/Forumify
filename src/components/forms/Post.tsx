@@ -26,7 +26,7 @@ import React, { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm'; // For GitHub Flavored Markdown (tables, strikethrough, etc.)
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'; // Example syntax highlighter
-import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism'; // Example style
+import oneDark from 'react-syntax-highlighter/dist/esm/styles/prism/one-dark'; // Example style
 import type { CodeProps } from 'react-markdown/lib/ast-to-react'; // Import CodeProps for correct typing
 
 
