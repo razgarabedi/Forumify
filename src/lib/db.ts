@@ -1,4 +1,3 @@
-
 // src/lib/db.ts
 import { Pool } from 'pg';
 import type { User, Category, Topic, Post, Notification, Conversation, PrivateMessage, Reaction, ReactionType, CategoryLastPostInfo } from './types';
@@ -33,7 +32,7 @@ if (process.env.DATABASE_URL) {
 // Export a query function
 export const query = (text: string, params?: any[]) => {
   if (!pool) {
-    console.error("Database query attempted but pool is not initialized. DATABASE_URL might be missing or invalid. Check server logs.");
+    console.error("CRITICAL: Database query attempted but the connection pool is not initialized. This usually means the DATABASE_URL is missing, invalid, or the database server is not accessible. Please check server logs for earlier messages regarding DATABASE_URL configuration and ensure your database is running and configured correctly as per README.md.");
     throw new Error('Database service is unavailable. Ensure DATABASE_URL is correctly set and the database is running.');
   }
   return pool.query(text, params);
@@ -1047,7 +1046,7 @@ const getTopicByTitleAndCategory = async (title: string, categoryId: string): Pr
 if (pool) {
     initializeDatabase().catch(e => console.error("Failed to initialize database on module load:", e));
 } else {
-    console.warn("Skipping database initialization as DATABASE_URL is not set or pool failed to initialize.");
+    console.warn("Skipping database schema initialization as DATABASE_URL is not set or pool failed to initialize. Check server logs for earlier CRITICAL messages about DATABASE_URL.");
 }
 
     
