@@ -25,11 +25,11 @@ import Image from 'next/image';
 import React, { useState, useMemo } from 'react'; 
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import rehypeRaw from 'rehype-raw'; // Added for HTML processing
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import rehypeRaw from 'rehype-raw'; 
+import { PrismAsyncLight as SyntaxHighlighter } from 'react-syntax-highlighter'; // Use PrismAsyncLight for smaller bundle
 import oneDark from 'react-syntax-highlighter/dist/esm/styles/prism/one-dark';
 import Link from 'next/link'; 
-import type { CodeProps, Options as ReactMarkdownOptions } from 'react-markdown/lib/ast-to-react';
+import type { CodeProps, Options as ReactMarkdownOptions, Components } from 'react-markdown/lib/ast-to-react';
 import { ReactionButtons } from './ReactionButtons';
 
 
@@ -46,8 +46,7 @@ const getYouTubeVideoId = (url: string): string | null => {
     return (match && match[2].length === 11) ? match[2] : null;
 };
 
-// Function to process mentions in text content
-const processMentions = (text: string): React.ReactNode[] => {
+const processTextForMentions = (text: string): React.ReactNode[] => {
     const parts: React.ReactNode[] = [];
     let lastIndex = 0;
     const mentionRegex = /@([a-zA-Z0-9_]+)/g;
@@ -57,24 +56,39 @@ const processMentions = (text: string): React.ReactNode[] => {
         const username = match[1];
         const index = match.index;
 
-        // Add text before mention
         if (index > lastIndex) {
             parts.push(text.substring(lastIndex, index));
         }
-        // Add mention link
         parts.push(
-            <Link key={`${index}-mention`} href={`/users/${encodeURIComponent(username)}`} className="text-accent hover:underline font-semibold">
+            <Link key={`${index}-mention-${username}`} href={`/users/${encodeURIComponent(username)}`} className="text-accent hover:underline font-semibold">
                 @{username}
             </Link>
         );
         lastIndex = index + match[0].length;
     }
 
-    // Add remaining text
     if (lastIndex < text.length) {
         parts.push(text.substring(lastIndex));
     }
     return parts;
+};
+
+const processChildrenForMentions = (children: React.ReactNode): React.ReactNode => {
+    return React.Children.map(children, child => {
+        if (typeof child === 'string') {
+            return processTextForMentions(child);
+        }
+        if (React.isValidElement(child) && child.props.children) {
+            // Recursively process children of elements like <span>, <a>, <strong>, etc.
+            // Ensure not to double-process Link components for mentions if they are already @username links.
+            if (child.type === Link && typeof child.props.href === 'string' && child.props.href.startsWith('/users/')) {
+                 // If it's already a mention link, don't re-process its children for mentions.
+                return child;
+            }
+            return React.cloneElement(child, { ...child.props, children: processChildrenForMentions(child.props.children) });
+        }
+        return child;
+    });
 };
 
 
@@ -105,9 +119,8 @@ export function Post({ post, currentUser, onEdit, isFirstPost = false }: PostPro
          }
     };
     
-    const markdownComponents: ReactMarkdownOptions['components'] = {
+    const markdownComponents: Components = useMemo(() => ({
         p: ({node, children, ...props}) => {
-            // Auto-embed lone YouTube links
             if (node && node.children.length === 1 && node.children[0].type === 'element' && node.children[0].tagName === 'a') {
                 const linkNode = node.children[0];
                 const href = linkNode.properties?.href as string | undefined;
@@ -122,38 +135,14 @@ export function Post({ post, currentUser, onEdit, isFirstPost = false }: PostPro
                     }
                 }
             }
-            // Process mentions within paragraphs
-            const processedChildren = React.Children.map(children, child => {
-                if (typeof child === 'string') {
-                    return processMentions(child);
-                }
-                // If child is a React Element that represents a basic HTML tag allowed by rehypeRaw and might contain further text nodes
-                if (React.isValidElement(child) && typeof child.props.children === 'string' && ['span', 'strong', 'em', 'u', 's', 'sup', 'sub', 'mark', 'code', 'a'].includes(child.type as string)) {
-                    return React.cloneElement(child, { children: processMentions(child.props.children)});
-                }
-                return child;
-            });
-            return <p {...props}>{processedChildren}</p>;
+            return <p {...props}>{processChildrenForMentions(children)}</p>;
         },
-        // Handle mentions in other text elements if needed by processing their children
-        // For example, if mentions can appear directly in list items without a <p>
         li: ({node, children, ...props}) => {
-            const processedChildren = React.Children.map(children, child => {
-                 if (typeof child === 'string') return processMentions(child);
-                 // If child is a React element (e.g., nested <p>), recursively process its children if they are strings
-                 if (React.isValidElement(child) && child.props.children && typeof child.props.children === 'string' && ['span', 'strong', 'em', 'u', 's', 'sup', 'sub', 'mark', 'code', 'a'].includes(child.type as string)) {
-                     return React.cloneElement(child, { children: processMentions(child.props.children)});
-                 }
-                 return child;
-            });
-            return <li {...props}>{processedChildren}</li>;
+            return <li {...props}>{processChildrenForMentions(children)}</li>;
         },
-        // Allow basic HTML tags from the toolbar like <u>, <sup>, <sub>, <mark>, <span> with styles for color/size
-        // These will be handled by rehypeRaw.
-        // Custom classes like .text-glow, .text-shadow, .spoiler will also be handled if they are on HTML tags.
         a: ({node, children, ...props}) => (
             <a {...props} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
-                {children}
+                {processChildrenForMentions(children)}
             </a>
         ),
         img: ({node, ...props}) => (
@@ -176,9 +165,11 @@ export function Post({ post, currentUser, onEdit, isFirstPost = false }: PostPro
             const codeContent = String(children).replace(/\n$/, '');
             return !inline && match ? (
             <SyntaxHighlighter
-                style={oneDark as any} // Cast to any if style type mismatch
+                style={oneDark as any} 
                 language={match[1]}
                 PreTag="div"
+                showLineNumbers
+                wrapLines
                 {...props}
             >
                 {codeContent}
@@ -189,33 +180,40 @@ export function Post({ post, currentUser, onEdit, isFirstPost = false }: PostPro
             </code>
             );
         },
-        blockquote: ({node, children, ...props}) => <blockquote className="border-l-4 border-border pl-4 italic my-4 text-muted-foreground" {...props}>{children}</blockquote>,
-        // Standard ul, ol, table are handled well by remark-gfm
-        
-        // Handle divs created by align tags
-        div: ({ node, children, className, ...props }) => {
-          if (className && (className.includes('text-align-') || className.includes('float-'))) {
-            return <div className={className} {...props}>{children}</div>;
-          }
-          // If it's a <pre> tag wrapper for code block, render as pre
-          const firstChild = node?.children?.[0] as any;
-          if (firstChild?.tagName === 'code' && firstChild?.properties?.className?.some((c: string) => c.startsWith('language-'))) {
-            return <pre {...props}>{children}</pre>;
-          }
-          // Default div rendering (useful for some HTML structures)
-          return <div {...props}>{children}</div>;
+        blockquote: ({node, children, ...props}) => <blockquote className="border-l-4 border-border pl-4 italic my-4 text-muted-foreground" {...props}>{processChildrenForMentions(children)}</blockquote>,
+        // For custom HTML tags like <div style="text-align:center"> or <span class="text-glow">,
+        // rehypeRaw will handle them. We only need to ensure they are valid HTML structures.
+        // The processChildrenForMentions will handle @mentions inside these tags if they contain text nodes.
+        div: ({ node, children, className, style, ...props }) => {
+             // Ensure className is a string for includes check
+            const stringClassName = typeof className === 'string' ? className : '';
+            if (stringClassName.includes('text-align-') || stringClassName.includes('float-') || style) {
+              return <div className={stringClassName} style={style} {...props}>{processChildrenForMentions(children)}</div>;
+            }
+            const firstChild = node?.children?.[0] as any;
+            if (firstChild?.tagName === 'code' && firstChild?.properties?.className?.some((c: string) => c.startsWith('language-'))) {
+              return <pre {...props}>{processChildrenForMentions(children)}</pre>;
+            }
+            return <div {...props}>{processChildrenForMentions(children)}</div>;
         },
-        span: ({ node, children, className, ...props }) => {
-          // Allow spans with specific classes from our toolbar
-          if (className && (className.includes('text-glow') || className.includes('text-shadow') || className.includes('spoiler'))) {
-            return <span className={className} {...props}>{children}</span>;
-          }
-          // Default span rendering
-          return <span {...props}>{children}</span>;
+        span: ({ node, children, className, style, ...props }) => {
+            const stringClassName = typeof className === 'string' ? className : '';
+            if (stringClassName.includes('text-glow') || stringClassName.includes('text-shadow') || stringClassName.includes('spoiler') || style) {
+              return <span className={stringClassName} style={style} {...props}>{processChildrenForMentions(children)}</span>;
+            }
+            return <span {...props}>{processChildrenForMentions(children)}</span>;
         },
-    };
+        // Ensure headings also process mentions
+        h1: ({node, children, ...props}) => <h1 {...props}>{processChildrenForMentions(children)}</h1>,
+        h2: ({node, children, ...props}) => <h2 {...props}>{processChildrenForMentions(children)}</h2>,
+        h3: ({node, children, ...props}) => <h3 {...props}>{processChildrenForMentions(children)}</h3>,
+        h4: ({node, children, ...props}) => <h4 {...props}>{processChildrenForMentions(children)}</h4>,
+        h5: ({node, children, ...props}) => <h5 {...props}>{processChildrenForMentions(children)}</h5>,
+        h6: ({node, children, ...props}) => <h6 {...props}>{processChildrenForMentions(children)}</h6>,
+    }), []);
     
     const processedContent = useMemo(() => {
+        // Mentions are now handled by the ReactMarkdown components.
         return post.content;
     }, [post.content]);
 
@@ -331,9 +329,6 @@ export function Post({ post, currentUser, onEdit, isFirstPost = false }: PostPro
                             remarkPlugins={[remarkGfm]}
                             rehypePlugins={[rehypeRaw]} 
                             components={markdownComponents}
-                            // Allow specific HTML tags based on RichTextToolbar
-                            // rehypeRaw handles this, but this could be a safety net
-                            // allowedElements={['p', 'strong', 'em', 'ul', 'ol', 'li', 'a', 'img', 'blockquote', 'pre', 'code', 'br', 'hr', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'span', 'div', 'u', 's', 'sup', 'sub', 'mark', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'iframe']}
                         >
                             {processedContent}
                         </ReactMarkdown>
@@ -348,3 +343,4 @@ export function Post({ post, currentUser, onEdit, isFirstPost = false }: PostPro
         </Card>
     );
 }
+
