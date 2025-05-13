@@ -16,13 +16,24 @@ export type User = {
   points?: number; // Points accumulated from post reactions
 };
 
+export type CategoryLastPostInfo = {
+  id: string; // post id
+  topicId: string;
+  topicTitle: string;
+  authorId: string;
+  authorUsername: string;
+  authorAvatarUrl?: string;
+  createdAt: Date;
+};
+
 export type Category = {
   id: string;
   name: string;
   description?: string;
   createdAt: Date;
-  topicCount?: number; // Optional: denormalized count
-  postCount?: number;  // Optional: denormalized count
+  topicCount: number; 
+  postCount: number;  
+  lastPost?: CategoryLastPostInfo | null;
 };
 
 export type Topic = {

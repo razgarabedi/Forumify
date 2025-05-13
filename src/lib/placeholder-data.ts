@@ -1,14 +1,14 @@
 
-import type { User, Category, Topic, Post, Notification, Conversation, PrivateMessage, Reaction, ReactionType } from './types';
+import type { User, Category, Topic, Post, Notification, Conversation, PrivateMessage, Reaction, ReactionType, CategoryLastPostInfo } from './types';
 
 // Placeholder Users
 let users: User[] = [];
 
 // Placeholder Categories
-let categories: Category[] = [
-  { id: 'cat1', name: 'General Discussion', description: 'Talk about anything.', createdAt: new Date('2023-01-10T09:00:00Z'), topicCount: 0, postCount: 0 },
-  { id: 'cat2', name: 'Introductions', description: 'Introduce yourself to the community.', createdAt: new Date('2023-01-10T09:05:00Z'), topicCount: 0, postCount: 0 },
-  { id: 'cat3', name: 'Technical Help', description: 'Get help with technical issues.', createdAt: new Date('2023-01-11T14:00:00Z'), topicCount: 0, postCount: 0 },
+let categories: Omit<Category, 'topicCount' | 'postCount' | 'lastPost'>[] = [
+  { id: 'cat1', name: 'General Discussion', description: 'Talk about anything.', createdAt: new Date('2023-01-10T09:00:00Z') },
+  { id: 'cat2', name: 'Introductions', description: 'Introduce yourself to the community.', createdAt: new Date('2023-01-10T09:05:00Z') },
+  { id: 'cat3', name: 'Technical Help', description: 'Get help with technical issues.', createdAt: new Date('2023-01-11T14:00:00Z') },
 ];
 
 // Placeholder Topics
@@ -211,36 +211,108 @@ export const deleteUser = async (userId: string): Promise<boolean> => {
 // Fetch Categories
 export const getCategories = async (): Promise<Category[]> => {
   await new Promise(resolve => setTimeout(resolve, 20));
-   return categories.map(cat => ({
-    ...cat,
-    topicCount: topics.filter(t => t.categoryId === cat.id).length,
-    postCount: posts.filter(p => topics.some(t => t.id === p.topicId && t.categoryId === cat.id)).length
-  })).sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+  
+  const resultCategories: Category[] = await Promise.all(
+    categories.map(async (catData) => {
+      const categoryTopics = topics.filter(t => t.categoryId === catData.id);
+      const topicCount = categoryTopics.length;
+      
+      let postCount = 0;
+      let lastPost: CategoryLastPostInfo | null = null;
+      
+      if (categoryTopics.length > 0) {
+        const categoryPosts = posts.filter(p => categoryTopics.some(ct => ct.id === p.topicId));
+        postCount = categoryPosts.length;
+
+        if (categoryPosts.length > 0) {
+          const sortedPosts = categoryPosts.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+          const latestPostData = sortedPosts[0];
+          
+          const latestPostAuthor = await findUserById(latestPostData.authorId);
+          const latestPostTopic = topics.find(t => t.id === latestPostData.topicId);
+
+          if (latestPostData && latestPostAuthor && latestPostTopic) {
+            lastPost = {
+              id: latestPostData.id,
+              topicId: latestPostTopic.id,
+              topicTitle: latestPostTopic.title,
+              authorId: latestPostAuthor.id,
+              authorUsername: latestPostAuthor.username,
+              authorAvatarUrl: latestPostAuthor.avatarUrl,
+              createdAt: new Date(latestPostData.createdAt),
+            };
+          }
+        }
+      }
+      
+      return {
+        ...catData,
+        topicCount,
+        postCount,
+        lastPost,
+      };
+    })
+  );
+
+  return resultCategories.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 };
+
 
 export const getCategoryById = async (id: string): Promise<Category | null> => {
     await new Promise(resolve => setTimeout(resolve, 10));
-    const category = categories.find(c => c.id === id);
-    if (!category) return null;
+    const categoryData = categories.find(c => c.id === id);
+    if (!categoryData) return null;
+
+    const categoryTopics = topics.filter(t => t.categoryId === categoryData.id);
+    const topicCount = categoryTopics.length;
+    
+    let postCount = 0;
+    let lastPost: CategoryLastPostInfo | null = null;
+    
+    if (categoryTopics.length > 0) {
+      const categoryPosts = posts.filter(p => categoryTopics.some(ct => ct.id === p.topicId));
+      postCount = categoryPosts.length;
+
+      if (categoryPosts.length > 0) {
+        const sortedPosts = categoryPosts.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        const latestPostData = sortedPosts[0];
+        
+        const latestPostAuthor = await findUserById(latestPostData.authorId);
+        const latestPostTopic = topics.find(t => t.id === latestPostData.topicId);
+
+        if (latestPostData && latestPostAuthor && latestPostTopic) {
+          lastPost = {
+            id: latestPostData.id,
+            topicId: latestPostTopic.id,
+            topicTitle: latestPostTopic.title,
+            authorId: latestPostAuthor.id,
+            authorUsername: latestPostAuthor.username,
+            authorAvatarUrl: latestPostAuthor.avatarUrl,
+            createdAt: new Date(latestPostData.createdAt),
+          };
+        }
+      }
+    }
+
     return {
-        ...category,
-        topicCount: topics.filter(t => t.categoryId === id).length,
-        postCount: posts.filter(p => topics.some(t => t.id === p.topicId && t.categoryId === id)).length
+        ...categoryData,
+        topicCount,
+        postCount,
+        lastPost
     };
 }
 
-export const createCategory = async (categoryData: Omit<Category, 'id' | 'createdAt' | 'topicCount' | 'postCount'>): Promise<Category> => {
+export const createCategory = async (categoryData: Pick<Category, 'name' | 'description'>): Promise<Category> => {
     await new Promise(resolve => setTimeout(resolve, 50));
-    const newCategory: Category = {
-        ...categoryData,
+    const newCategoryData: Omit<Category, 'topicCount' | 'postCount' | 'lastPost'> = {
+        name: categoryData.name,
+        description: categoryData.description,
         id: `cat${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
         createdAt: new Date(),
-        topicCount: 0,
-        postCount: 0,
     };
-    categories.push(newCategory);
-    console.log("[DB createCategory] Created Category:", newCategory.id, newCategory.name);
-    return { ...newCategory };
+    categories.push(newCategoryData);
+    console.log("[DB createCategory] Created Category:", newCategoryData.id, newCategoryData.name);
+    return { ...newCategoryData, topicCount: 0, postCount: 0, lastPost: null };
 }
 
 export const updateCategory = async (categoryId: string, data: { name: string; description?: string }): Promise<Category | null> => {
@@ -252,7 +324,8 @@ export const updateCategory = async (categoryId: string, data: { name: string; d
     }
     categories[catIndex] = { ...categories[catIndex], ...data };
     console.log("[DB updateCategory] Updated Category:", categories[catIndex].id);
-    return { ...categories[catIndex] };
+    // Re-fetch the category to get updated counts and lastPost
+    return getCategoryById(categoryId);
 }
 
 export const deleteCategory = async (categoryId: string): Promise<boolean> => {
@@ -291,7 +364,7 @@ export const getTopicById = async (id: string): Promise<Topic | null> => {
     const topic = topics.find(t => t.id === id);
     if (!topic) return null;
     const author = await findUserById(topic.authorId);
-    const category = await getCategoryById(topic.categoryId);
+    const category = await getCategoryById(topic.categoryId); // This will now include counts
     return { ...topic, author, category, postCount: posts.filter(p => p.topicId === id).length };
 }
 
@@ -329,20 +402,15 @@ export const createTopic = async (topicData: CreateTopicParams): Promise<Topic> 
         authorId: topicData.authorId,
         imageUrl: topicData.firstPostImageUrl,
     });
-
-    const catIndex = categories.findIndex(c => c.id === topicData.categoryId);
-     if (catIndex !== -1) {
-        categories[catIndex].topicCount = (categories[catIndex].topicCount || 0) + 1;
-    }
     
-    const finalTopic = await getTopicById(newTopic.id);
+    const finalTopic = await getTopicById(newTopic.id); // This will fetch with updated counts
     return finalTopic || { ...newTopic, postCount: 1 }; 
 }
 
 // Fetch Posts
 export const getPostsByTopic = async (topicId: string): Promise<Post[]> => {
   await new Promise(resolve => setTimeout(resolve, 20));
-  const topicPosts = posts.filter(p => p.topicId === topicId).sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+  const topicPosts = posts.filter(p => p.topicId === topicId).sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
   return Promise.all(topicPosts.map(async post => {
     const author = await findUserById(post.authorId);
     const topic = await getTopicByIdSimple(post.topicId); 
@@ -379,11 +447,6 @@ export const createPost = async (postData: CreatePostParams): Promise<Post> => {
     if (topicIndex !== -1) {
         topics[topicIndex].lastActivity = now;
         topics[topicIndex].postCount = (topics[topicIndex].postCount || 0) + 1;
-        const categoryId = topics[topicIndex].categoryId;
-        const catIndex = categories.findIndex(c => c.id === categoryId);
-        if (catIndex !== -1) {
-            categories[catIndex].postCount = (categories[catIndex].postCount || 0) + 1;
-        }
     } else {
          console.warn(`[DB createPost] Topic ${postData.topicId} not found when trying to update counts/activity.`);
     }
@@ -445,11 +508,6 @@ export const deletePost = async (postId: string, userId: string, isAdmin: boolea
     if (topicIndex !== -1) {
         const currentTopic = topics[topicIndex];
         currentTopic.postCount = Math.max(0, (currentTopic.postCount || 1) - 1);
-        const categoryId = currentTopic.categoryId;
-        const catIndex = categories.findIndex(c => c.id === categoryId);
-        if (catIndex !== -1) {
-            categories[catIndex].postCount = Math.max(0, (categories[catIndex].postCount || 1) - 1);
-        }
     }
     return true;
 };
@@ -489,11 +547,8 @@ export const togglePostReaction = async (postId: string, userId: string, usernam
   }
   
   await updateUserLastActive(userId); // Update user's last active time
-  // Note: We are not updating topic.lastActivity for reactions to avoid bumping topics for minor interactions.
-  // This can be revisited if needed.
 
-  // Return a copy of the updated post object
-  const author = await findUserById(post.authorId); // Fetch author with potentially updated points
+  const author = await findUserById(post.authorId); 
   const topic = await getTopicByIdSimple(post.topicId);
   return { ...post, author: author ?? undefined, topic: topic ?? undefined, reactions: [...post.reactions] };
 };
@@ -547,7 +602,7 @@ export const getNotificationsByUserId = async (userId: string): Promise<Notifica
     await new Promise(resolve => setTimeout(resolve, 10));
     return notifications
         .filter(n => n.recipientUserId === userId)
-        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()); 
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()); 
 };
 
 export const getUnreadNotificationCount = async (userId: string): Promise<number> => {
@@ -659,14 +714,14 @@ export const getConversationsForUser = async (userId: string): Promise<Conversat
     await new Promise(resolve => setTimeout(resolve, 20));
     return conversations
         .filter(c => c.participantIds.includes(userId))
-        .sort((a, b) => b.lastMessageAt.getTime() - a.lastMessageAt.getTime());
+        .sort((a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime());
 };
 
 export const getMessagesForConversation = async (conversationId: string, currentUserId: string, markAsRead: boolean = true): Promise<PrivateMessage[]> => {
     await new Promise(resolve => setTimeout(resolve, 20));
     const messagesInConv = privateMessages
         .filter(pm => pm.conversationId === conversationId)
-        .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+        .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
     if (markAsRead) {
         messagesInConv.forEach(msg => {
