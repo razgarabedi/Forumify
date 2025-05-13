@@ -488,7 +488,7 @@ export const markAllNotificationsAsRead = async (userId: string): Promise<boolea
 
 export const generateConversationId = (userId1: string, userId2: string): string => {
     const ids = [userId1, userId2].sort();
-    return `conv-${ids[0]}-${ids[1]}`;
+    return `conv-${ids[0]}__${ids[1]}`; // Use double underscore as delimiter
 };
 
 export const getOrCreateConversation = async (userId1: string, userId2: string): Promise<Conversation> => {
@@ -594,3 +594,18 @@ export const getConversationById = async (conversationId: string): Promise<Conve
     const conversation = conversations.find(c => c.id === conversationId);
     return conversation ? { ...conversation } : null;
 };
+
+// Initialize with a few users for testing if needed
+// For a truly empty DB on start, keep users array empty.
+// Example User Reset:
+// users = [];
+// categories = [
+//   { id: 'cat1', name: 'General Discussion', description: 'Talk about anything.', createdAt: new Date('2023-01-10T09:00:00Z'), topicCount: 0, postCount: 0 },
+//   { id: 'cat2', name: 'Introductions', description: 'Introduce yourself to the community.', createdAt: new Date('2023-01-10T09:05:00Z'), topicCount: 0, postCount: 0 },
+// ];
+// topics = [];
+// posts = [];
+// notifications = [];
+// conversations = [];
+// privateMessages = [];
+// console.log("Placeholder data reset.");

@@ -21,7 +21,7 @@ export async function generateMetadata({ params }: ConversationPageProps) {
 
   let otherParticipantUsername: string | null = null;
   if (params.conversationId.startsWith('conv-')) {
-    const ids = params.conversationId.substring(5).split('-');
+    const ids = params.conversationId.substring(5).split('__'); // Updated delimiter
     if (ids.length === 2) {
       const otherId = ids.find(id => id !== currentUser.id);
       if (otherId) {
@@ -61,13 +61,13 @@ export default async function ConversationPage({ params }: ConversationPageProps
 
   // Validate conversationId and extract participant IDs
   if (!conversationId.startsWith('conv-')) {
-    console.error(`ConversationPage: Invalid conversationId format. Expected 'conv-id1-id2', got: ${conversationId}`);
+    console.error(`ConversationPage: Invalid conversationId format. Expected 'conv-id1__id2', got: ${conversationId}`);
     notFound();
   }
 
-  const participantIdParts = conversationId.substring(5).split('-');
+  const participantIdParts = conversationId.substring(5).split('__'); // Updated delimiter
   if (participantIdParts.length !== 2 || !participantIdParts[0] || !participantIdParts[1]) {
-    console.error(`ConversationPage: conversationId must contain two valid participant IDs. Got: ${conversationId}, Parsed parts:`, participantIdParts);
+    console.error(`ConversationPage: conversationId must contain two valid participant IDs separated by '__'. Got: ${conversationId}, Parsed parts:`, participantIdParts);
     notFound();
   }
 
@@ -143,4 +143,3 @@ export default async function ConversationPage({ params }: ConversationPageProps
     </div>
   );
 }
-
