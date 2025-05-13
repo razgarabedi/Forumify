@@ -96,13 +96,14 @@ Before you begin, ensure you have the following installed:
 *   [Node.js](https://nodejs.org/) (Version 18 or later recommended)
 *   [npm](https://www.npmjs.com/) (or [yarn](https://yarnpkg.com/))
 *   [PostgreSQL](https://www.postgresql.org/download/) (Install and have a server running)
+*   [Nginx](https://nginx.org/en/download.html) (Optional, for production deployment with a reverse proxy)
 
 ## Installation
 
 1.  **Clone the repository:**
     ```bash
-    git clone <your-repository-url>
-    cd <repository-directory-name> # e.g., cd forumlite
+    git clone &lt;your-repository-url&gt;
+    cd &lt;repository-directory-name&gt; # e.g., cd forumlite
     ```
 
 2.  **Install dependencies:**
@@ -118,43 +119,85 @@ Before you begin, ensure you have the following installed:
 
 ## Database Setup & Configuration
 
-This application uses PostgreSQL for data persistence.
+This application uses PostgreSQL for data persistence. The `src/lib/db.ts` file contains functions to interact with the database and includes logic to initialize the schema if tables don't exist.
 
-1.  **Set up PostgreSQL:**
-    *   Ensure PostgreSQL is installed and running.
-    *   Create a new database for the application. For example, `forumlite_db`.
-    *   Optionally, create a dedicated PostgreSQL user for the application with a secure password.
-        Example using `psql`:
-        ```sql
-        CREATE USER forumlite_user WITH PASSWORD 'your_secure_password';
-        CREATE DATABASE forumlite_db OWNER forumlite_user;
-        ```
+### 1. Detailed PostgreSQL Setup on Ubuntu
 
-2.  **Configure Environment Variables:**
-    *   In the root of your project, create a file named `.env.local` (if it doesn't exist).
-    *   Add your PostgreSQL connection URL to `.env.local`:
-        ```env
-        DATABASE_URL="postgresql://YOUR_USER:YOUR_PASSWORD@YOUR_HOST:YOUR_PORT/YOUR_DATABASE_NAME"
-        ```
-        Replace the placeholders:
-        *   `YOUR_USER`: Your PostgreSQL username (e.g., `forumlite_user` or your default superuser like `postgres`).
-        *   `YOUR_PASSWORD`: The password for that user.
-        *   `YOUR_HOST`: The hostname or IP address of your PostgreSQL server (e.g., `localhost`).
-        *   `YOUR_PORT`: The port PostgreSQL is listening on (default is `5432`).
-        *   `YOUR_DATABASE_NAME`: The name of the database you created (e.g., `forumlite_db`).
+If you're on Ubuntu, follow these steps to install and set up PostgreSQL:
 
-        **Example `.env.local` content:**
-        ```env
-        DATABASE_URL="postgresql://forumlite_user:your_secure_password@localhost:5432/forumlite_db"
-        ```
-    *   **Important:** Add `.env.local` to your `.gitignore` file to prevent committing sensitive credentials.
-        ```
-        # .gitignore
-        .env.local
-        ```
+*   **Update package lists:**
+    ```bash
+    sudo apt update
+    ```
+*   **Install PostgreSQL and its client:**
+    ```bash
+    sudo apt install postgresql postgresql-contrib
+    ```
+*   **Verify installation and service status:**
+    ```bash
+    sudo systemctl status postgresql
+    ```
+    It should show "active (running)". If not, start it with `sudo systemctl start postgresql`.
+*   **Switch to the `postgres` user:**
+    By default, PostgreSQL creates a user named `postgres` with superuser privileges.
+    ```bash
+    sudo -i -u postgres
+    ```
+*   **Access the PostgreSQL prompt (`psql`):**
+    ```bash
+    psql
+    ```
+*   **Create a new database user (Role):**
+    It's good practice to create a dedicated user for your application. Replace `forumlite_user` and `your_secure_password` with your desired username and a strong password.
+    ```sql
+    CREATE USER forumlite_user WITH PASSWORD 'your_secure_password';
+    ```
+*   **Create a new database:**
+    Replace `forumlite_db` with your desired database name. Assign the user you just created as the owner.
+    ```sql
+    CREATE DATABASE forumlite_db OWNER forumlite_user;
+    ```
+*   **Grant privileges (optional, if owner is not sufficient for all operations):**
+    If you need to grant all privileges on the database to the user:
+    ```sql
+    GRANT ALL PRIVILEGES ON DATABASE forumlite_db TO forumlite_user;
+    ```
+*   **Exit `psql` and the `postgres` user session:**
+    In `psql`:
+    ```sql
+    \q
+    ```
+    Then type `exit` to return to your regular user.
 
-3.  **Database Schema Initialization:**
-    The application includes logic in `src/lib/db.ts` to automatically create the necessary tables if they don't exist when the application starts. This includes tables for `users`, `categories`, `topics`, `posts`, `reactions`, `notifications`, `conversations`, and `private_messages`.
+Your PostgreSQL server is now running, and you have a database and user ready for ForumLite.
+
+### 2. Configure Environment Variables
+
+*   In the root of your project, create a file named `.env.local` (if it doesn't exist).
+*   Add your PostgreSQL connection URL to `.env.local`:
+    ```env
+    DATABASE_URL="postgresql://YOUR_USER:YOUR_PASSWORD@YOUR_HOST:YOUR_PORT/YOUR_DATABASE_NAME"
+    ```
+    Replace the placeholders:
+    *   `YOUR_USER`: Your PostgreSQL username (e.g., `forumlite_user`).
+    *   `YOUR_PASSWORD`: The password for that user (e.g., `your_secure_password`).
+    *   `YOUR_HOST`: The hostname or IP address of your PostgreSQL server (e.g., `localhost` if running on the same machine).
+    *   `YOUR_PORT`: The port PostgreSQL is listening on (default is `5432`).
+    *   `YOUR_DATABASE_NAME`: The name of the database you created (e.g., `forumlite_db`).
+
+    **Example `.env.local` content based on the Ubuntu setup above:**
+    ```env
+    DATABASE_URL="postgresql://forumlite_user:your_secure_password@localhost:5432/forumlite_db"
+    ```
+*   **Important:** Add `.env.local` to your `.gitignore` file to prevent committing sensitive credentials.
+    ```
+    # .gitignore
+    .env.local
+    ```
+
+### 3. Database Schema Initialization
+
+The application includes logic in `src/lib/db.ts` to automatically create the necessary tables if they don't exist when the application starts. This includes tables for `users`, `categories`, `topics`, `posts`, `reactions`, `notifications`, `conversations`, and `private_messages`. No manual schema creation is needed after configuring `DATABASE_URL`.
 
 ## Running the Development Server
 
@@ -169,7 +212,122 @@ Or using yarn:
 yarn dev
 ```
 
-This command starts the Next.js development server, typically on `http://localhost:9002` (as configured in `package.json`). Open this URL in your web browser to view the application. The database tables will be initialized automatically on the first run if they don't exist.
+This command starts the Next.js development server, typically on `http://localhost:9002` (as configured in `package.json`). Open this URL in your web browser to view the application. The database tables will be initialized automatically on the first run if they don't exist (assuming `DATABASE_URL` is correctly set).
+
+## Production Deployment with Nginx
+
+For production, you'll want to build the Next.js application and run it as a standalone server, often behind a reverse proxy like Nginx.
+
+### 1. Build the Application
+```bash
+npm run build
+```
+This creates an optimized production build in the `.next` directory.
+
+### 2. Start the Production Server
+```bash
+npm start
+```
+This command starts the Next.js production server, typically listening on port 3000 by default (or port 9002 if `package.json`'s `start` script is `next start -p 9002`). Note the port it's running on.
+
+### 3. Install Nginx (on Ubuntu)
+If you don't have Nginx installed:
+```bash
+sudo apt update
+sudo apt install nginx
+```
+Start and enable Nginx:
+```bash
+sudo systemctl start nginx
+sudo systemctl enable nginx
+```
+
+### 4. Configure Nginx as a Reverse Proxy
+Create a new Nginx server block configuration file for your application. For example, `/etc/nginx/sites-available/forumlite`:
+```bash
+sudo nano /etc/nginx/sites-available/forumlite
+```
+
+Paste the following configuration, adjusting `server_name` to your domain (or IP address) and `proxy_pass` to the port your Next.js app is running on (e.g., `http://localhost:9002`):
+
+```nginx
+server {
+    listen 80;
+    listen [::]:80;
+
+    server_name your_domain.com www.your_domain.com; # Replace with your domain or IP
+
+    # Path for SSL certificates (if using Let's Encrypt, this will be added later)
+    # ssl_certificate /etc/letsencrypt/live/your_domain.com/fullchain.pem;
+    # ssl_certificate_key /etc/letsencrypt/live/your_domain.com/privkey.pem;
+    # include /etc/letsencrypt/options-ssl-nginx.conf;
+    # ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+    # Logging
+    access_log /var/log/nginx/forumlite.access.log;
+    error_log /var/log/nginx/forumlite.error.log;
+
+    location / {
+        proxy_pass http://localhost:9002; # Adjust port if your Next.js app runs on a different one
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+    }
+
+    # Optional: Specific handling for Next.js static assets for better caching
+    location /_next/static {
+        proxy_cache_bypass 1;
+        proxy_no_cache 1;
+        expires off;
+        proxy_pass http://localhost:9002/_next/static; # Adjust port
+    }
+}
+```
+
+### 5. Enable the Nginx Site and Test Configuration
+*   Create a symbolic link to enable the site:
+    ```bash
+    sudo ln -s /etc/nginx/sites-available/forumlite /etc/nginx/sites-enabled/
+    ```
+*   Test the Nginx configuration for syntax errors:
+    ```bash
+    sudo nginx -t
+    ```
+    If it shows "syntax is ok" and "test is successful", proceed.
+
+### 6. Reload Nginx
+```bash
+sudo systemctl reload nginx
+```
+
+### 7. Configure Firewall (if using ufw)
+Allow HTTP and HTTPS traffic:
+```bash
+sudo ufw allow 'Nginx Full'
+```
+
+### 8. (Recommended) Setup SSL with Let's Encrypt
+For a production site, you should use HTTPS.
+*   Install Certbot:
+    ```bash
+    sudo apt install certbot python3-certbot-nginx
+    ```
+*   Obtain and install an SSL certificate:
+    ```bash
+    sudo certbot --nginx -d your_domain.com -d www.your_domain.com
+    ```
+    Follow the prompts. Certbot will automatically update your Nginx configuration for SSL.
+*   Certbot will also set up automatic renewal. You can test renewal with:
+    ```bash
+    sudo certbot renew --dry-run
+    ```
+
+Your ForumLite application should now be accessible via your domain, served by Nginx with the Next.js application running in the background. Consider using a process manager like PM2 to keep your `npm start` process running reliably.
 
 ## Getting Started
 
@@ -311,7 +469,7 @@ Refer to `src/lib/db.ts` for the exact `CREATE TABLE IF NOT EXISTS` statements u
 │   ├── lib/            # Core logic, utilities, actions
 │   │   ├── actions/    # Server Actions (auth, forums, admin, notifications, privateMessages)
 │   │   ├── db.ts       # PostgreSQL database interaction functions
-│   │   ├── placeholder-data.ts # In-memory data store (used as fallback or for initial dev)
+│   │   ├── placeholder-data.ts # In-memory data store (used as fallback or for initial dev if DB fails)
 │   │   ├── types.ts    # TypeScript type definitions
 │   │   └── utils.ts    # Utility functions (e.g., cn for classnames, parseMentions)
 │   └── ai/             # Genkit AI integration files (if used)
