@@ -1,3 +1,4 @@
+
 import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
@@ -40,7 +41,7 @@ const nextConfig: NextConfig = {
   },
   // Enable experimental server actions
    experimental: {
-    serverActions: true,
+    serverActions: {}, // Changed from true to {} to satisfy "Expected object" error
   },
 };
 
