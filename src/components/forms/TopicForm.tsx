@@ -1,8 +1,7 @@
-
 "use client";
 
-import { useActionState, useEffect, useRef, useState } from 'react';
-import { Input as ShadInput } from "@/components/ui/input"; // Renamed to avoid conflict
+import { useActionState, useEffect, useRef, useState, useCallback } from 'react';
+import { Input as ShadInput } from "@/components/ui/input"; 
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,7 +11,7 @@ import { SubmitButton } from '@/components/SubmitButton';
 import { PlusCircle, UploadCloud, XCircle } from 'lucide-react';
 import Image from 'next/image';
 import { Button } from '../ui/button';
-import { RichTextToolbar } from './RichTextToolbar'; // Import the toolbar
+import { RichTextToolbar, parseHtmlToSimpleStructure, simpleStructureToMarkdown, cleanupMarkdown } from './RichTextToolbar'; // Import the toolbar and paste utils
 
 interface TopicFormProps {
     categoryId: string;
@@ -30,12 +29,11 @@ export function TopicForm({ categoryId }: TopicFormProps) {
     const { toast } = useToast();
     const formRef = useRef<HTMLFormElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const textareaRef = useRef<HTMLTextAreaElement>(null); // Ref for the first post textarea
+    const textareaRef = useRef<HTMLTextAreaElement>(null); 
 
     const [imagePreview, setImagePreview] = useState<string | null>(null);
     const [imageFile, setImageFile] = useState<File | null>(null);
     const [isDragging, setIsDragging] = useState(false);
-    // State to manage the first post textarea content directly for the toolbar
     const [firstPostTextContent, setFirstPostTextContent] = useState('');
 
     useEffect(() => {
@@ -46,20 +44,16 @@ export function TopicForm({ categoryId }: TopicFormProps) {
                 description: state.message,
             });
         }
-        if (state?.message && state.success && state.topicId) { // Check for topicId for redirect
+        if (state?.message && state.success && state.topicId) { 
              toast({
                 title: "Success",
                 description: state.message,
             });
-            // Form reset is not strictly necessary due to redirect, but good practice
             formRef.current?.reset();
             setFirstPostTextContent(''); 
             setImagePreview(null);
             setImageFile(null);
-            // Redirect is handled by the server action using the `redirect()` function
         } else if (state?.message && state.success && !state.topicId) {
-            // This case might occur if redirect fails or is not part of the success state
-            // For now, just show success toast and reset form as before
              toast({
                 title: "Success",
                 description: state.message,
@@ -74,7 +68,7 @@ export function TopicForm({ categoryId }: TopicFormProps) {
     const handleFileChange = (files: FileList | null) => {
         if (files && files[0]) {
             const file = files[0];
-             if (file.size > 2 * 1024 * 1024) { // 2MB limit
+             if (file.size > 2 * 1024 * 1024) { 
                 toast({ variant: "destructive", title: "File too large", description: "Please upload an image smaller than 2MB." });
                 return;
             }
@@ -120,13 +114,49 @@ export function TopicForm({ categoryId }: TopicFormProps) {
         setImagePreview(null);
         setImageFile(null);
         if(fileInputRef.current) {
-            fileInputRef.current.value = ""; // Reset file input
+            fileInputRef.current.value = ""; 
         }
     };
 
     const handleTextChange = (newContent: string) => {
         setFirstPostTextContent(newContent);
     };
+
+    const handlePaste = useCallback((event: React.ClipboardEvent<HTMLTextAreaElement>) => {
+        event.preventDefault();
+        const clipboardData = event.clipboardData;
+        const html = clipboardData.getData('text/html');
+        const plainText = clipboardData.getData('text/plain');
+        let pastedMarkdown = '';
+
+        if (html) {
+            try {
+                const simpleStructure = parseHtmlToSimpleStructure(html);
+                pastedMarkdown = simpleStructureToMarkdown(simpleStructure);
+                pastedMarkdown = cleanupMarkdown(pastedMarkdown);
+            } catch (e) {
+                console.error("Error parsing pasted HTML, falling back to plain text:", e);
+                pastedMarkdown = plainText;
+            }
+        } else {
+            pastedMarkdown = plainText;
+        }
+        
+        const textarea = textareaRef.current;
+        if (textarea) {
+            const start = textarea.selectionStart;
+            const end = textarea.selectionEnd;
+            const newPastedContent = firstPostTextContent.substring(0, start) + pastedMarkdown + firstPostTextContent.substring(end);
+            handleTextChange(newPastedContent); // Use the state updater
+
+            requestAnimationFrame(() => {
+                if (textarea) {
+                    textarea.focus();
+                    textarea.setSelectionRange(start + pastedMarkdown.length, start + pastedMarkdown.length);
+                }
+            });
+        }
+    }, [textareaRef, firstPostTextContent, handleTextChange]);
 
     return (
         <Card className="mt-6 mb-8 shadow-md border border-border">
@@ -136,7 +166,6 @@ export function TopicForm({ categoryId }: TopicFormProps) {
             </CardHeader>
             <form
                 action={(formData) => {
-                    // Manually set the firstPostContent from state
                     formData.set('firstPostContent', firstPostTextContent);
 
                     if (imagePreview && imageFile) {
@@ -168,9 +197,8 @@ export function TopicForm({ categoryId }: TopicFormProps) {
                             </p>
                         )}
                     </div>
-                    <div className="space-y-1"> {/* Reduced bottom margin */}
+                    <div className="space-y-1"> 
                         <Label htmlFor="firstPostContent">Your First Post</Label>
-                         {/* Rich Text Toolbar */}
                          <RichTextToolbar
                             textareaRef={textareaRef}
                             onContentChange={handleTextChange}
@@ -178,17 +206,18 @@ export function TopicForm({ categoryId }: TopicFormProps) {
                          />
                         <Textarea
                             id="firstPostContent"
-                            name="firstPostContent" // Keep name for non-JS fallback
+                            name="firstPostContent" 
                             ref={textareaRef}
                             required
                             minLength={10}
-                            rows={7} // Slightly larger for editor
+                            rows={7} 
                             placeholder="Start the discussion here... Use markdown for formatting."
-                            value={firstPostTextContent} // Controlled component
-                            onChange={(e) => handleTextChange(e.target.value)} // Update state on direct typing
+                            value={firstPostTextContent} 
+                            onChange={(e) => handleTextChange(e.target.value)} 
+                            onPaste={handlePaste} // Added onPaste handler
                             aria-invalid={!!state?.errors?.firstPostContent}
                             aria-describedby="firstPostContent-error"
-                             className="rounded-t-none focus:z-10 focus:ring-offset-0 focus:ring-1" // Adjust styling for toolbar
+                             className="rounded-t-none focus:z-10 focus:ring-offset-0 focus:ring-1" 
                         />
                         {state?.errors?.firstPostContent && (
                             <p id="firstPostContent-error" className="text-sm font-medium text-destructive pt-1">
@@ -197,16 +226,15 @@ export function TopicForm({ categoryId }: TopicFormProps) {
                         )}
                     </div>
 
-                    {/* Image Upload Section for First Post */}
                     <div className="space-y-2">
                         <Label htmlFor="topic-image-upload">Attach Image to First Post (Optional, max 2MB)</Label>
                          <ShadInput
                             id="topic-image-upload"
-                            name="imageFileTopic" // Unique name for this input
+                            name="imageFileTopic" 
                             type="file"
                             accept="image/jpeg,image/png,image/gif,image/webp"
                             onChange={(e) => handleFileChange(e.target.files)}
-                            className="hidden" // Hidden, triggered by label
+                            className="hidden" 
                             ref={fileInputRef}
                         />
                         <label
@@ -252,8 +280,6 @@ export function TopicForm({ categoryId }: TopicFormProps) {
                             </div>
                         </div>
                     )}
-                     {/* Hidden input is handled by the formAction wrapper now */}
-                    {/* <input type="hidden" name="firstPostImageUrl" value={imagePreview || ''} /> */}
                 </CardContent>
                 <CardFooter>
                     <SubmitButton pendingText="Creating Topic...">Create Topic</SubmitButton>

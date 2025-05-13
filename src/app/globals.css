@@ -53,6 +53,10 @@ body {
     --sidebar-accent-foreground: 240 5.9% 10%;
     --sidebar-border: 220 13% 91%;
     --sidebar-ring: 217.2 91.2% 59.8%;
+
+    /* Glow and Shadow Variables - Light Theme */
+    --glow-color: hsl(var(--primary) / 0.7); /* Primary color with some transparency */
+    --shadow-color-light: hsl(var(--foreground) / 0.2); /* Subtle shadow */
   }
 
   .dark {
@@ -101,6 +105,10 @@ body {
     --sidebar-accent-foreground: 0 0% 90%;
     --sidebar-border: 240 5% 18%;
     --sidebar-ring: 207 65% 50%;
+
+     /* Glow and Shadow Variables - Dark Theme */
+    --glow-color: hsl(var(--primary) / 0.8); /* Brighter primary for dark mode glow */
+    --shadow-color-dark: hsl(var(--foreground) / 0.15); /* More subtle shadow for dark */
   }
 }
 
@@ -113,3 +121,68 @@ body {
     font-feature-settings: "rlig" 1, "calt" 1;
   }
 }
+
+/* Styles for custom BBCode-like tags */
+@layer components {
+  .text-align-left { text-align: left; }
+  .text-align-center { text-align: center; }
+  .text-align-right { text-align: right; }
+  .text-align-justify { text-align: justify; }
+
+  .text-glow {
+    /* A modern, subtle glow. Adjust parameters as needed. */
+    text-shadow: 0 0 5px var(--glow-color), 0 0 10px var(--glow-color), 0 0 15px var(--glow-color);
+    /* Ensure text color itself is legible if glow is strong */
+    /* color: hsl(var(--foreground)); If glow makes text hard to read */
+  }
+
+  .text-shadow {
+    /* A standard text shadow */
+    text-shadow: 1px 1px 2px var(--shadow-color-light); /* Default for light theme */
+  }
+  .dark .text-shadow {
+    text-shadow: 1px 1px 3px var(--shadow-color-dark); /* Adjusted for dark theme */
+  }
+
+  .spoiler {
+    @apply bg-muted text-muted rounded px-1 py-0.5 cursor-pointer transition-colors duration-200;
+  }
+  .spoiler:hover, .spoiler.revealed {
+    @apply bg-transparent text-foreground;
+  }
+  .spoiler-content { /* Initially hidden content */
+    /* This part is tricky with just CSS if content is dynamic.
+       Often JS is used to toggle visibility.
+       A simple CSS approach might involve color matching background on non-hover.
+    */
+  }
+  .spoiler:not(:hover):not(.revealed) .spoiler-content {
+     color: transparent; /* Hide text by making it same color as background */
+     /* background-color: hsl(var(--muted)); /* Ensure bg matches parent */
+  }
+   .spoiler:hover .spoiler-content, .spoiler.revealed .spoiler-content {
+     color: inherit; /* Show text on hover */
+   }
+
+  /* For float, if directly applying styles to a span/div */
+  .float-left { float: left; margin-right: 0.5em; margin-bottom: 0.25em; }
+  .float-right { float: right; margin-left: 0.5em; margin-bottom: 0.25em; }
+  .clear-both { clear: both; }
+
+  /* Prose styling for tables if not adequately handled by @tailwindcss/typography */
+  .prose table { @apply min-w-full divide-y divide-border my-4; }
+  .prose th { @apply bg-muted px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground; }
+  .prose td { @apply px-3 py-2 whitespace-normal text-sm text-foreground; }
+  .prose tr:nth-child(even) { /* Optional: zebra striping for table rows */
+    /* @apply bg-muted/50; */
+  }
+}
+
+/* Ensure prose styles apply correctly within posts */
+.prose {
+  /* Tailwind typography defaults are good, but can be extended */
+}
+.dark .prose {
+  /* Dark mode specific prose adjustments if needed */
+}
+

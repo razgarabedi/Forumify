@@ -1,7 +1,6 @@
-
 "use client";
 
-import { useActionState, useEffect, useRef, useState } from 'react';
+import { useActionState, useEffect, useRef, useState, useCallback } from 'react';
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,7 +12,7 @@ import { MessageSquarePlus, Edit, UploadCloud, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
 import { Input } from '../ui/input';
-import { RichTextToolbar } from './RichTextToolbar'; // Import the toolbar
+import { RichTextToolbar, parseHtmlToSimpleStructure, simpleStructureToMarkdown, cleanupMarkdown } from './RichTextToolbar'; // Import the toolbar and paste utils
 
 interface PostFormProps {
     topicId: string;
@@ -39,7 +38,6 @@ export function PostForm({ topicId, editingPost, onEditCancel }: PostFormProps) 
     const [imageFile, setImageFile] = useState<File | null>(null);
     const [isDragging, setIsDragging] = useState(false);
     const [removeCurrentImage, setRemoveCurrentImage] = useState(false);
-    // State to manage the textarea content directly for the toolbar
     const [textContent, setTextContent] = useState(editingPost?.content || '');
 
     const isEditing = !!editingPost;
@@ -58,7 +56,7 @@ export function PostForm({ topicId, editingPost, onEditCancel }: PostFormProps) 
                 description: state.message,
             });
             formRef.current?.reset();
-            setTextContent(''); // Clear textarea state
+            setTextContent(''); 
             setImagePreview(null);
             setImageFile(null);
             setRemoveCurrentImage(false);
@@ -69,16 +67,14 @@ export function PostForm({ topicId, editingPost, onEditCancel }: PostFormProps) 
     }, [state, toast, isEditing, onEditCancel]);
 
     useEffect(() => {
-        // Update textContent when editingPost changes (start editing or cancel)
         setTextContent(editingPost?.content || '');
         setImagePreview(editingPost?.imageUrl || null);
-        setRemoveCurrentImage(false); // Reset removal flag
+        setRemoveCurrentImage(false); 
 
         if (isEditing) {
-             // Focus after a short delay to ensure textarea is ready
             setTimeout(() => textareaRef.current?.focus(), 50);
         } else {
-            setImagePreview(null); // Clear preview for new posts
+            setImagePreview(null); 
         }
     }, [editingPost, isEditing]);
 
@@ -94,7 +90,7 @@ export function PostForm({ topicId, editingPost, onEditCancel }: PostFormProps) 
                 return;
             }
             setImageFile(file);
-            setRemoveCurrentImage(false); // If a new file is selected, don't remove existing one yet
+            setRemoveCurrentImage(false); 
             const reader = new FileReader();
             reader.onloadend = () => {
                 setImagePreview(reader.result as string);
@@ -116,7 +112,7 @@ export function PostForm({ topicId, editingPost, onEditCancel }: PostFormProps) 
     const handleDragOver = (e: React.DragEvent<HTMLLabelElement>) => {
         e.preventDefault();
         e.stopPropagation();
-        setIsDragging(true); // Keep it true while dragging over
+        setIsDragging(true); 
     };
     const handleDrop = (e: React.DragEvent<HTMLLabelElement>) => {
         e.preventDefault();
@@ -135,13 +131,50 @@ export function PostForm({ topicId, editingPost, onEditCancel }: PostFormProps) 
             setRemoveCurrentImage(true);
         }
         if(fileInputRef.current) {
-            fileInputRef.current.value = ""; // Reset file input
+            fileInputRef.current.value = ""; 
         }
     };
 
      const handleTextChange = (newContent: string) => {
         setTextContent(newContent);
     };
+
+    const handlePaste = useCallback((event: React.ClipboardEvent<HTMLTextAreaElement>) => {
+        event.preventDefault();
+        const clipboardData = event.clipboardData;
+        const html = clipboardData.getData('text/html');
+        const plainText = clipboardData.getData('text/plain');
+        let pastedMarkdown = '';
+
+        if (html) {
+            try {
+                const simpleStructure = parseHtmlToSimpleStructure(html);
+                pastedMarkdown = simpleStructureToMarkdown(simpleStructure);
+                pastedMarkdown = cleanupMarkdown(pastedMarkdown);
+            } catch (e) {
+                console.error("Error parsing pasted HTML, falling back to plain text:", e);
+                pastedMarkdown = plainText;
+            }
+        } else {
+            pastedMarkdown = plainText;
+        }
+        
+        const textarea = textareaRef.current;
+        if (textarea) {
+            const start = textarea.selectionStart;
+            const end = textarea.selectionEnd;
+            const newPastedContent = textContent.substring(0, start) + pastedMarkdown + textContent.substring(end);
+            handleTextChange(newPastedContent); // Use the state updater
+
+            requestAnimationFrame(() => {
+                if (textarea) {
+                    textarea.focus();
+                    textarea.setSelectionRange(start + pastedMarkdown.length, start + pastedMarkdown.length);
+                }
+            });
+        }
+    }, [textareaRef, textContent, handleTextChange]);
+
 
     return (
         <Card className={`mt-6 mb-8 shadow-md border ${isEditing ? 'border-accent ring-1 ring-accent' : 'border-border'}`}>
@@ -152,18 +185,17 @@ export function PostForm({ topicId, editingPost, onEditCancel }: PostFormProps) 
             </CardHeader>
             <form
                 action={(formData) => {
-                    // Manually set the content from state
                     formData.set('content', textContent);
 
-                    if (imagePreview && imageFile) { // New image uploaded
+                    if (imagePreview && imageFile) { 
                         formData.set('imageUrl', imagePreview);
-                    } else if (removeCurrentImage) { // Existing image marked for removal
-                        formData.set('imageUrl', ''); // Or use a specific flag like 'removeImage'='true'
+                    } else if (removeCurrentImage) { 
+                        formData.set('imageUrl', ''); 
                         formData.set('removeImage', 'true');
-                    } else if (editingPost?.imageUrl && !imageFile && !removeCurrentImage) { // Editing, existing image kept
+                    } else if (editingPost?.imageUrl && !imageFile && !removeCurrentImage) { 
                         formData.set('imageUrl', editingPost.imageUrl);
                     } else {
-                        formData.delete('imageUrl'); // No image or image removed
+                        formData.delete('imageUrl'); 
                     }
                     formAction(formData);
                 }}
@@ -175,7 +207,6 @@ export function PostForm({ topicId, editingPost, onEditCancel }: PostFormProps) 
                 <CardContent className="space-y-4 pt-0">
                     <div className="space-y-1">
                         <Label htmlFor="content" className="sr-only">{isEditing ? 'Edit Content' : 'Reply Content'}</Label>
-                        {/* Rich Text Toolbar */}
                          <RichTextToolbar
                             textareaRef={textareaRef}
                             onContentChange={handleTextChange}
@@ -183,17 +214,18 @@ export function PostForm({ topicId, editingPost, onEditCancel }: PostFormProps) 
                          />
                         <Textarea
                             id="content"
-                            name="content" // Keep name for potential non-JS fallback, though value is controlled
+                            name="content" 
                             ref={textareaRef}
                             required
                             minLength={10}
-                            rows={isEditing ? 8 : 6} // Slightly larger for editor
+                            rows={isEditing ? 8 : 6} 
                             placeholder={isEditing ? "Update your post..." : "Write your reply here... Use markdown for formatting."}
-                            value={textContent} // Controlled component
-                            onChange={(e) => handleTextChange(e.target.value)} // Update state on direct typing
+                            value={textContent} 
+                            onChange={(e) => handleTextChange(e.target.value)} 
+                            onPaste={handlePaste} // Added onPaste handler
                             aria-invalid={!!state?.errors?.content}
                             aria-describedby="content-error"
-                            className="rounded-t-none focus:z-10 focus:ring-offset-0 focus:ring-1" // Adjust styling for toolbar
+                            className="rounded-t-none focus:z-10 focus:ring-offset-0 focus:ring-1" 
                         />
                         {state?.errors?.content && (
                             <p id="content-error" className="text-sm font-medium text-destructive pt-1">
@@ -202,16 +234,15 @@ export function PostForm({ topicId, editingPost, onEditCancel }: PostFormProps) 
                         )}
                     </div>
 
-                    {/* Image Upload Section */}
                     <div className="space-y-2">
                         <Label htmlFor="post-image-upload">Attach Image (Optional, max 2MB)</Label>
                         <Input
                             id="post-image-upload"
-                            name="imageFile" // This name is for the input itself, not directly submitted with formAction. Data URI is via imageUrl.
+                            name="imageFile" 
                             type="file"
                             accept="image/jpeg,image/png,image/gif,image/webp"
                             onChange={(e) => handleFileChange(e.target.files)}
-                            className="hidden" // Hidden, triggered by label
+                            className="hidden" 
                             ref={fileInputRef}
                         />
                         <label
@@ -257,12 +288,6 @@ export function PostForm({ topicId, editingPost, onEditCancel }: PostFormProps) 
                             </div>
                         </div>
                     )}
-                     {/* Hidden input for actual image data URI to be submitted */}
-                    {/* This is now handled in the formAction wrapper above */}
-                    {/* <input type="hidden" name="imageUrl" value={imagePreview || ''} /> */}
-                     {/* Hidden input to signal image removal */}
-                    {/* <input type="hidden" name="removeImage" value={removeCurrentImage ? 'true' : 'false'} /> */}
-
                 </CardContent>
                 <CardFooter className="flex justify-between">
                     <SubmitButton
