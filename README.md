@@ -1,7 +1,7 @@
 
 # ForumLite
 
-ForumLite is a lightweight forum application built using Next.js, TypeScript, Tailwind CSS, ShadCN UI components, and PostgreSQL for persistence. It demonstrates core forum functionalities including user authentication, category and topic management, posting, an admin panel, user profiles, rich content features, a notification system, and private messaging.
+ForumLite is a lightweight forum application built using Next.js, TypeScript, Tailwind CSS, ShadCN UI components, and PostgreSQL for persistence. It demonstrates core forum functionalities including user authentication, category and topic management, posting, an admin panel, user profiles, rich content features, a notification system, private messaging, and an events/webinars system.
 
 ## Features
 
@@ -19,13 +19,20 @@ ForumLite is a lightweight forum application built using Next.js, TypeScript, Ta
     *   "Start a New Topic" button on category pages to toggle the topic creation form, improving UX.
     *   **Reactions:** Users can react to posts with emojis (like, love, haha, wow, sad, angry). Reactions are counted and displayed, and users earn points for reactions on their posts.
 *   **Rich Content Creation & Display:**
-    *   **Markdown Support:** Posts are rendered using Markdown, allowing for rich text formatting.
-    *   **Rich Text Editor:** A toolbar provides easy access to common Markdown formatting options:
-        *   Bold, Italic, Strikethrough.
+    *   **Markdown Support:** Posts are rendered using Markdown, allowing for rich text formatting. Advanced HTML tags are also supported via `rehype-raw`.
+    *   **Rich Text Editor:** A toolbar provides easy access to common Markdown and HTML formatting options:
+        *   Bold, Italic, Strikethrough, Underline.
         *   Links and Images (via URL input).
         *   Blockquotes and Code snippets (with syntax highlighting using `react-syntax-highlighter`).
         *   Bulleted and Numbered lists.
+        *   Highlight, Superscript, Subscript.
+        *   Text Glow, Text Shadow.
+        *   Spoilers.
+        *   Text Alignment (Left, Center, Right, Justify).
+        *   Floating content (Left, Right).
+        *   Table insertion.
         *   **Emoji Picker:** Integrated emoji support (`emoji-picker-react`) for posts and topic creation.
+    *   **Pasting Rich Content:** Pasting content from websites or Word documents attempts to preserve formatting (bold, italic, lists, links, headings, basic tables) and embed images (via data URI) by converting HTML to Markdown/HTML.
     *   **Drag-and-Drop Image Uploads:** Users can drag and drop images (or select via file input) when creating the first post of a topic or when replying. Images are handled as data URIs.
     *   **Automatic YouTube Embedding:** Pasting a YouTube video link in a post will automatically embed the video player.
 *   **User Profiles (`/users/[username]`):**
@@ -41,6 +48,17 @@ ForumLite is a lightweight forum application built using Next.js, TypeScript, Ta
     *   **Dashboard:** Overview of forum statistics (total users, categories, topics, posts).
     *   **User Management:** View all users, toggle admin status for users, delete users (admins cannot delete themselves).
     *   **Category Management:** Create new categories, view existing categories, edit category details (name, description), delete categories (which also removes associated topics and posts).
+    *   **Event Management (`/admin/events`):** Create, view, edit, and delete events or webinars.
+    *   **Site Settings (`/admin/site-settings`):** Configure global site features, including:
+        *   **Events & Webinars Widget:**
+            *   Enable or disable the widget on the homepage.
+            *   Set the widget's position (above or below categories).
+            *   Choose detail level (full or compact).
+            *   Specify the number of events/webinars to display.
+            *   Customize the widget title.
+*   **Events & Webinars Widget:**
+    *   Displays upcoming events and webinars on the homepage.
+    *   Appearance and content are controlled via Admin Site Settings.
 *   **Notifications & Mentions:**
     *   **User Mentions:** Users can mention each other in posts using the "@username" syntax. Mentions are automatically linked to user profiles.
     *   **Reaction Notifications:** Users receive notifications when someone reacts to their posts.
@@ -83,7 +101,8 @@ ForumLite is a lightweight forum application built using Next.js, TypeScript, Ta
 *   **State Management:** React Hooks (including `useActionState`)
 *   **Rich Text & Markdown:**
     *   `react-markdown` for rendering Markdown content.
-    *   `remark-gfm` for GitHub Flavored Markdown support (tables, strikethrough, etc.).
+    *   `remark-gfm` for GitHub Flavored Markdown support.
+    *   `rehype-raw` for rendering HTML within Markdown.
     *   `react-syntax-highlighter` for code block syntax highlighting.
     *   `emoji-picker-react` for emoji selection.
 *   **Date Formatting:** `date-fns` for user-friendly date and time displays.
@@ -194,12 +213,13 @@ Your PostgreSQL server is now running, and you have a database and user ready fo
     # .gitignore
     .env.local
     ```
+*   **If `DATABASE_URL` is not set or invalid:** The application will fall back to using in-memory placeholder data (`src/lib/placeholder-data.ts`). This data is **not persistent** and will be lost on server restarts. This fallback is primarily for initial development or demonstration if a database is not immediately available. **For production, a valid `DATABASE_URL` is required.**
 
 ### 3. Database Schema Initialization
 
-The application includes logic in `src/lib/db.ts` to automatically create the necessary tables if they don't exist when the application starts. This includes tables for `users`, `categories`, `topics`, `posts`, `reactions`, `notifications`, `conversations`, and `private_messages`. No manual schema creation is needed after configuring `DATABASE_URL`.
+The application includes logic in `src/lib/db.ts` to automatically create the necessary tables if they don't exist when the application starts (assuming a valid `DATABASE_URL` is provided and the database is accessible). This includes tables for `users`, `categories`, `topics`, `posts`, `reactions`, `notifications`, `conversations`, `private_messages`, `events`, and `site_settings`. No manual schema creation is needed after configuring `DATABASE_URL`.
 
-If the database is new and empty (no users table), the `initializeDatabase` function in `src/lib/db.ts` will also attempt to create a default admin user and some initial categories and topics.
+If the database is new and empty (no `users` table), the `initializeDatabase` function in `src/lib/db.ts` will also attempt to create a default admin user and some initial categories and topics.
 
 ## Running the Development Server
 
@@ -339,11 +359,11 @@ Your ForumLite application should now be accessible via your domain, served by N
     *   **Password:** `password123`
     *   It is **highly recommended** to change this password immediately after logging in.
 3.  **Explore:**
-    *   Browse the forum.
+    *   Browse the forum. Check out the Events & Webinars widget on the homepage.
     *   Create categories (if logged in as admin via the Admin Panel).
     *   Navigate to a category and click "Start a New Topic" to create discussions.
-    *   Reply to topics, try out the rich text editor features (Markdown, image upload, emoji, @mentions, reactions).
-4.  **Admin Panel:** If logged in as the admin user, access the Admin Panel via the link in the header or by navigating to `/admin`. Here you can manage users and categories.
+    *   Reply to topics, try out the rich text editor features (Markdown, HTML tags, image upload, emoji, @mentions, reactions).
+4.  **Admin Panel:** If logged in as the admin user, access the Admin Panel via the link in the header or by navigating to `/admin`. Here you can manage users, categories, events, and site settings.
 5.  **User Profiles:** Click on a username (e.g., in a post or a mention) to view their profile. If it's your own profile, you'll see an "Edit Profile" button. Check out their post count and points.
 6.  **Notifications:** Try mentioning another user in a post or reacting to someone's post. Check the notification dropdown in the header and the `/notifications` page.
 7.  **Private Messages:**
@@ -355,7 +375,7 @@ Your ForumLite application should now be accessible via your domain, served by N
 
 ## Important Notes & Production Considerations
 
-*   **Password Handling:** For simplicity, passwords are currently stored and compared in plain text within the database. **This is insecure and should NEVER be done in a production application.** In a real-world scenario, always hash passwords securely (e.g., using `bcrypt`) before storing them. The `src/lib/db.ts` file has comments indicating where hashing should be implemented.
+*   **Password Handling:** For simplicity, passwords are currently stored and compared in plain text within the database in the placeholder version. **This is insecure and should NEVER be done in a production application.** The PostgreSQL version expects password hashing to be implemented (currently, it stores them as-is if not hashed beforehand). In a real-world scenario, always hash passwords securely (e.g., using `bcrypt`) before storing them. The `src/lib/db.ts` file has comments indicating where hashing should be implemented.
 *   **Error Handling:** Basic error handling is implemented, with messages displayed using toasts. More robust error logging and reporting would be needed for production.
 *   **Image Storage:** Uploaded images (avatars, post images) are handled as Base64 data URIs and stored directly in the database. In a production environment, these should ideally be uploaded to a dedicated file storage service (like Cloudinary, AWS S3, Firebase Storage) to avoid bloating the database and improve performance.
 *   **Notification & Message Polling:** The notification and private message counts in the header use simple client-side polling for updates. For a production application, a more robust solution like WebSockets or Server-Sent Events would be preferable for real-time updates.
@@ -363,7 +383,7 @@ Your ForumLite application should now be accessible via your domain, served by N
 
 ## Database Schema Overview (PostgreSQL)
 
-The `src/lib/db.ts` file initializes the following tables:
+The `src/lib/db.ts` file initializes the following tables if they don't exist (when `DATABASE_URL` is configured):
 
 *   **`users`**: Stores user information including credentials (password should be hashed in production), profile details, admin status, points, etc.
     *   `id` (TEXT PRIMARY KEY)
@@ -431,6 +451,18 @@ The `src/lib/db.ts` file initializes the following tables:
     *   `content` (TEXT NOT NULL)
     *   `created_at` (TIMESTAMPTZ)
     *   `read_by` (TEXT[] DEFAULT '{}') -- Array of user IDs who have read the message
+*   **`events`**: Stores event and webinar details.
+    *   `id` (TEXT PRIMARY KEY)
+    *   `title` (TEXT NOT NULL)
+    *   `type` (TEXT NOT NULL) -- 'event' or 'webinar'
+    *   `date` (DATE NOT NULL)
+    *   `time` (TEXT NOT NULL) -- e.g., "14:00"
+    *   `description` (TEXT)
+    *   `link` (TEXT)
+    *   `created_at` (TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP)
+*   **`site_settings`**: Stores global site configuration options.
+    *   `key` (TEXT PRIMARY KEY)
+    *   `value` (TEXT)
 
 Refer to `src/lib/db.ts` for the exact `CREATE TABLE IF NOT EXISTS` statements used for initialization.
 
@@ -443,6 +475,8 @@ Refer to `src/lib/db.ts` for the exact `CREATE TABLE IF NOT EXISTS` statements u
 │   ├── app/            # Next.js App Router routes and pages
 │   │   ├── admin/      # Admin panel routes and components
 │   │   │   ├── categories/ # Admin category specific components
+│   │   │   ├── events/     # Admin event specific components
+│   │   │   ├── site-settings/ # Admin site settings components
 │   │   │   └── users/      # Admin user specific components
 │   │   ├── categories/ # Category-specific pages
 │   │   │   └── [categoryId]/
@@ -464,18 +498,19 @@ Refer to `src/lib/db.ts` for the exact `CREATE TABLE IF NOT EXISTS` statements u
 │   │   ├── register/
 │   │   ├── globals.css # Global styles and Tailwind directives
 │   │   └── layout.tsx  # Root layout
-│   │   └── page.tsx    # Home page (category list)
+│   │   └── page.tsx    # Home page (category list & events widget)
 │   ├── components/     # Reusable UI components
 │   │   ├── forms/      # Form components (Login, Register, Post, Topic, Category, PM etc.)
-│   │   │   └── RichTextToolbar.tsx # Toolbar for markdown editing
+│   │   │   └── RichTextToolbar.tsx # Toolbar for markdown/HTML editing
 │   │   ├── forums/     # Forum-specific components (CategoryList, TopicList, Post, PostList, ReactionButtons)
 │   │   ├── layout/     # Layout components (Header, Footer, HeaderNotificationDropdown, ThemeToggler)
-│   │   └── ui/         # ShadCN UI components
+│   │   ├── ui/         # ShadCN UI components
+│   │   └── widgets/    # Site-wide widgets (e.g., EventsWidget)
 │   ├── hooks/          # Custom React hooks (useToast, useMobile)
 │   ├── lib/            # Core logic, utilities, actions
 │   │   ├── actions/    # Server Actions (auth, forums, admin, notifications, privateMessages)
 │   │   ├── db.ts       # PostgreSQL database interaction functions
-│   │   ├── placeholder-data.ts # In-memory data store (used as fallback or for initial dev if DB fails)
+│   │   ├── placeholder-data.ts # In-memory data store (used as fallback if DB fails)
 │   │   ├── types.ts    # TypeScript type definitions
 │   │   └── utils.ts    # Utility functions (e.g., cn for classnames, parseMentions)
 │   └── ai/             # Genkit AI integration files (if used)
