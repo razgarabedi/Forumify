@@ -671,23 +671,29 @@ export const deleteEvent = async (eventId: string): Promise<boolean> => {
 export const getAllSiteSettings = async (): Promise<SiteSettings> => {
     cookies(); // Signal dynamic rendering
     await new Promise(resolve => setTimeout(resolve, 10));
-    // Return a full SiteSettings object, ensuring all keys are present with defaults
     const defaults: SiteSettings = {
         events_widget_enabled: true,
         events_widget_position: 'above_categories',
         events_widget_detail_level: 'full',
     };
+    // Ensure that the value from siteSettings (which might be string "true" or "false" after update)
+    // is correctly converted to a boolean.
+    const enabledSetting = siteSettings.events_widget_enabled;
+    const isEnabledBoolean = enabledSetting !== undefined 
+        ? String(enabledSetting) === 'true' 
+        : defaults.events_widget_enabled;
+
     return {
-        events_widget_enabled: siteSettings.events_widget_enabled !== undefined ? siteSettings.events_widget_enabled : defaults.events_widget_enabled,
-        events_widget_position: siteSettings.events_widget_position || defaults.events_widget_position,
-        events_widget_detail_level: siteSettings.events_widget_detail_level || defaults.events_widget_detail_level,
+        events_widget_enabled: isEnabledBoolean,
+        events_widget_position: (siteSettings.events_widget_position as EventWidgetPosition) || defaults.events_widget_position,
+        events_widget_detail_level: (siteSettings.events_widget_detail_level as EventWidgetDetailLevel) || defaults.events_widget_detail_level,
     };
 };
 
+
 export const updateSiteSetting = async (key: keyof SiteSettings, value: any): Promise<void> => {
     await new Promise(resolve => setTimeout(resolve, 10));
-    (siteSettings as any)[key] = value; // Type assertion for dynamic key update
-    // Persist to localStorage or a simple store if needed for true placeholder persistence
+    (siteSettings as any)[key] = value; 
 };
 
 
@@ -728,11 +734,12 @@ export const initializePlaceholderData = () => {
             { id: 'event2-placeholder', title: 'Next.js Webinar (Placeholder)', type: 'webinar', date: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), time: '10:00', description: 'Learn about the latest Next.js features.', link: '#', createdAt: new Date() },
         ];
 
-        siteSettings = {
-            events_widget_enabled: true,
-            events_widget_position: 'above_categories',
-            events_widget_detail_level: 'full',
-        };
+        // siteSettings initialized at the top of the file
+        // siteSettings = {
+        //     events_widget_enabled: true,
+        //     events_widget_position: 'above_categories',
+        //     events_widget_detail_level: 'full',
+        // };
 
         console.log("Placeholder data initialized with defaults.");
     }
