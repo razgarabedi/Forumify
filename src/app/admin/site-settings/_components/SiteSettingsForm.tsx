@@ -21,21 +21,35 @@ const initialActionState: ActionResponse = {
     message: '',
     errors: {},
     success: false,
+    rawData: null, // Initialize rawData field
 };
+
+// Helper type for raw form data expected from action state
+type RawSiteSettingsData = {
+  events_widget_enabled?: string | null;
+  events_widget_position?: EventWidgetPosition | null;
+  events_widget_detail_level?: EventWidgetDetailLevel | null;
+  events_widget_item_count?: string | null;
+  events_widget_title?: string | null;
+};
+
 
 export function SiteSettingsForm({ initialSettings }: SiteSettingsFormProps) {
   const [state, formAction, isPending] = useActionState(updateSiteSettingsAction, initialActionState);
   const { toast } = useToast();
   const formRef = useRef<HTMLFormElement>(null);
 
+  const currentRawData = state?.rawData as RawSiteSettingsData | undefined;
+
   useEffect(() => {
     if (state?.message || state?.errors) {
       if (state.success) {
         toast({ title: "Success", description: state.message });
+        // After successful submission, form will re-render with new initialSettings
+        // due to revalidatePath in the action. No need to formRef.current?.reset();
       } else {
         let description = state.message || "An error occurred.";
         if (state.errors && Object.keys(state.errors).length > 0) {
-            // @ts-ignore
             const errorMessages = Object.entries(state.errors).map(([key, value]) => `${key}: ${Array.isArray(value) ? value.join(', ') : value}`).join('; ');
             description = `Validation failed: ${errorMessages || 'Please check your inputs.'}`;
         }
@@ -43,6 +57,45 @@ export function SiteSettingsForm({ initialSettings }: SiteSettingsFormProps) {
       }
     }
   }, [state, toast]);
+  
+
+  const getSwitchDefaultChecked = () => {
+    // If there's state from a failed submission (indicated by state.errors) and rawData for this field is available
+    if (state.errors && currentRawData?.events_widget_enabled !== undefined && currentRawData?.events_widget_enabled !== null) {
+      return String(currentRawData.events_widget_enabled).toLowerCase() === 'true';
+    }
+    // Otherwise, use the initial settings (either from successful load or after successful save)
+    return initialSettings.events_widget_enabled;
+  };
+
+  const getPositionDefaultValue = () => {
+    if (state.errors && currentRawData?.events_widget_position) {
+      return currentRawData.events_widget_position;
+    }
+    return initialSettings.events_widget_position;
+  };
+
+  const getDetailLevelDefaultValue = () => {
+    if (state.errors && currentRawData?.events_widget_detail_level) {
+      return currentRawData.events_widget_detail_level;
+    }
+    return initialSettings.events_widget_detail_level;
+  };
+  
+  const getItemCountDefaultValue = () => {
+    if (state.errors && currentRawData?.events_widget_item_count !== undefined && currentRawData?.events_widget_item_count !== null) {
+      return String(currentRawData.events_widget_item_count);
+    }
+    return String(initialSettings.events_widget_item_count);
+  };
+
+  const getTitleDefaultValue = () => {
+    if (state.errors && currentRawData?.events_widget_title !== undefined && currentRawData?.events_widget_title !== null) {
+      return currentRawData.events_widget_title;
+    }
+    return initialSettings.events_widget_title || "Upcoming Events & Webinars";
+  };
+
 
   return (
     <Card className="mt-6 mb-8 shadow-md border border-border">
@@ -70,16 +123,22 @@ export function SiteSettingsForm({ initialSettings }: SiteSettingsFormProps) {
               <Switch
                 id="events_widget_enabled"
                 name="events_widget_enabled"
-                defaultChecked={initialSettings.events_widget_enabled}
+                key={`switch-${getSwitchDefaultChecked()}`} // Force re-render if value changes externally
+                defaultChecked={getSwitchDefaultChecked()}
                 disabled={isPending}
-                value="true"
+                value="true" 
               />
             </div>
             {state?.errors?.events_widget_enabled && <p className="text-sm font-medium text-destructive">{typeof state.errors.events_widget_enabled === 'string' ? state.errors.events_widget_enabled : state.errors.events_widget_enabled?.[0]}</p>}
 
             <div className="space-y-2">
               <Label htmlFor="events_widget_position">Widget Position on Homepage</Label>
-              <Select name="events_widget_position" defaultValue={initialSettings.events_widget_position} disabled={isPending}>
+              <Select 
+                name="events_widget_position" 
+                key={`position-${getPositionDefaultValue()}`}
+                defaultValue={getPositionDefaultValue()} 
+                disabled={isPending}
+              >
                 <SelectTrigger id="events_widget_position">
                   <SelectValue placeholder="Select position" />
                 </SelectTrigger>
@@ -93,7 +152,12 @@ export function SiteSettingsForm({ initialSettings }: SiteSettingsFormProps) {
 
             <div className="space-y-2">
               <Label htmlFor="events_widget_detail_level">Widget Detail Level</Label>
-              <Select name="events_widget_detail_level" defaultValue={initialSettings.events_widget_detail_level} disabled={isPending}>
+              <Select 
+                name="events_widget_detail_level" 
+                key={`detail-${getDetailLevelDefaultValue()}`}
+                defaultValue={getDetailLevelDefaultValue()} 
+                disabled={isPending}
+              >
                 <SelectTrigger id="events_widget_detail_level">
                   <SelectValue placeholder="Select detail level" />
                 </SelectTrigger>
@@ -113,7 +177,8 @@ export function SiteSettingsForm({ initialSettings }: SiteSettingsFormProps) {
                     type="number"
                     min="1"
                     max="10"
-                    defaultValue={String(initialSettings.events_widget_item_count)}
+                    key={`count-${getItemCountDefaultValue()}`}
+                    defaultValue={getItemCountDefaultValue()}
                     disabled={isPending}
                     className="w-24"
                     aria-describedby="item-count-error"
@@ -128,7 +193,8 @@ export function SiteSettingsForm({ initialSettings }: SiteSettingsFormProps) {
                     name="events_widget_title"
                     type="text"
                     maxLength={100}
-                    defaultValue={initialSettings.events_widget_title || "Upcoming Events & Webinars"}
+                    key={`title-${getTitleDefaultValue()}`}
+                    defaultValue={getTitleDefaultValue()}
                     disabled={isPending}
                     aria-describedby="title-error"
                 />

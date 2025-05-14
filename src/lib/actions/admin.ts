@@ -197,36 +197,46 @@ export async function deleteEventAction(eventId: string): Promise<ActionResponse
 
 // --- Site Settings Actions ---
 const SiteSettingsSchema = z.object({
-    events_widget_enabled: z.preprocess((val) => val === 'true', z.boolean()),
+    events_widget_enabled: z.preprocess((val) => String(val).toLowerCase() === 'true', z.boolean()),
     events_widget_position: z.enum(['above_categories', 'below_categories'] as [EventWidgetPosition, ...EventWidgetPosition[]]),
     events_widget_detail_level: z.enum(['full', 'compact'] as [EventWidgetDetailLevel, ...EventWidgetDetailLevel[]]),
     events_widget_item_count: z.coerce.number().int().min(1, "Must show at least 1 item.").max(10, "Cannot show more than 10 items."),
+    events_widget_title: z.string().min(1, "Widget title cannot be empty.").max(100, "Widget title is too long.").optional().or(z.literal('')),
 });
 
 export async function updateSiteSettingsAction(prevState: ActionResponse | undefined, formData: FormData): Promise<ActionResponse> {
+    // This object will hold the raw values from formData for potential return on error
+    const rawDataToReturn = {
+        events_widget_enabled: formData.get('events_widget_enabled') ? String(formData.get('events_widget_enabled')) : 'false',
+        events_widget_position: formData.get('events_widget_position') as EventWidgetPosition | null,
+        events_widget_detail_level: formData.get('events_widget_detail_level') as EventWidgetDetailLevel | null,
+        events_widget_item_count: formData.get('events_widget_item_count') as string | null,
+        events_widget_title: formData.get('events_widget_title') as string | null,
+    };
+
     try {
         await checkAdmin();
-
-        const rawData = {
-            events_widget_enabled: formData.get('events_widget_enabled') ?? 'false',
-            events_widget_position: formData.get('events_widget_position'),
-            events_widget_detail_level: formData.get('events_widget_detail_level'),
-            events_widget_item_count: formData.get('events_widget_item_count'),
-        };
-
-        const validatedFields = SiteSettingsSchema.safeParse(rawData);
+        
+        const validatedFields = SiteSettingsSchema.safeParse(rawDataToReturn);
 
         if (!validatedFields.success) {
             console.error("Site Settings Validation Errors:", validatedFields.error.flatten().fieldErrors);
-            return { success: false, message: "Validation failed for site settings.", errors: validatedFields.error.flatten().fieldErrors };
+            return { 
+                success: false, 
+                message: "Validation failed for site settings.", 
+                errors: validatedFields.error.flatten().fieldErrors,
+                rawData: rawDataToReturn 
+            };
         }
 
-        const { events_widget_enabled, events_widget_position, events_widget_detail_level, events_widget_item_count } = validatedFields.data;
+        const { events_widget_enabled, events_widget_position, events_widget_detail_level, events_widget_item_count, events_widget_title } = validatedFields.data;
 
         await dbUpdateSiteSetting('events_widget_enabled', String(events_widget_enabled));
         await dbUpdateSiteSetting('events_widget_position', events_widget_position);
         await dbUpdateSiteSetting('events_widget_detail_level', events_widget_detail_level);
         await dbUpdateSiteSetting('events_widget_item_count', String(events_widget_item_count));
+        await dbUpdateSiteSetting('events_widget_title', events_widget_title || "Upcoming Events & Webinars");
+
 
         revalidatePath('/admin/site-settings');
         revalidatePath('/'); // Revalidate homepage to reflect widget changes
@@ -234,6 +244,10 @@ export async function updateSiteSettingsAction(prevState: ActionResponse | undef
 
     } catch (error: any) {
         console.error("Update Site Settings Error:", error);
-        return { success: false, message: error.message || "Failed to update site settings." };
+        return { 
+            success: false, 
+            message: error.message || "Failed to update site settings.",
+            rawData: rawDataToReturn 
+        };
     }
 }
