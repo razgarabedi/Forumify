@@ -200,6 +200,7 @@ const SiteSettingsSchema = z.object({
     events_widget_enabled: z.preprocess((val) => val === 'true', z.boolean()),
     events_widget_position: z.enum(['above_categories', 'below_categories'] as [EventWidgetPosition, ...EventWidgetPosition[]]),
     events_widget_detail_level: z.enum(['full', 'compact'] as [EventWidgetDetailLevel, ...EventWidgetDetailLevel[]]),
+    events_widget_item_count: z.coerce.number().int().min(1, "Must show at least 1 item.").max(10, "Cannot show more than 10 items."),
 });
 
 export async function updateSiteSettingsAction(prevState: ActionResponse | undefined, formData: FormData): Promise<ActionResponse> {
@@ -207,9 +208,10 @@ export async function updateSiteSettingsAction(prevState: ActionResponse | undef
         await checkAdmin();
 
         const rawData = {
-            events_widget_enabled: formData.get('events_widget_enabled') ?? 'false', // Default to 'false' if not present (switch unchecked)
+            events_widget_enabled: formData.get('events_widget_enabled') ?? 'false',
             events_widget_position: formData.get('events_widget_position'),
             events_widget_detail_level: formData.get('events_widget_detail_level'),
+            events_widget_item_count: formData.get('events_widget_item_count'),
         };
 
         const validatedFields = SiteSettingsSchema.safeParse(rawData);
@@ -219,11 +221,12 @@ export async function updateSiteSettingsAction(prevState: ActionResponse | undef
             return { success: false, message: "Validation failed for site settings.", errors: validatedFields.error.flatten().fieldErrors };
         }
 
-        const { events_widget_enabled, events_widget_position, events_widget_detail_level } = validatedFields.data;
+        const { events_widget_enabled, events_widget_position, events_widget_detail_level, events_widget_item_count } = validatedFields.data;
 
         await dbUpdateSiteSetting('events_widget_enabled', String(events_widget_enabled));
         await dbUpdateSiteSetting('events_widget_position', events_widget_position);
         await dbUpdateSiteSetting('events_widget_detail_level', events_widget_detail_level);
+        await dbUpdateSiteSetting('events_widget_item_count', String(events_widget_item_count));
 
         revalidatePath('/admin/site-settings');
         revalidatePath('/'); // Revalidate homepage to reflect widget changes

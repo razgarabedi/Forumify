@@ -17,20 +17,21 @@ export default async function Home() {
   let siteSettings;
 
   try {
+    siteSettings = await getAllSiteSettings(); // Fetch site settings first
     // Fetch all data in parallel
-    [categories, upcomingEvents, siteSettings] = await Promise.all([
+    [categories, upcomingEvents] = await Promise.all([
       getCategories(),
-      getEvents(3), // Fetch, for example, the next 3 events for the widget
-      getAllSiteSettings(),
+      getEvents(siteSettings.events_widget_item_count), // Use item count from settings
     ]);
   } catch (error: any) {
     pageError = "An unexpected error occurred while loading forum data. Please check server logs or try again later.";
     console.error("Error loading data on homepage:", error);
     // Fallback for site settings if fetch fails, so page can render
     siteSettings = {
-        events_widget_enabled: true, // Default to enabled
+        events_widget_enabled: true, 
         events_widget_position: 'above_categories',
         events_widget_detail_level: 'full',
+        events_widget_item_count: 3,
     };
   }
 

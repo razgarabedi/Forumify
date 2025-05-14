@@ -12,10 +12,11 @@ let notifications: Notification[] = [];
 let conversations: Conversation[] = [];
 let privateMessages: PrivateMessage[] = [];
 let events: EventDetails[] = [];
-let siteSettings: Partial<SiteSettings> = { // Use Partial to allow individual settings
+let siteSettings: Partial<SiteSettings> = {
     events_widget_enabled: true,
     events_widget_position: 'above_categories',
     events_widget_detail_level: 'full',
+    events_widget_item_count: 3,
 };
 
 
@@ -675,25 +676,25 @@ export const getAllSiteSettings = async (): Promise<SiteSettings> => {
         events_widget_enabled: true,
         events_widget_position: 'above_categories',
         events_widget_detail_level: 'full',
+        events_widget_item_count: 3,
     };
-    // Ensure that the value from siteSettings (which might be string "true" or "false" after update)
-    // is correctly converted to a boolean.
     const enabledSetting = siteSettings.events_widget_enabled;
-    const isEnabledBoolean = enabledSetting !== undefined 
-        ? String(enabledSetting) === 'true' 
+    const isEnabledBoolean = enabledSetting !== undefined
+        ? String(enabledSetting) === 'true'
         : defaults.events_widget_enabled;
 
     return {
         events_widget_enabled: isEnabledBoolean,
         events_widget_position: (siteSettings.events_widget_position as EventWidgetPosition) || defaults.events_widget_position,
         events_widget_detail_level: (siteSettings.events_widget_detail_level as EventWidgetDetailLevel) || defaults.events_widget_detail_level,
+        events_widget_item_count: siteSettings.events_widget_item_count || defaults.events_widget_item_count,
     };
 };
 
 
 export const updateSiteSetting = async (key: keyof SiteSettings, value: any): Promise<void> => {
     await new Promise(resolve => setTimeout(resolve, 10));
-    (siteSettings as any)[key] = value; 
+    (siteSettings as any)[key] = value;
 };
 
 
@@ -733,13 +734,6 @@ export const initializePlaceholderData = () => {
             { id: 'event1-placeholder', title: 'Community Meetup (Placeholder)', type: 'event', date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), time: '18:00', description: 'Join us for a virtual community meetup!', link: '#', createdAt: new Date() },
             { id: 'event2-placeholder', title: 'Next.js Webinar (Placeholder)', type: 'webinar', date: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), time: '10:00', description: 'Learn about the latest Next.js features.', link: '#', createdAt: new Date() },
         ];
-
-        // siteSettings initialized at the top of the file
-        // siteSettings = {
-        //     events_widget_enabled: true,
-        //     events_widget_position: 'above_categories',
-        //     events_widget_detail_level: 'full',
-        // };
 
         console.log("Placeholder data initialized with defaults.");
     }

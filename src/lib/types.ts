@@ -155,4 +155,5 @@ export type SiteSettings = {
   events_widget_enabled: boolean;
   events_widget_position: EventWidgetPosition;
   events_widget_detail_level: EventWidgetDetailLevel;
+  events_widget_item_count: number; // New setting for item count
 };

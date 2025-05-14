@@ -1222,16 +1222,17 @@ export const getAllSiteSettings = async (): Promise<SiteSettings> => {
         events_widget_enabled: true,
         events_widget_position: 'above_categories',
         events_widget_detail_level: 'full',
+        events_widget_item_count: 3,
     };
 
     if (!isDbAvailable()) {
         console.warn("[DB Fallback] getAllSiteSettings: Using placeholder data with defaults.");
         const placeholderSettings = await placeholder.getAllSiteSettings();
-        // Ensure all keys exist, falling back to defaults if not in placeholder
         return {
             events_widget_enabled: placeholderSettings.events_widget_enabled !== undefined ? placeholderSettings.events_widget_enabled : defaults.events_widget_enabled,
             events_widget_position: placeholderSettings.events_widget_position || defaults.events_widget_position,
             events_widget_detail_level: placeholderSettings.events_widget_detail_level || defaults.events_widget_detail_level,
+            events_widget_item_count: placeholderSettings.events_widget_item_count || defaults.events_widget_item_count,
         };
     }
 
@@ -1246,6 +1247,7 @@ export const getAllSiteSettings = async (): Promise<SiteSettings> => {
             events_widget_enabled: settingsMap.events_widget_enabled !== undefined ? settingsMap.events_widget_enabled === 'true' : defaults.events_widget_enabled,
             events_widget_position: (settingsMap.events_widget_position as EventWidgetPosition) || defaults.events_widget_position,
             events_widget_detail_level: (settingsMap.events_widget_detail_level as EventWidgetDetailLevel) || defaults.events_widget_detail_level,
+            events_widget_item_count: settingsMap.events_widget_item_count !== undefined ? parseInt(settingsMap.events_widget_item_count, 10) : defaults.events_widget_item_count,
         };
     } catch (error: any) {
         console.error("[DB Error] getAllSiteSettings: Error querying database. Falling back to defaults.", error.message);
@@ -1292,13 +1294,14 @@ async function initializeDatabase() {
     await client.query('COMMIT');
     console.log("Database tables checked/created successfully.");
 
-    // Default site settings if not present
-    const defaultSettings: Partial<SiteSettings> = {
-        events_widget_enabled: true,
-        events_widget_position: 'above_categories',
-        events_widget_detail_level: 'full',
-    };
-    for (const [key, value] of Object.entries(defaultSettings)) {
+    const defaultSettingsEntries: [keyof SiteSettings, SiteSettings[keyof SiteSettings]][] = [
+        ['events_widget_enabled', true],
+        ['events_widget_position', 'above_categories'],
+        ['events_widget_detail_level', 'full'],
+        ['events_widget_item_count', 3],
+    ];
+
+    for (const [key, value] of defaultSettingsEntries) {
         const checkSetting = await client.query('SELECT value FROM site_settings WHERE key = $1', [key]);
         if (checkSetting.rows.length === 0) {
             await client.query('INSERT INTO site_settings (key, value) VALUES ($1, $2)', [key, String(value)]);

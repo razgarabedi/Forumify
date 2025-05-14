@@ -5,6 +5,7 @@ import { useActionState, useEffect, useRef } from 'react';
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { updateSiteSettingsAction } from '@/lib/actions/admin';
 import { useToast } from "@/hooks/use-toast";
@@ -65,7 +66,7 @@ export function SiteSettingsForm({ initialSettings }: SiteSettingsFormProps) {
                 name="events_widget_enabled"
                 defaultChecked={initialSettings.events_widget_enabled}
                 disabled={isPending}
-                value="true" // This ensures 'true' is sent when checked
+                value="true"
               />
             </div>
             {state?.errors?.events_widget_enabled && <p className="text-sm font-medium text-destructive">{state.errors.events_widget_enabled[0]}</p>}
@@ -96,6 +97,22 @@ export function SiteSettingsForm({ initialSettings }: SiteSettingsFormProps) {
                 </SelectContent>
               </Select>
               {state?.errors?.events_widget_detail_level && <p className="text-sm font-medium text-destructive">{state.errors.events_widget_detail_level[0]}</p>}
+            </div>
+
+            <div className="space-y-2">
+                <Label htmlFor="events_widget_item_count">Number of Events to Display</Label>
+                <Input
+                    id="events_widget_item_count"
+                    name="events_widget_item_count"
+                    type="number"
+                    min="1"
+                    max="10"
+                    defaultValue={initialSettings.events_widget_item_count}
+                    disabled={isPending}
+                    className="w-24"
+                    aria-describedby="item-count-error"
+                />
+                {state?.errors?.events_widget_item_count && <p id="item-count-error" className="text-sm font-medium text-destructive">{state.errors.events_widget_item_count[0]}</p>}
             </div>
           </div>
           {/* Add other site settings sections here */}
