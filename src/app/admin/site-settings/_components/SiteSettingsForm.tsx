@@ -29,11 +29,17 @@ export function SiteSettingsForm({ initialSettings }: SiteSettingsFormProps) {
   const formRef = useRef<HTMLFormElement>(null);
 
   useEffect(() => {
-    if (state?.message) {
+    if (state?.message || state?.errors) {
       if (state.success) {
         toast({ title: "Success", description: state.message });
       } else {
-        toast({ variant: "destructive", title: "Error", description: state.message || "An error occurred." });
+        let description = state.message || "An error occurred.";
+        if (state.errors && Object.keys(state.errors).length > 0) {
+            // @ts-ignore
+            const errorMessages = Object.entries(state.errors).map(([key, value]) => `${key}: ${Array.isArray(value) ? value.join(', ') : value}`).join('; ');
+            description = `Validation failed: ${errorMessages || 'Please check your inputs.'}`;
+        }
+        toast({ variant: "destructive", title: "Error updating settings", description });
       }
     }
   }, [state, toast]);
@@ -69,7 +75,7 @@ export function SiteSettingsForm({ initialSettings }: SiteSettingsFormProps) {
                 value="true"
               />
             </div>
-            {state?.errors?.events_widget_enabled && <p className="text-sm font-medium text-destructive">{state.errors.events_widget_enabled[0]}</p>}
+            {state?.errors?.events_widget_enabled && <p className="text-sm font-medium text-destructive">{typeof state.errors.events_widget_enabled === 'string' ? state.errors.events_widget_enabled : state.errors.events_widget_enabled?.[0]}</p>}
 
             <div className="space-y-2">
               <Label htmlFor="events_widget_position">Widget Position on Homepage</Label>
@@ -82,7 +88,7 @@ export function SiteSettingsForm({ initialSettings }: SiteSettingsFormProps) {
                   <SelectItem value="below_categories">Below Categories</SelectItem>
                 </SelectContent>
               </Select>
-              {state?.errors?.events_widget_position && <p className="text-sm font-medium text-destructive">{state.errors.events_widget_position[0]}</p>}
+              {state?.errors?.events_widget_position && <p className="text-sm font-medium text-destructive">{typeof state.errors.events_widget_position === 'string' ? state.errors.events_widget_position : state.errors.events_widget_position?.[0]}</p>}
             </div>
 
             <div className="space-y-2">
@@ -96,7 +102,7 @@ export function SiteSettingsForm({ initialSettings }: SiteSettingsFormProps) {
                   <SelectItem value="compact">Compact View</SelectItem>
                 </SelectContent>
               </Select>
-              {state?.errors?.events_widget_detail_level && <p className="text-sm font-medium text-destructive">{state.errors.events_widget_detail_level[0]}</p>}
+              {state?.errors?.events_widget_detail_level && <p className="text-sm font-medium text-destructive">{typeof state.errors.events_widget_detail_level === 'string' ? state.errors.events_widget_detail_level : state.errors.events_widget_detail_level?.[0]}</p>}
             </div>
 
             <div className="space-y-2">
@@ -107,12 +113,26 @@ export function SiteSettingsForm({ initialSettings }: SiteSettingsFormProps) {
                     type="number"
                     min="1"
                     max="10"
-                    defaultValue={initialSettings.events_widget_item_count}
+                    defaultValue={String(initialSettings.events_widget_item_count)}
                     disabled={isPending}
                     className="w-24"
                     aria-describedby="item-count-error"
                 />
-                {state?.errors?.events_widget_item_count && <p id="item-count-error" className="text-sm font-medium text-destructive">{state.errors.events_widget_item_count[0]}</p>}
+                {state?.errors?.events_widget_item_count && <p id="item-count-error" className="text-sm font-medium text-destructive">{typeof state.errors.events_widget_item_count === 'string' ? state.errors.events_widget_item_count : state.errors.events_widget_item_count?.[0]}</p>}
+            </div>
+
+            <div className="space-y-2">
+                <Label htmlFor="events_widget_title">Widget Title</Label>
+                <Input
+                    id="events_widget_title"
+                    name="events_widget_title"
+                    type="text"
+                    maxLength={100}
+                    defaultValue={initialSettings.events_widget_title || "Upcoming Events & Webinars"}
+                    disabled={isPending}
+                    aria-describedby="title-error"
+                />
+                {state?.errors?.events_widget_title && <p id="title-error" className="text-sm font-medium text-destructive">{typeof state.errors.events_widget_title === 'string' ? state.errors.events_widget_title : state.errors.events_widget_title?.[0]}</p>}
             </div>
           </div>
           {/* Add other site settings sections here */}
