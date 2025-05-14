@@ -21,7 +21,7 @@ const initialActionState: ActionResponse = {
     message: '',
     errors: {},
     success: false,
-    rawData: null, // Initialize rawData field
+    rawData: null,
 };
 
 // Helper type for raw form data expected from action state
@@ -42,29 +42,27 @@ export function SiteSettingsForm({ initialSettings }: SiteSettingsFormProps) {
   const currentRawData = state?.rawData as RawSiteSettingsData | undefined;
 
   useEffect(() => {
-    if (state?.message || state?.errors) {
-      if (state.success) {
-        toast({ title: "Success", description: state.message });
-        // After successful submission, form will re-render with new initialSettings
-        // due to revalidatePath in the action. No need to formRef.current?.reset();
-      } else {
-        let description = state.message || "An error occurred.";
-        if (state.errors && Object.keys(state.errors).length > 0) {
-            const errorMessages = Object.entries(state.errors).map(([key, value]) => `${key}: ${Array.isArray(value) ? value.join(', ') : value}`).join('; ');
-            description = `Validation failed: ${errorMessages || 'Please check your inputs.'}`;
-        }
-        toast({ variant: "destructive", title: "Error updating settings", description });
+    const hasMeaningfulMessage = state.message && state.message !== '';
+    const hasMeaningfulErrors = state.errors && Object.keys(state.errors).length > 0;
+
+    if (state.success && hasMeaningfulMessage) {
+      toast({ title: "Success", description: state.message });
+      // Form will re-render with new initialSettings due to revalidatePath
+    } else if (!state.success && (hasMeaningfulMessage || hasMeaningfulErrors)) {
+      let description = state.message || "An error occurred.";
+      if (hasMeaningfulErrors && state.errors) {
+          const errorMessages = Object.entries(state.errors).map(([key, value]) => `${key}: ${Array.isArray(value) ? value.join(', ') : value}`).join('; ');
+          description = `Validation failed: ${errorMessages || 'Please check your inputs.'}`;
       }
+      toast({ variant: "destructive", title: "Error updating settings", description });
     }
   }, [state, toast]);
   
 
   const getSwitchDefaultChecked = () => {
-    // If there's state from a failed submission (indicated by state.errors) and rawData for this field is available
     if (state.errors && currentRawData?.events_widget_enabled !== undefined && currentRawData?.events_widget_enabled !== null) {
       return String(currentRawData.events_widget_enabled).toLowerCase() === 'true';
     }
-    // Otherwise, use the initial settings (either from successful load or after successful save)
     return initialSettings.events_widget_enabled;
   };
 
@@ -123,7 +121,7 @@ export function SiteSettingsForm({ initialSettings }: SiteSettingsFormProps) {
               <Switch
                 id="events_widget_enabled"
                 name="events_widget_enabled"
-                key={`switch-${getSwitchDefaultChecked()}`} // Force re-render if value changes externally
+                key={`switch-${getSwitchDefaultChecked()}`} 
                 defaultChecked={getSwitchDefaultChecked()}
                 disabled={isPending}
                 value="true" 
