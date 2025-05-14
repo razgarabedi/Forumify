@@ -1,30 +1,26 @@
 
-import type { User, Category, Topic, Post, Notification, Conversation, PrivateMessage, Reaction, ReactionType, CategoryLastPostInfo } from './types';
+import type { User, Category, Topic, Post, Notification, Conversation, PrivateMessage, Reaction, ReactionType, CategoryLastPostInfo, EventDetails, EventType, SiteSettings, EventWidgetPosition, EventWidgetDetailLevel } from './types';
 import { v4 as uuidv4 } from 'uuid'; // For generating unique IDs in placeholder
+import { cookies } from 'next/headers'; // Import cookies for dynamic rendering signal
 
-// Placeholder Users - Reset to empty, will be populated if DB init fails or not used
+
 let users: User[] = [];
-
-// Placeholder Categories
 let categories: Omit<Category, 'topicCount' | 'postCount' | 'lastPost'>[] = [];
-
-// Placeholder Topics
 let topics: Topic[] = [];
-
-// Placeholder Posts
 let posts: Post[] = [];
-
-// Placeholder Notifications
 let notifications: Notification[] = [];
-
-// Placeholder Private Messages & Conversations
 let conversations: Conversation[] = [];
 let privateMessages: PrivateMessage[] = [];
+let events: EventDetails[] = [];
+let siteSettings: Partial<SiteSettings> = { // Use Partial to allow individual settings
+    events_widget_enabled: true,
+    events_widget_position: 'above_categories',
+    events_widget_detail_level: 'full',
+};
 
 
-// --- Points Calculation ---
 export const calculateUserPoints = async (postAuthorId: string): Promise<number> => {
-    await new Promise(resolve => setTimeout(resolve, 5)); 
+    await new Promise(resolve => setTimeout(resolve, 5));
     let totalPoints = 0;
     const authorPosts = posts.filter(p => p.authorId === postAuthorId);
 
@@ -53,8 +49,6 @@ export const calculateUserPoints = async (postAuthorId: string): Promise<number>
     return totalPoints;
 };
 
-
-// --- Simulation Functions ---
 
 export const getAllUsers = async (): Promise<User[]> => {
     await new Promise(resolve => setTimeout(resolve, 10));
@@ -177,7 +171,7 @@ export const setUserAdminStatus = async (userId: string, isAdmin: boolean): Prom
     await new Promise(resolve => setTimeout(resolve, 50));
     const userIndex = users.findIndex(u => u.id === userId);
     if (userIndex === -1) return null;
-    
+
     users[userIndex].isAdmin = isAdmin;
     users[userIndex].lastActive = new Date();
     const postCount = await getUserPostCount(userId);
@@ -193,8 +187,9 @@ export const deleteUser = async (userId: string): Promise<boolean> => {
     if (users.length < initialLength) {
         conversations = conversations.filter(c => !c.participantIds.includes(userId));
         privateMessages = privateMessages.filter(pm => pm.senderId !== userId && !conversations.find(c => c.id === pm.conversationId && c.participantIds.includes(userId)));
-        posts.forEach(p => { if (p.authorId === userId) p.authorId = 'deleted_user'; }); 
+        posts.forEach(p => { if (p.authorId === userId) p.authorId = 'deleted_user'; });
         notifications = notifications.filter(n => n.senderId !== userId && n.recipientUserId !== userId);
+        events = events.filter(_ => true); // Assuming events are not user-specific for now
         return true;
     }
     return false;
@@ -209,7 +204,7 @@ export const getCategories = async (): Promise<Category[]> => {
       const topicCount = categoryTopics.length;
       let postCount = 0;
       let lastPost: CategoryLastPostInfo | null = null;
-      
+
       if (categoryTopics.length > 0) {
         const categoryPosts = posts.filter(p => categoryTopics.some(ct => ct.id === p.topicId));
         postCount = categoryPosts.length;
@@ -246,7 +241,7 @@ export const getCategoryById = async (id: string): Promise<Category | null> => {
     const topicCount = categoryTopics.length;
     let postCount = 0;
     let lastPost: CategoryLastPostInfo | null = null;
-    
+
     if (categoryTopics.length > 0) {
       const categoryPosts = posts.filter(p => categoryTopics.some(ct => ct.id === p.topicId));
       postCount = categoryPosts.length;
@@ -345,20 +340,20 @@ export const createTopic = async (topicData: CreateTopicParams): Promise<Topic> 
         authorId: topicData.authorId,
         createdAt: now,
         lastActivity: now,
-        postCount: 0, 
+        postCount: 0,
     };
     topics.push(newTopicData);
     await updateUserLastActive(topicData.authorId);
 
-    await createPost({ 
+    await createPost({
         content: topicData.firstPostContent,
         topicId: newTopicData.id,
         authorId: topicData.authorId,
         imageUrl: topicData.firstPostImageUrl,
     });
-    
+
     const finalTopic = await getTopicById(newTopicData.id);
-    return finalTopic || { ...newTopicData, postCount: 1, createdAt: new Date(newTopicData.createdAt), lastActivity: new Date(newTopicData.lastActivity) }; 
+    return finalTopic || { ...newTopicData, postCount: 1, createdAt: new Date(newTopicData.createdAt), lastActivity: new Date(newTopicData.lastActivity) };
 }
 
 
@@ -367,7 +362,7 @@ export const getPostsByTopic = async (topicId: string): Promise<Post[]> => {
   const topicPosts = posts.filter(p => p.topicId === topicId).sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
   return Promise.all(topicPosts.map(async post => {
     const author = await findUserById(post.authorId);
-    const topic = await getTopicByIdSimple(post.topicId); 
+    const topic = await getTopicByIdSimple(post.topicId);
     return { ...post, author, topic: topic ?? undefined, reactions: post.reactions || [], createdAt: new Date(post.createdAt), updatedAt: post.updatedAt ? new Date(post.updatedAt) : undefined };
   }));
 };
@@ -417,7 +412,7 @@ export const updatePost = async (postId: string, content: string, userId: string
     const canModify = user?.isAdmin || post.authorId === userId;
 
     if (!canModify) return null;
-    
+
     await updateUserLastActive(userId);
     post.content = content;
     if (imageUrl === null) delete post.imageUrl;
@@ -437,7 +432,7 @@ export const deletePost = async (postId: string, userId: string, isAdmin: boolea
     const postToDelete = posts[postIndex];
     const canDelete = isAdmin || postToDelete.authorId === userId;
      if (!canDelete) return false;
-    
+
     await updateUserLastActive(userId);
     const deletedPost = posts.splice(postIndex, 1)[0];
     notifications = notifications.filter(n => n.postId !== postId);
@@ -445,6 +440,7 @@ export const deletePost = async (postId: string, userId: string, isAdmin: boolea
     if (topicIndex !== -1) {
         topics[topicIndex].postCount = Math.max(0, (topics[topicIndex].postCount || 1) - 1);
     }
+    if (deletedPost.authorId && deletedPost.authorId !== 'deleted_user') await calculateUserPoints(deletedPost.authorId);
     return true;
 };
 
@@ -467,11 +463,11 @@ export const togglePostReaction = async (postId: string, userId: string, usernam
   } else {
     post.reactions.push({ userId, username, type: reactionType });
   }
-  
-  await updateUserLastActive(userId);
-  await calculateUserPoints(post.authorId); 
 
-  const author = await findUserById(post.authorId); 
+  await updateUserLastActive(userId);
+  await calculateUserPoints(post.authorId);
+
+  const author = await findUserById(post.authorId);
   const topic = await getTopicByIdSimple(post.topicId);
   return { ...post, author: author ?? undefined, topic: topic ?? undefined, reactions: [...post.reactions], createdAt: new Date(post.createdAt), updatedAt: post.updatedAt ? new Date(post.updatedAt) : undefined };
 };
@@ -500,7 +496,7 @@ export const getNotificationsByUserId = async (userId: string): Promise<Notifica
     return notifications
         .filter(n => n.recipientUserId === userId)
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-        .map(n => ({ ...n, createdAt: new Date(n.createdAt) })); 
+        .map(n => ({ ...n, createdAt: new Date(n.createdAt) }));
 };
 
 export const getUnreadNotificationCount = async (userId: string): Promise<number> => {
@@ -554,7 +550,7 @@ export const getOrCreateConversation = async (userId1: string, userId2: string, 
             participantIds: [userId1, userId2].sort(),
             subject: subject,
             createdAt: now,
-            lastMessageAt: now, 
+            lastMessageAt: now,
         };
         conversations.push(conversation);
     }
@@ -563,7 +559,7 @@ export const getOrCreateConversation = async (userId1: string, userId2: string, 
 
 export const sendPrivateMessage = async (senderId: string, receiverId: string, content: string, subject?: string): Promise<PrivateMessage> => {
     await new Promise(resolve => setTimeout(resolve, 50));
-    const conversation = await getOrCreateConversation(senderId, receiverId, subject); 
+    const conversation = await getOrCreateConversation(senderId, receiverId, subject);
     const now = new Date();
     const newMessage: PrivateMessage = {
         id: uuidv4(),
@@ -571,7 +567,7 @@ export const sendPrivateMessage = async (senderId: string, receiverId: string, c
         senderId,
         content,
         createdAt: now,
-        readBy: [senderId], 
+        readBy: [senderId],
     };
     privateMessages.push(newMessage);
     const convIndex = conversations.findIndex(c => c.id === conversation.id);
@@ -629,11 +625,76 @@ export const getConversationById = async (conversationId: string): Promise<Conve
     return conversation ? { ...conversation, createdAt: new Date(conversation.createdAt), lastMessageAt: new Date(conversation.lastMessageAt) } : null;
 };
 
+// --- Event Functions (Placeholder) ---
+export const createEvent = async (eventData: Omit<EventDetails, 'id' | 'createdAt'>): Promise<EventDetails> => {
+    await new Promise(resolve => setTimeout(resolve, 50));
+    const newEvent: EventDetails = {
+        id: uuidv4(),
+        ...eventData,
+        createdAt: new Date(),
+    };
+    events.push(newEvent);
+    return { ...newEvent, date: new Date(newEvent.date), createdAt: new Date(newEvent.createdAt) };
+};
+
+export const getEvents = async (limit?: number): Promise<EventDetails[]> => {
+    await new Promise(resolve => setTimeout(resolve, 20));
+    const sortedEvents = events
+        .filter(event => new Date(event.date) >= new Date(new Date().toDateString())) // Filter for today or future
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime() || a.time.localeCompare(b.time));
+    const results = limit ? sortedEvents.slice(0, limit) : sortedEvents;
+    return results.map(e => ({ ...e, date: new Date(e.date), createdAt: new Date(e.createdAt) }));
+};
+
+export const getEventById = async (id: string): Promise<EventDetails | null> => {
+    await new Promise(resolve => setTimeout(resolve, 10));
+    const event = events.find(e => e.id === id);
+    return event ? { ...event, date: new Date(event.date), createdAt: new Date(event.createdAt) } : null;
+};
+
+export const updateEvent = async (eventId: string, eventData: Partial<Omit<EventDetails, 'id' | 'createdAt'>>): Promise<EventDetails | null> => {
+    await new Promise(resolve => setTimeout(resolve, 50));
+    const eventIndex = events.findIndex(e => e.id === eventId);
+    if (eventIndex === -1) return null;
+    events[eventIndex] = { ...events[eventIndex], ...eventData };
+    return { ...events[eventIndex], date: new Date(events[eventIndex].date), createdAt: new Date(events[eventIndex].createdAt) };
+};
+
+export const deleteEvent = async (eventId: string): Promise<boolean> => {
+    await new Promise(resolve => setTimeout(resolve, 50));
+    const initialLength = events.length;
+    events = events.filter(e => e.id !== eventId);
+    return events.length < initialLength;
+};
+
+// --- Site Settings Functions (Placeholder) ---
+export const getAllSiteSettings = async (): Promise<SiteSettings> => {
+    cookies(); // Signal dynamic rendering
+    await new Promise(resolve => setTimeout(resolve, 10));
+    // Return a full SiteSettings object, ensuring all keys are present with defaults
+    const defaults: SiteSettings = {
+        events_widget_enabled: true,
+        events_widget_position: 'above_categories',
+        events_widget_detail_level: 'full',
+    };
+    return {
+        events_widget_enabled: siteSettings.events_widget_enabled !== undefined ? siteSettings.events_widget_enabled : defaults.events_widget_enabled,
+        events_widget_position: siteSettings.events_widget_position || defaults.events_widget_position,
+        events_widget_detail_level: siteSettings.events_widget_detail_level || defaults.events_widget_detail_level,
+    };
+};
+
+export const updateSiteSetting = async (key: keyof SiteSettings, value: any): Promise<void> => {
+    await new Promise(resolve => setTimeout(resolve, 10));
+    (siteSettings as any)[key] = value; // Type assertion for dynamic key update
+    // Persist to localStorage or a simple store if needed for true placeholder persistence
+};
+
 
 export const initializePlaceholderData = () => {
     if (users.length === 0 && categories.length === 0) {
         console.warn("Placeholder data arrays are empty. Initializing with defaults.");
-        
+
         const adminUserPlaceholder: User = {
             id: 'admin-user-placeholder-fallback', username: "admin", email: "admin@forumlite.com",
             password: "password123", isAdmin: true, createdAt: new Date('2023-01-01T10:00:00Z'), lastActive: new Date(),
@@ -646,7 +707,7 @@ export const initializePlaceholderData = () => {
         const introCatData: Omit<Category, 'topicCount' | 'postCount' | 'lastPost'> = { id: 'cat2-placeholder-fallback', name: 'Introductions (Fallback)', description: 'Introduce yourself (fallback).', createdAt: new Date('2023-01-10T09:01:00Z') };
         const techCatData: Omit<Category, 'topicCount' | 'postCount' | 'lastPost'> = { id: 'cat3-placeholder-fallback', name: 'Tech Help (Fallback)', description: 'Get tech help (fallback).', createdAt: new Date('2023-01-10T09:02:00Z') };
         categories = [generalCatData, introCatData, techCatData];
-        
+
         const welcomeTopicPlaceholder: Topic = {
             id: 'topic1-placeholder-fallback', title: "Welcome to ForumLite (Fallback)", categoryId: generalCatData.id,
             authorId: adminUserPlaceholder.id, createdAt: new Date('2023-01-10T10:00:00Z'), lastActivity: new Date('2023-01-10T10:05:00Z'), postCount: 1,
@@ -661,11 +722,20 @@ export const initializePlaceholderData = () => {
             { id: 'post1-placeholder-fallback', content: "This is the first post in the fallback placeholder topic.", topicId: welcomeTopicPlaceholder.id, authorId: adminUserPlaceholder.id, createdAt: new Date('2023-01-10T10:00:00Z'), reactions: [] },
             { id: 'post2-placeholder-fallback', content: "Post your tech issues here (fallback).", topicId: techTopicPlaceholder.id, authorId: adminUserPlaceholder.id, createdAt: new Date('2023-01-11T11:00:00Z'), reactions: [] }
         ];
+
+         events = [
+            { id: 'event1-placeholder', title: 'Community Meetup (Placeholder)', type: 'event', date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), time: '18:00', description: 'Join us for a virtual community meetup!', link: '#', createdAt: new Date() },
+            { id: 'event2-placeholder', title: 'Next.js Webinar (Placeholder)', type: 'webinar', date: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), time: '10:00', description: 'Learn about the latest Next.js features.', link: '#', createdAt: new Date() },
+        ];
+
+        siteSettings = {
+            events_widget_enabled: true,
+            events_widget_position: 'above_categories',
+            events_widget_detail_level: 'full',
+        };
+
         console.log("Placeholder data initialized with defaults.");
     }
 };
 
-// Call initialization for placeholder data if this module is loaded.
-// This ensures data exists if db.ts determines it should use placeholders.
 initializePlaceholderData();
-

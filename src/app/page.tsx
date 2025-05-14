@@ -1,5 +1,5 @@
 
-import { getCategories } from '@/lib/db';
+import { getCategories, getEvents, getAllSiteSettings } from '@/lib/db';
 import type { Category } from '@/lib/types';
 import { CategoryList } from '@/components/forums/CategoryList';
 import { CategoryForm } from '@/components/forms/CategoryForm';
@@ -7,24 +7,44 @@ import { getCurrentUser } from '@/lib/actions/auth';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { LogIn, UserPlus, AlertTriangle } from 'lucide-react'; // Added AlertTriangle
+import { LogIn, UserPlus, AlertTriangle } from 'lucide-react';
+import { EventsWidget } from '@/components/widgets/EventsWidget'; // Import the widget
 
 export default async function Home() {
   let categories: Category[] = [];
-  let pageError: string | null = null; // Changed from dbError to pageError for clarity
+  let pageError: string | null = null;
+  let upcomingEvents = [];
+  let siteSettings;
 
   try {
-    categories = await getCategories();
-    // If getCategories falls back to placeholder data, it will log warnings in db.ts
-    // but won't throw an error here unless placeholder.getCategories itself throws.
+    // Fetch all data in parallel
+    [categories, upcomingEvents, siteSettings] = await Promise.all([
+      getCategories(),
+      getEvents(3), // Fetch, for example, the next 3 events for the widget
+      getAllSiteSettings(),
+    ]);
   } catch (error: any) {
-    // This catch block would now primarily catch errors from placeholder.getCategories,
-    // or truly unexpected errors from the db.ts wrapper if its try/catch fails.
-    pageError = "An unexpected error occurred while loading forum categories. Please check server logs or try again later.";
-    console.error("Error loading categories on homepage:", error);
+    pageError = "An unexpected error occurred while loading forum data. Please check server logs or try again later.";
+    console.error("Error loading data on homepage:", error);
+    // Fallback for site settings if fetch fails, so page can render
+    siteSettings = {
+        events_widget_enabled: true, // Default to enabled
+        events_widget_position: 'above_categories',
+        events_widget_detail_level: 'full',
+    };
   }
 
   const user = await getCurrentUser();
+  const eventsWidgetEnabled = siteSettings.events_widget_enabled;
+  const eventsWidgetPosition = siteSettings.events_widget_position;
+  const eventsWidgetDetailLevel = siteSettings.events_widget_detail_level;
+
+  const renderEventsWidget = () => {
+    if (eventsWidgetEnabled && upcomingEvents.length > 0) {
+      return <EventsWidget events={upcomingEvents} detailLevel={eventsWidgetDetailLevel} />;
+    }
+    return null;
+  };
 
   return (
     <div className="space-y-8">
@@ -51,6 +71,8 @@ export default async function Home() {
          )}
       </Card>
 
+      {eventsWidgetPosition === 'above_categories' && renderEventsWidget()}
+
       {user?.isAdmin && !pageError && <CategoryForm />}
 
       <div>
@@ -71,7 +93,8 @@ export default async function Home() {
           <CategoryList categories={categories} />
         )}
       </div>
+
+      {eventsWidgetPosition === 'below_categories' && renderEventsWidget()}
     </div>
   );
 }
-

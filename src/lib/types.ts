@@ -1,3 +1,4 @@
+
 export type User = {
   id: string;
   username: string;
@@ -31,8 +32,8 @@ export type Category = {
   name: string;
   description?: string;
   createdAt: Date;
-  topicCount: number; 
-  postCount: number;  
+  topicCount: number;
+  postCount: number;
   lastPost?: CategoryLastPostInfo | null;
 };
 
@@ -52,7 +53,7 @@ export type ReactionType = 'like' | 'love' | 'haha' | 'wow' | 'sad' | 'angry';
 
 export type Reaction = {
   userId: string;
-  username: string; 
+  username: string;
   type: ReactionType;
 };
 
@@ -132,3 +133,26 @@ export type PrivateMessageDisplay = PrivateMessage & {
   isOwnMessage: boolean;
 };
 
+// --- Event & Webinar Types ---
+export type EventType = 'event' | 'webinar';
+
+export type EventDetails = {
+  id: string;
+  title: string;
+  type: EventType;
+  date: Date;
+  time: string; // e.g., "14:00"
+  description?: string;
+  link?: string; // URL for the event/webinar
+  createdAt: Date;
+};
+
+// --- Site Settings Types ---
+export type EventWidgetPosition = 'above_categories' | 'below_categories';
+export type EventWidgetDetailLevel = 'full' | 'compact';
+
+export type SiteSettings = {
+  events_widget_enabled: boolean;
+  events_widget_position: EventWidgetPosition;
+  events_widget_detail_level: EventWidgetDetailLevel;
+};

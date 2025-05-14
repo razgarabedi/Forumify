@@ -1,9 +1,10 @@
 
 // src/lib/db.ts
 import { Pool } from 'pg';
-import type { User, Category, Topic, Post, Notification, Conversation, PrivateMessage, Reaction, ReactionType, CategoryLastPostInfo } from './types';
+import type { User, Category, Topic, Post, Notification, Conversation, PrivateMessage, Reaction, ReactionType, CategoryLastPostInfo, EventDetails, EventType, SiteSettings, EventWidgetPosition, EventWidgetDetailLevel } from './types';
 import { v4 as uuidv4 } from 'uuid'; // For generating unique IDs
 import * as placeholder from './placeholder-data'; // Import placeholder data functions
+import { cookies } from 'next/headers'; // Import cookies for dynamic rendering signal
 
 let pool: Pool | undefined = undefined;
 
@@ -14,13 +15,11 @@ if (process.env.DATABASE_URL) {
     try {
       pool = new Pool({
         connectionString: process.env.DATABASE_URL,
-        // Add SSL configuration for production if needed, e.g.
-        // ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : undefined,
       });
       console.log("Database pool configured using DATABASE_URL.");
     } catch (e: any) {
       console.error(`CRITICAL: Error initializing database pool with DATABASE_URL. Check if the URL is correct and the database server is accessible. Error: ${e.message}`);
-      pool = undefined; // Ensure pool is undefined if initialization fails
+      pool = undefined;
     }
   }
 } else {
@@ -28,10 +27,8 @@ if (process.env.DATABASE_URL) {
   pool = undefined;
 }
 
-// Helper to check database availability
 const isDbAvailable = (): boolean => !!pool;
 
-// Export a query function
 export const query = (text: string, params?: any[]) => {
   if (!pool) {
     console.error("CRITICAL: Database query attempted but the connection pool is not initialized. This usually means the DATABASE_URL is missing, invalid, or the database server is not accessible. Please check server logs for earlier messages regarding DATABASE_URL configuration and ensure your database is running and configured correctly as per README.md.");
@@ -40,7 +37,6 @@ export const query = (text: string, params?: any[]) => {
   return pool.query(text, params);
 };
 
-// --- Points Calculation ---
 export const calculateUserPoints = async (userId: string): Promise<number> => {
     if (!isDbAvailable()) {
         console.warn(`[DB Fallback] calculateUserPoints for user ${userId}: Database pool not available. Using placeholder data.`);
@@ -76,15 +72,13 @@ export const calculateUserPoints = async (userId: string): Promise<number> => {
     }
 };
 
-
-// --- User Functions ---
 const mapDbRowToUser = async (row: any): Promise<User> => {
     return {
         id: row.id,
         username: row.username,
         email: row.email,
-        password: row.password_hash, // Map password_hash to password
-        isAdmin: row.is_admin,      // Explicitly map is_admin
+        password: row.password_hash,
+        isAdmin: row.is_admin,
         createdAt: new Date(row.created_at),
         aboutMe: row.about_me,
         location: row.location,
@@ -160,7 +154,7 @@ export const findUserByUsername = async (username: string): Promise<User | null>
 interface CreateUserParams {
     username: string;
     email: string;
-    password?: string; // Storing plain password, should be hashed
+    password?: string;
     isAdmin?: boolean;
     aboutMe?: string;
     location?: string;
@@ -179,8 +173,7 @@ export const createUser = async (userData: CreateUserParams): Promise<User> => {
   try {
     const userId = uuidv4();
     const now = new Date();
-    // In a real app, userData.password should be hashed here before storing
-    const passwordHash = userData.password; 
+    const passwordHash = userData.password;
 
     const result = await query(
       'INSERT INTO users (id, username, email, password_hash, is_admin, created_at, last_active, about_me, location, website_url, social_media_url, signature, avatar_url, points) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING *',
@@ -195,7 +188,7 @@ export const createUser = async (userData: CreateUserParams): Promise<User> => {
     return mapDbRowToUser(result.rows[0]);
   } catch (error: any) {
     console.error("[DB Error] createUser: Error querying database. Falling back to placeholder data (if applicable).", error.message);
-    return placeholder.createUser(userData); 
+    return placeholder.createUser(userData);
   }
 };
 
@@ -220,7 +213,7 @@ export const updateUserProfile = async (userId: string, profileData: Partial<Omi
 
 export const updateUserLastActive = async (userId: string): Promise<void> => {
     if (!isDbAvailable()) {
-        return placeholder.updateUserLastActive(userId); 
+        return placeholder.updateUserLastActive(userId);
     }
     try {
         await query('UPDATE users SET last_active = NOW() WHERE id = $1', [userId]);
@@ -240,11 +233,9 @@ export const updateUserPassword = async (userId: string, currentPasswordPlain: s
         if (userResult.rows.length === 0) {
             return { success: false, message: "User not found." };
         }
-        // IMPORTANT: This is plain text comparison. In production, use bcrypt.compare or similar.
         if (userResult.rows[0].password_hash !== currentPasswordPlain) {
             return { success: false, message: "Incorrect current password." };
         }
-        // IMPORTANT: In production, hash newPasswordPlain with bcrypt before storing.
         const newPasswordHash = newPasswordPlain;
         await query('UPDATE users SET password_hash = $1, last_active = NOW() WHERE id = $2', [newPasswordHash, userId]);
         return { success: true };
@@ -275,24 +266,25 @@ export const deleteUser = async (userId: string): Promise<boolean> => {
         return placeholder.deleteUser(userId);
     }
     if (!pool) throw new Error('Database pool not initialized.');
-    const client = await pool.connect(); 
+    const client = await pool.connect();
     try {
         await client.query('BEGIN');
         await client.query('UPDATE posts SET author_id = NULL WHERE author_id = $1', [userId]);
         await client.query('UPDATE topics SET author_id = NULL WHERE author_id = $1', [userId]);
         await client.query('DELETE FROM notifications WHERE sender_id = $1 OR recipient_user_id = $1', [userId]);
-        
+        await client.query('DELETE FROM events WHERE id IN (SELECT id FROM events WHERE TRUE)'); // Assuming events are not user-specific for now
+
         const userConversations = await client.query('SELECT id, participant_ids FROM conversations WHERE $1 = ANY(participant_ids)', [userId]);
         for (const convo of userConversations.rows) {
             const remainingParticipants = convo.participant_ids.filter((pId: string) => pId !== userId);
-            if (remainingParticipants.length < 2) { 
+            if (remainingParticipants.length < 2) {
                 await client.query('DELETE FROM private_messages WHERE conversation_id = $1', [convo.id]);
                 await client.query('DELETE FROM conversations WHERE id = $1', [convo.id]);
             } else {
                 await client.query('UPDATE conversations SET participant_ids = $1 WHERE id = $2', [remainingParticipants, convo.id]);
             }
         }
-         await client.query('DELETE FROM private_messages WHERE sender_id = $1', [userId]); // Messages sent BY the user might not be covered if they are not in participant_ids anymore
+         await client.query('DELETE FROM private_messages WHERE sender_id = $1', [userId]);
         await client.query('DELETE FROM reactions WHERE user_id = $1', [userId]);
         const result = await client.query('DELETE FROM users WHERE id = $1', [userId]);
         await client.query('COMMIT');
@@ -306,10 +298,9 @@ export const deleteUser = async (userId: string): Promise<boolean> => {
     }
 };
 
-// --- Category Functions ---
 const mapDbRowToCategory = async (row: any): Promise<Category> => {
     let lastPostInfo: CategoryLastPostInfo | null = null;
-    if (row.last_post_id) { // Check if last_post details exist
+    if (row.last_post_id) {
         lastPostInfo = {
             id: row.last_post_id,
             topicId: row.last_post_topic_id,
@@ -340,7 +331,7 @@ export const getCategories = async (): Promise<Category[]> => {
   }
   try {
     const queryText = `
-        SELECT 
+        SELECT
             c.id, c.name, c.description, c.created_at,
             COUNT(DISTINCT t.id) AS topic_count,
             COUNT(DISTINCT p.id) AS post_count,
@@ -372,7 +363,7 @@ export const getCategoryById = async (id: string): Promise<Category | null> => {
   }
   try {
     const queryText = `
-        SELECT 
+        SELECT
             c.id, c.name, c.description, c.created_at,
             COUNT(DISTINCT t.id) AS topic_count,
             COUNT(DISTINCT p.id) AS post_count,
@@ -383,10 +374,10 @@ export const getCategoryById = async (id: string): Promise<Category | null> => {
             (SELECT u_last.username FROM posts p_last JOIN topics t_last ON p_last.topic_id = t_last.id JOIN users u_last ON p_last.author_id = u_last.id WHERE t_last.category_id = c.id ORDER BY p_last.created_at DESC LIMIT 1) as last_post_author_username,
             (SELECT u_last.avatar_url FROM posts p_last JOIN topics t_last ON p_last.topic_id = t_last.id JOIN users u_last ON p_last.author_id = u_last.id WHERE t_last.category_id = c.id ORDER BY p_last.created_at DESC LIMIT 1) as last_post_author_avatar_url,
             (SELECT p_last.created_at FROM posts p_last JOIN topics t_last ON p_last.topic_id = t_last.id WHERE t_last.category_id = c.id ORDER BY p_last.created_at DESC LIMIT 1) as last_post_created_at
-        FROM categories c 
-        LEFT JOIN topics t ON c.id = t.category_id 
+        FROM categories c
+        LEFT JOIN topics t ON c.id = t.category_id
         LEFT JOIN posts p ON t.id = p.topic_id
-        WHERE c.id = $1 
+        WHERE c.id = $1
         GROUP BY c.id, c.name, c.description, c.created_at;
     `;
     const result = await query(queryText, [id]);
@@ -410,7 +401,7 @@ export const createCategory = async (categoryData: Pick<Category, 'name' | 'desc
       [categoryId, categoryData.name, categoryData.description]
     );
     const newDbCategory = result.rows[0];
-    return { // Manually construct to match Category type with counts
+    return {
         id: newDbCategory.id,
         name: newDbCategory.name,
         description: newDbCategory.description,
@@ -436,7 +427,7 @@ export const updateCategory = async (categoryId: string, data: { name: string; d
             [data.name, data.description, categoryId]
         );
         if (result.rows.length === 0) return null;
-        return getCategoryById(categoryId); 
+        return getCategoryById(categoryId);
     } catch (error: any) {
         console.error(`[DB Error] updateCategory for ${categoryId}: Error querying database. Fallback to placeholder.`, error.message);
         return placeholder.updateCategory(categoryId, data);
@@ -449,8 +440,6 @@ export const deleteCategory = async (categoryId: string): Promise<boolean> => {
         return placeholder.deleteCategory(categoryId);
     }
     try {
-        // ON DELETE CASCADE should handle topics and posts.
-        // Notifications and reactions related to posts in these topics will also be cascaded if foreign keys are set up correctly.
         const result = await query('DELETE FROM categories WHERE id = $1', [categoryId]);
         return result.rowCount > 0;
     } catch (error: any) {
@@ -461,7 +450,7 @@ export const deleteCategory = async (categoryId: string): Promise<boolean> => {
 
 const mapDbRowToTopic = async (row: any): Promise<Topic> => {
     let author: User | undefined = undefined;
-    if (row.author_id_fk) { // Check if author details are present from JOIN
+    if (row.author_id_fk) {
         author = {
             id: row.author_id_fk,
             username: row.author_username,
@@ -473,17 +462,17 @@ const mapDbRowToTopic = async (row: any): Promise<Topic> => {
             isAdmin: row.author_is_admin,
             location: row.author_location,
         };
-    } else if (row.author_id) { // Fallback if only author_id is present (e.g. getTopicsByCategory)
+    } else if (row.author_id) {
         author = await findUserById(row.author_id) ?? undefined;
     }
 
     let category: Category | undefined = undefined;
-    if (row.category_id_fk && row.category_name) { // Check if category details are present from JOIN
-         category = await getCategoryById(row.category_id_fk) ?? undefined; // Fetch full category
+    if (row.category_id_fk && row.category_name) {
+         category = await getCategoryById(row.category_id_fk) ?? undefined;
     } else if (row.category_id) {
         category = await getCategoryById(row.category_id) ?? undefined;
     }
-    
+
     return {
         id: row.id,
         title: row.title,
@@ -505,7 +494,7 @@ export const getTopicsByCategory = async (categoryId: string): Promise<Topic[]> 
     try {
         const result = await query(`
             SELECT t.id, t.title, t.category_id, t.author_id, t.created_at, t.last_activity,
-                   u.username as author_username, u.avatar_url as author_avatar_url, 
+                   u.username as author_username, u.avatar_url as author_avatar_url,
                    (SELECT COUNT(*) FROM posts p WHERE p.topic_id = t.id) as post_count
             FROM topics t
             LEFT JOIN users u ON t.author_id = u.id
@@ -552,7 +541,7 @@ export const getTopicByIdSimple = async (id: string): Promise<Pick<Topic, 'id' |
         const result = await query('SELECT id, title, category_id, author_id, created_at, last_activity FROM topics WHERE id = $1', [id]);
         if (result.rows.length === 0) return null;
         const row = result.rows[0];
-        return { 
+        return {
             id: row.id, title: row.title, categoryId: row.category_id, authorId: row.author_id,
             createdAt: new Date(row.created_at), lastActivity: new Date(row.last_activity)
         };
@@ -589,7 +578,7 @@ export const createTopic = async (topicData: CreateTopicParamsDB): Promise<Topic
         );
         await client.query('COMMIT');
         await updateUserLastActive(topicData.authorId);
-        const fullTopic = await getTopicById(newTopicDb.id); 
+        const fullTopic = await getTopicById(newTopicDb.id);
         if (!fullTopic) throw new Error("Failed to retrieve newly created topic with full details.");
         return fullTopic;
     } catch (error: any) {
@@ -604,9 +593,9 @@ export const createTopic = async (topicData: CreateTopicParamsDB): Promise<Topic
 
 const mapDbRowToPost = async (row: any): Promise<Post> => {
     const reactionsRes = await query('SELECT user_id, type, (SELECT username FROM users WHERE id = user_id) as username FROM reactions WHERE post_id = $1', [row.id]);
-    
+
     let author: User | undefined = undefined;
-    if (row.author_id_fk) { // Check if author details are present from JOIN
+    if (row.author_id_fk) {
         author = {
             id: row.author_id_fk,
             username: row.author_username,
@@ -614,24 +603,23 @@ const mapDbRowToPost = async (row: any): Promise<Post> => {
             email: row.author_email,
             createdAt: new Date(row.author_created_at),
             points: row.author_points ?? 0,
-            postCount: await getUserPostCount(row.author_id_fk), // Could be optimized if not always needed here
+            postCount: await getUserPostCount(row.author_id_fk),
             isAdmin: row.author_is_admin,
             location: row.author_location,
         };
     } else if (row.author_id) {
          author = await findUserById(row.author_id) ?? undefined;
     }
-    
+
     let topic: Pick<Topic, 'id' | 'title' | 'categoryId' | 'authorId' | 'createdAt' | 'lastActivity'> | undefined = undefined;
-    if (row.topic_id_fk && row.topic_title) { // Check if topic details are present from JOIN
-        const topicAuthor = await findUserById(row.topic_author_id); // Assuming topic_author_id is joined
-        topic = { 
-            id: row.topic_id_fk, 
+    if (row.topic_id_fk && row.topic_title) {
+        topic = {
+            id: row.topic_id_fk,
             title: row.topic_title,
-            categoryId: row.topic_category_id, // Assuming topic_category_id is joined
-            authorId: row.topic_author_id,     // Assuming topic_author_id is joined
-            createdAt: new Date(row.topic_created_at), // Assuming topic_created_at is joined
-            lastActivity: new Date(row.topic_last_activity), // Assuming topic_last_activity is joined
+            categoryId: row.topic_category_id,
+            authorId: row.topic_author_id,
+            createdAt: new Date(row.topic_created_at),
+            lastActivity: new Date(row.topic_last_activity),
         };
     } else if (row.topic_id) {
         topic = await getTopicByIdSimple(row.topic_id) ?? undefined;
@@ -678,7 +666,6 @@ export const getPostsByTopic = async (topicId: string): Promise<Post[]> => {
 
 export const getUserPostCount = async (userId: string): Promise<number> => {
     if (!isDbAvailable()) {
-        // console.warn(`[DB Fallback] getUserPostCount for ${userId}: Using placeholder data.`); // Can be noisy
         return placeholder.getUserPostCount(userId);
     }
     try {
@@ -734,7 +721,7 @@ export const updatePost = async (postId: string, content: string, userId: string
         await client.query('BEGIN');
         const postCheck = await client.query('SELECT author_id FROM posts WHERE id = $1', [postId]);
         if (postCheck.rows.length === 0) throw new Error("Post not found.");
-        const user = await findUserById(userId); // Uses explicit mapping
+        const user = await findUserById(userId);
         if (!user) throw new Error("User not found.");
         const canModify = user.isAdmin || postCheck.rows[0].author_id === userId;
         if (!canModify) throw new Error("User not authorized to update this post.");
@@ -770,11 +757,11 @@ export const deletePost = async (postId: string, userId: string, isAdmin: boolea
         const postToDelete = postCheck.rows[0];
         const canDelete = isAdmin || postToDelete.author_id === userId;
         if (!canDelete) return false;
-        
+
         await client.query('DELETE FROM reactions WHERE post_id = $1', [postId]);
         await client.query('DELETE FROM notifications WHERE post_id = $1', [postId]);
         const result = await client.query('DELETE FROM posts WHERE id = $1', [postId]);
-        await client.query('UPDATE topics SET last_activity = NOW() WHERE id = $1', [postToDelete.topic_id]); // Update topic last activity
+        await client.query('UPDATE topics SET last_activity = NOW() WHERE id = $1', [postToDelete.topic_id]);
         await client.query('COMMIT');
         await updateUserLastActive(userId);
         if (postToDelete.author_id) await calculateUserPoints(postToDelete.author_id);
@@ -825,7 +812,6 @@ export const togglePostReaction = async (postId: string, userId: string, usernam
     }
 };
 
-// --- Count Functions for Admin Dashboard ---
 export const getTotalUserCount = async (): Promise<number> => {
   if (!isDbAvailable()) {
     console.warn("[DB Fallback] getTotalUserCount: Database pool not available. Using placeholder data.");
@@ -877,14 +863,13 @@ export const getTotalPostCount = async (): Promise<number> => {
     }
 };
 
-// --- Notification Functions ---
 const mapDbRowToNotification = (row: any): Notification => {
     return {
         id: row.id,
         type: row.type,
         recipientUserId: row.recipient_user_id,
         senderId: row.sender_id,
-        senderUsername: row.sender_username, // Assumes sender_username is joined
+        senderUsername: row.sender_username,
         postId: row.post_id,
         topicId: row.topic_id,
         topicTitle: row.topic_title,
@@ -908,7 +893,7 @@ export const createNotification = async (data: Omit<Notification, 'id' | 'create
             [id, data.type, data.recipientUserId, data.senderId, data.postId, data.topicId, data.topicTitle, data.conversationId, data.reactionType, data.message]
         );
         const newNotifDb = result.rows[0];
-        return { ...mapDbRowToNotification(newNotifDb), senderUsername: data.senderUsername }; // Add senderUsername from input
+        return { ...mapDbRowToNotification(newNotifDb), senderUsername: data.senderUsername };
     } catch (error: any) {
         console.error("[DB Error] createNotification: Fallback to placeholder.", error.message);
         return placeholder.createNotification(data);
@@ -963,17 +948,14 @@ export const markAllNotificationsAsRead = async (userId: string): Promise<boolea
         return placeholder.markAllNotificationsAsRead(userId);
     }
     try {
-        // Only update if there are unread notifications to avoid unnecessary DB write
         const result = await query('UPDATE notifications SET is_read = TRUE WHERE recipient_user_id = $1 AND is_read = FALSE', [userId]);
-        return result.rowCount > 0; // True if any rows were updated
+        return result.rowCount > 0;
     } catch (error: any) {
         console.error(`[DB Error] markAllNotificationsAsRead for ${userId}: Fallback to placeholder.`, error.message);
         return placeholder.markAllNotificationsAsRead(userId);
     }
 };
 
-
-// --- Private Messaging Functions ---
 const sanitizeSubjectForId = (subject?: string): string => {
     if (!subject || subject.trim() === "") return "";
     return subject.toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-').replace(/^-+|-+$/g, '').substring(0, 50);
@@ -1041,12 +1023,12 @@ export const sendPrivateMessage = async (senderId: string, receiverId: string, c
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-        const conversation = await getOrCreateConversation(senderId, receiverId, subject); // Uses the DB/placeholder aware version
+        const conversation = await getOrCreateConversation(senderId, receiverId, subject);
         const now = new Date();
         const messageId = uuidv4();
         const messageRes = await client.query(
             'INSERT INTO private_messages (id, conversation_id, sender_id, content, created_at, read_by) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
-            [messageId, conversation.id, senderId, content, now, [senderId]] // Sender has "read" their own message
+            [messageId, conversation.id, senderId, content, now, [senderId]]
         );
         const newMessage = messageRes.rows[0];
         await client.query(
@@ -1087,10 +1069,8 @@ export const getMessagesForConversation = async (conversationId: string, current
     try {
         const messagesRes = await query( 'SELECT * FROM private_messages WHERE conversation_id = $1 ORDER BY created_at ASC', [conversationId] );
         if (markAsRead && messagesRes.rows.length > 0) {
-            // Mark messages as read for the current user if they are not the sender
             await query( `UPDATE private_messages SET read_by = array_append(read_by, $1) WHERE conversation_id = $2 AND sender_id != $1 AND NOT ($1 = ANY(read_by))`, [currentUserId, conversationId] );
         }
-        // Re-fetch after update to get the latest read_by status or map carefully
         const finalMessagesRes = await query( 'SELECT * FROM private_messages WHERE conversation_id = $1 ORDER BY created_at ASC', [conversationId] );
         return finalMessagesRes.rows.map(mapDbRowToPrivateMessage);
     } catch (error: any) {
@@ -1141,13 +1121,161 @@ export const getConversationById = async (conversationId: string): Promise<Conve
     }
 };
 
-// Initialization Logic
+// --- Event Functions ---
+const mapDbRowToEvent = (row: any): EventDetails => {
+    return {
+        id: row.id,
+        title: row.title,
+        type: row.type as EventType,
+        date: new Date(row.date),
+        time: row.time,
+        description: row.description,
+        link: row.link,
+        createdAt: new Date(row.created_at),
+    };
+};
+
+export const createEvent = async (eventData: Omit<EventDetails, 'id' | 'createdAt'>): Promise<EventDetails> => {
+    if (!isDbAvailable()) {
+        console.warn("[DB Fallback] createEvent: Using placeholder data.");
+        return placeholder.createEvent(eventData);
+    }
+    try {
+        const eventId = uuidv4();
+        const result = await query(
+            'INSERT INTO events (id, title, type, date, time, description, link, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW()) RETURNING *',
+            [eventId, eventData.title, eventData.type, eventData.date, eventData.time, eventData.description, eventData.link]
+        );
+        return mapDbRowToEvent(result.rows[0]);
+    } catch (error: any) {
+        console.error("[DB Error] createEvent: Fallback to placeholder.", error.message);
+        return placeholder.createEvent(eventData);
+    }
+};
+
+export const getEvents = async (limit?: number): Promise<EventDetails[]> => {
+    if (!isDbAvailable()) {
+        console.warn("[DB Fallback] getEvents: Using placeholder data.");
+        return placeholder.getEvents(limit);
+    }
+    try {
+        const queryText = `SELECT * FROM events WHERE date >= CURRENT_DATE ORDER BY date ASC, time ASC ${limit ? 'LIMIT $1' : ''}`;
+        const params = limit ? [limit] : [];
+        const result = await query(queryText, params);
+        return result.rows.map(mapDbRowToEvent);
+    } catch (error: any) {
+        console.error("[DB Error] getEvents: Fallback to placeholder.", error.message);
+        return placeholder.getEvents(limit);
+    }
+};
+
+export const getEventById = async (id: string): Promise<EventDetails | null> => {
+    if (!isDbAvailable()) {
+        console.warn(`[DB Fallback] getEventById for ${id}: Using placeholder data.`);
+        return placeholder.getEventById(id);
+    }
+    try {
+        const result = await query('SELECT * FROM events WHERE id = $1', [id]);
+        return result.rows.length > 0 ? mapDbRowToEvent(result.rows[0]) : null;
+    } catch (error: any) {
+        console.error(`[DB Error] getEventById for ${id}: Fallback to placeholder.`, error.message);
+        return placeholder.getEventById(id);
+    }
+};
+
+export const updateEvent = async (eventId: string, eventData: Partial<Omit<EventDetails, 'id' | 'createdAt'>>): Promise<EventDetails | null> => {
+    if (!isDbAvailable()) {
+        console.warn(`[DB Fallback] updateEvent ${eventId}: Using placeholder data.`);
+        return placeholder.updateEvent(eventId, eventData);
+    }
+    try {
+        const { title, type, date, time, description, link } = eventData;
+        const result = await query(
+            'UPDATE events SET title = COALESCE($1, title), type = COALESCE($2, type), date = COALESCE($3, date), time = COALESCE($4, time), description = COALESCE($5, description), link = COALESCE($6, link) WHERE id = $7 RETURNING *',
+            [title, type, date, time, description, link, eventId]
+        );
+        return result.rows.length > 0 ? mapDbRowToEvent(result.rows[0]) : null;
+    } catch (error: any) {
+        console.error(`[DB Error] updateEvent ${eventId}: Fallback to placeholder.`, error.message);
+        return placeholder.updateEvent(eventId, eventData);
+    }
+};
+
+export const deleteEvent = async (eventId: string): Promise<boolean> => {
+    if (!isDbAvailable()) {
+        console.warn(`[DB Fallback] deleteEvent ${eventId}: Using placeholder data.`);
+        return placeholder.deleteEvent(eventId);
+    }
+    try {
+        const result = await query('DELETE FROM events WHERE id = $1', [eventId]);
+        return result.rowCount > 0;
+    } catch (error: any) {
+        console.error(`[DB Error] deleteEvent ${eventId}: Fallback to placeholder.`, error.message);
+        return placeholder.deleteEvent(eventId);
+    }
+};
+
+// --- Site Settings Functions ---
+export const getAllSiteSettings = async (): Promise<SiteSettings> => {
+    cookies(); // Signal dynamic rendering
+    const defaults: SiteSettings = {
+        events_widget_enabled: true,
+        events_widget_position: 'above_categories',
+        events_widget_detail_level: 'full',
+    };
+
+    if (!isDbAvailable()) {
+        console.warn("[DB Fallback] getAllSiteSettings: Using placeholder data with defaults.");
+        const placeholderSettings = await placeholder.getAllSiteSettings();
+        // Ensure all keys exist, falling back to defaults if not in placeholder
+        return {
+            events_widget_enabled: placeholderSettings.events_widget_enabled !== undefined ? placeholderSettings.events_widget_enabled : defaults.events_widget_enabled,
+            events_widget_position: placeholderSettings.events_widget_position || defaults.events_widget_position,
+            events_widget_detail_level: placeholderSettings.events_widget_detail_level || defaults.events_widget_detail_level,
+        };
+    }
+
+    try {
+        const result = await query('SELECT key, value FROM site_settings');
+        const settingsMap: Record<string, string> = {};
+        result.rows.forEach(row => {
+            settingsMap[row.key] = row.value;
+        });
+
+        return {
+            events_widget_enabled: settingsMap.events_widget_enabled !== undefined ? settingsMap.events_widget_enabled === 'true' : defaults.events_widget_enabled,
+            events_widget_position: (settingsMap.events_widget_position as EventWidgetPosition) || defaults.events_widget_position,
+            events_widget_detail_level: (settingsMap.events_widget_detail_level as EventWidgetDetailLevel) || defaults.events_widget_detail_level,
+        };
+    } catch (error: any) {
+        console.error("[DB Error] getAllSiteSettings: Error querying database. Falling back to defaults.", error.message);
+        return defaults;
+    }
+};
+
+export const updateSiteSetting = async (key: string, value: string): Promise<void> => {
+    if (!isDbAvailable()) {
+        console.warn(`[DB Fallback] updateSiteSetting for ${key}: Using placeholder data.`);
+        return placeholder.updateSiteSetting(key, value);
+    }
+    try {
+        await query(
+            'INSERT INTO site_settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = $2',
+            [key, value]
+        );
+    } catch (error: any) {
+        console.error(`[DB Error] updateSiteSetting for ${key}: Fallback to placeholder.`, error.message);
+        return placeholder.updateSiteSetting(key, value);
+    }
+};
+
+
 async function initializeDatabase() {
-  if (!isDbAvailable()) { 
+  if (!isDbAvailable()) {
     console.warn("Skipping database schema initialization as the database pool is not available. Check DATABASE_URL and ensure PostgreSQL is running. Placeholder data may be used.");
     return;
   }
-  const currentPool = pool!; 
+  const currentPool = pool!;
   const client = await currentPool.connect();
   try {
     await client.query('BEGIN');
@@ -1159,24 +1287,41 @@ async function initializeDatabase() {
     await client.query(`CREATE TABLE IF NOT EXISTS notifications (id TEXT PRIMARY KEY, type TEXT NOT NULL, recipient_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, sender_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, post_id TEXT REFERENCES posts(id) ON DELETE CASCADE, topic_id TEXT REFERENCES topics(id) ON DELETE CASCADE, topic_title TEXT, conversation_id TEXT, reaction_type TEXT, created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP, is_read BOOLEAN DEFAULT FALSE, message TEXT); CREATE INDEX IF NOT EXISTS idx_notifications_recipient_user_id ON notifications(recipient_user_id);`);
     await client.query(`CREATE TABLE IF NOT EXISTS conversations (id TEXT PRIMARY KEY, participant_ids TEXT[] NOT NULL, subject TEXT, created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP, last_message_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP, last_message_snippet TEXT, last_message_sender_id TEXT REFERENCES users(id) ON DELETE SET NULL); CREATE INDEX IF NOT EXISTS idx_conversations_participant_ids ON conversations USING GIN (participant_ids);`);
     await client.query(`CREATE TABLE IF NOT EXISTS private_messages (id TEXT PRIMARY KEY, conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE, sender_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, content TEXT NOT NULL, created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP, read_by TEXT[] DEFAULT '{}'); CREATE INDEX IF NOT EXISTS idx_private_messages_conversation_id ON private_messages(conversation_id);`);
+    await client.query(`CREATE TABLE IF NOT EXISTS events (id TEXT PRIMARY KEY, title TEXT NOT NULL, type TEXT NOT NULL, date DATE NOT NULL, time TEXT NOT NULL, description TEXT, link TEXT, created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP); CREATE INDEX IF NOT EXISTS idx_events_date_time ON events(date ASC, time ASC);`);
+    await client.query(`CREATE TABLE IF NOT EXISTS site_settings (key TEXT PRIMARY KEY, value TEXT);`);
     await client.query('COMMIT');
     console.log("Database tables checked/created successfully.");
+
+    // Default site settings if not present
+    const defaultSettings: Partial<SiteSettings> = {
+        events_widget_enabled: true,
+        events_widget_position: 'above_categories',
+        events_widget_detail_level: 'full',
+    };
+    for (const [key, value] of Object.entries(defaultSettings)) {
+        const checkSetting = await client.query('SELECT value FROM site_settings WHERE key = $1', [key]);
+        if (checkSetting.rows.length === 0) {
+            await client.query('INSERT INTO site_settings (key, value) VALUES ($1, $2)', [key, String(value)]);
+             console.log(`Initialized site setting: ${key} = ${value}`);
+        }
+    }
+
 
     const usersCountRes = await client.query('SELECT COUNT(*) FROM users');
     if (parseInt(usersCountRes.rows[0].count, 10) === 0) {
         console.log("No users found in DB, attempting to create initial admin user...");
         await createUser({ username: "admin", email: "admin@forumlite.com", password: "password123", isAdmin: true, lastActive: new Date(), aboutMe: "Default administrator account."});
-        
-        let generalCat = await getCategoryByNameInternal("General Discussion", client); 
+
+        let generalCat = await getCategoryByNameInternal("General Discussion", client);
         if (!generalCat) generalCat = await createCategoryInternal({name: 'General Discussion', description: 'Talk about anything.'}, client);
-        
+
         let introCat = await getCategoryByNameInternal("Introductions", client);
         if(!introCat) introCat = await createCategoryInternal({name: 'Introductions', description: 'Introduce yourself to the community.'}, client);
 
         let techCat = await getCategoryByNameInternal("Technical Help", client);
         if(!techCat) techCat = await createCategoryInternal({name: 'Technical Help', description: 'Get help with technical issues.'}, client);
-        
-        const adminUser = await findUserByEmail("admin@forumlite.com"); // Use the DB aware version
+
+        const adminUser = await findUserByEmail("admin@forumlite.com");
         if (adminUser && generalCat) {
             const welcomeTopicExists = await getTopicByTitleAndCategoryInternal("Welcome to ForumLite!", generalCat.id, client);
             if (!welcomeTopicExists) {
@@ -1220,8 +1365,8 @@ const getTopicByTitleAndCategoryInternal = async (title: string, categoryId: str
   if (result.rows.length === 0) return null;
   const row = result.rows[0];
   return {
-      id: row.id, title: row.title, categoryId: row.category_id, authorId: row.author_id, 
-      createdAt: new Date(row.created_at), lastActivity: new Date(row.last_activity), postCount:0 
+      id: row.id, title: row.title, categoryId: row.category_id, authorId: row.author_id,
+      createdAt: new Date(row.created_at), lastActivity: new Date(row.last_activity), postCount:0
     };
 };
 
@@ -1241,7 +1386,7 @@ const createTopicInternal = async (topicData: CreateTopicParamsDB, client: any):
 
 if (isDbAvailable()) {
     initializeDatabase().catch(e => console.error("Failed to initialize database on module load:", e.message));
-} else if (process.env.DATABASE_URL === undefined) { 
+} else if (process.env.DATABASE_URL === undefined) {
     console.warn("DATABASE_URL not set. Initializing placeholder data directly if needed (db.ts).");
-    placeholder.initializePlaceholderData?.(); 
+    placeholder.initializePlaceholderData?.();
 }
