@@ -54,11 +54,12 @@ ForumLite is a lightweight forum application built using Next.js, TypeScript, Ta
             *   Enable or disable the widget on the homepage.
             *   Set the widget's position (above or below categories).
             *   Choose detail level (full or compact).
-            *   Specify the number of events/webinars to display.
-            *   Customize the widget title.
+            *   Specify the number of events/webinars to display (1-10).
+            *   Customize the widget title (e.g., "Upcoming Events," "Webinar Schedule").
 *   **Events & Webinars Widget:**
     *   Displays upcoming events and webinars on the homepage.
     *   Appearance and content are controlled via Admin Site Settings.
+    *   Visually distinguishes between 'event' and 'webinar' types.
 *   **Notifications & Mentions:**
     *   **User Mentions:** Users can mention each other in posts using the "@username" syntax. Mentions are automatically linked to user profiles.
     *   **Reaction Notifications:** Users receive notifications when someone reacts to their posts.
@@ -461,7 +462,7 @@ The `src/lib/db.ts` file initializes the following tables if they don't exist (w
     *   `link` (TEXT)
     *   `created_at` (TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP)
 *   **`site_settings`**: Stores global site configuration options.
-    *   `key` (TEXT PRIMARY KEY)
+    *   `key` (TEXT PRIMARY KEY) -- e.g., 'events_widget_enabled', 'events_widget_position', 'events_widget_detail_level', 'events_widget_item_count', 'events_widget_title'
     *   `value` (TEXT)
 
 Refer to `src/lib/db.ts` for the exact `CREATE TABLE IF NOT EXISTS` statements used for initialization.
