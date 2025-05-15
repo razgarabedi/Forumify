@@ -1,7 +1,7 @@
 
 import type { User, Category, Topic, Post, Notification, Conversation, PrivateMessage, Reaction, ReactionType, CategoryLastPostInfo, EventDetails, EventType, SiteSettings, EventWidgetPosition, EventWidgetDetailLevel } from './types';
 import { v4 as uuidv4 } from 'uuid'; // For generating unique IDs in placeholder
-import { cookies } from 'next/headers'; // Import cookies for dynamic rendering signal
+import { unstable_noStore as noStore } from 'next/cache'; // Opt out of caching
 
 
 let users: User[] = [];
@@ -17,6 +17,9 @@ let siteSettings: Partial<SiteSettings> = {
     events_widget_position: 'above_categories',
     events_widget_detail_level: 'full',
     events_widget_item_count: 3,
+    events_widget_title: "Upcoming Events & Webinars",
+    multilingual_enabled: false,
+    default_language: 'en',
 };
 
 
@@ -103,6 +106,7 @@ interface CreateUserParams {
     signature?: string;
     lastActive: Date;
     avatarUrl?: string;
+    language?: 'en' | 'de';
 }
 
 export const createUser = async (userData: CreateUserParams): Promise<User> => {
@@ -124,6 +128,7 @@ export const createUser = async (userData: CreateUserParams): Promise<User> => {
     avatarUrl: userData.avatarUrl || `https://avatar.vercel.sh/${userData.username}.png?size=128`,
     postCount: 0,
     points: 0,
+    language: userData.language || 'en',
   };
   users.push(newUser);
   return { ...newUser };
@@ -306,17 +311,58 @@ export const getTopicsByCategory = async (categoryId: string): Promise<Topic[]> 
 
   return Promise.all(categoryTopics.map(async topic => {
     const author = await findUserById(topic.authorId);
-    return { ...topic, author, postCount: posts.filter(p => p.topicId === topic.id).length, createdAt: new Date(topic.createdAt), lastActivity: new Date(topic.lastActivity) };
+    const topicPosts = posts.filter(p => p.topicId === topic.id).sort((a,b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    const firstPost = topicPosts[0];
+    let snippet = '';
+    if (firstPost && firstPost.content) {
+        snippet = firstPost.content.replace(/\s\s+/g, ' ').trim();
+        if (snippet.length > 155) {
+            snippet = snippet.substring(0, 152).trim() + "...";
+        }
+    }
+    return { 
+        ...topic, 
+        author, 
+        postCount: topicPosts.length, 
+        createdAt: new Date(topic.createdAt), 
+        lastActivity: new Date(topic.lastActivity),
+        firstPostContentSnippet: snippet,
+        firstPostImageUrl: firstPost?.imageUrl 
+    };
   }));
 };
 
 export const getTopicById = async (id: string): Promise<Topic | null> => {
     await new Promise(resolve => setTimeout(resolve, 20));
-    const topic = topics.find(t => t.id === id);
-    if (!topic) return null;
-    const author = await findUserById(topic.authorId);
-    const category = await getCategoryById(topic.categoryId);
-    return { ...topic, author, category: category || undefined, postCount: posts.filter(p => p.topicId === id).length, createdAt: new Date(topic.createdAt), lastActivity: new Date(topic.lastActivity) };
+    const topicData = topics.find(t => t.id === id);
+    if (!topicData) return null;
+
+    const author = await findUserById(topicData.authorId);
+    const category = await getCategoryById(topicData.categoryId);
+    const topicPosts = posts.filter(p => p.topicId === id).sort((a,b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    const firstPost = topicPosts[0];
+
+    let firstPostContentSnippet = '';
+    let firstPostImageUrl: string | undefined = undefined;
+
+    if (firstPost && firstPost.content) {
+        firstPostContentSnippet = firstPost.content.replace(/\s\s+/g, ' ').trim();
+        if (firstPostContentSnippet.length > 155) {
+            firstPostContentSnippet = firstPostContentSnippet.substring(0, 152).trim() + "...";
+        }
+        firstPostImageUrl = firstPost.imageUrl;
+    }
+    
+    return { 
+        ...topicData, 
+        author, 
+        category: category || undefined, 
+        postCount: topicPosts.length, 
+        createdAt: new Date(topicData.createdAt), 
+        lastActivity: new Date(topicData.lastActivity),
+        firstPostContentSnippet,
+        firstPostImageUrl
+    };
 }
 
 export const getTopicByIdSimple = async (id: string): Promise<Topic | null> => {
@@ -326,7 +372,7 @@ export const getTopicByIdSimple = async (id: string): Promise<Topic | null> => {
 }
 
 
-interface CreateTopicParams extends Omit<Topic, 'id' | 'createdAt' | 'lastActivity' | 'postCount' | 'author' | 'category'> {
+interface CreateTopicParams extends Omit<Topic, 'id' | 'createdAt' | 'lastActivity' | 'postCount' | 'author' | 'category' | 'firstPostContentSnippet' | 'firstPostImageUrl'> {
     firstPostContent: string;
     firstPostImageUrl?: string;
 }
@@ -341,20 +387,37 @@ export const createTopic = async (topicData: CreateTopicParams): Promise<Topic> 
         authorId: topicData.authorId,
         createdAt: now,
         lastActivity: now,
-        postCount: 0,
+        postCount: 0, // Will be updated by createPost
+        firstPostContentSnippet: '', // Will be updated by createPost logic
+        firstPostImageUrl: topicData.firstPostImageUrl,
     };
     topics.push(newTopicData);
     await updateUserLastActive(topicData.authorId);
 
-    await createPost({
+    const firstPost = await createPost({
         content: topicData.firstPostContent,
         topicId: newTopicData.id,
         authorId: topicData.authorId,
         imageUrl: topicData.firstPostImageUrl,
     });
 
+    // Update the topic with the first post's snippet and image if available
+    let snippet = '';
+    if (firstPost.content) {
+        snippet = firstPost.content.replace(/\s\s+/g, ' ').trim();
+        if (snippet.length > 155) {
+            snippet = snippet.substring(0, 152).trim() + "...";
+        }
+    }
+    const topicIndex = topics.findIndex(t => t.id === newTopicData.id);
+    if (topicIndex !== -1) {
+        topics[topicIndex].firstPostContentSnippet = snippet;
+        topics[topicIndex].firstPostImageUrl = firstPost.imageUrl;
+        topics[topicIndex].postCount = 1; // Since we just created the first post
+    }
+
     const finalTopic = await getTopicById(newTopicData.id);
-    return finalTopic || { ...newTopicData, postCount: 1, createdAt: new Date(newTopicData.createdAt), lastActivity: new Date(newTopicData.lastActivity) };
+    return finalTopic || { ...topics[topicIndex], postCount: 1, createdAt: new Date(topics[topicIndex].createdAt), lastActivity: new Date(topics[topicIndex].lastActivity) };
 }
 
 
@@ -670,24 +733,35 @@ export const deleteEvent = async (eventId: string): Promise<boolean> => {
 
 // --- Site Settings Functions (Placeholder) ---
 export const getAllSiteSettings = async (): Promise<SiteSettings> => {
-    cookies(); // Signal dynamic rendering
+    noStore(); // Opt out of caching
     await new Promise(resolve => setTimeout(resolve, 10));
     const defaults: SiteSettings = {
         events_widget_enabled: true,
         events_widget_position: 'above_categories',
         events_widget_detail_level: 'full',
         events_widget_item_count: 3,
+        events_widget_title: "Upcoming Events & Webinars",
+        multilingual_enabled: false,
+        default_language: 'en',
     };
-    const enabledSetting = siteSettings.events_widget_enabled;
-    const isEnabledBoolean = enabledSetting !== undefined
-        ? String(enabledSetting) === 'true'
+    
+    const isEnabledBoolean = siteSettings.events_widget_enabled !== undefined
+        ? String(siteSettings.events_widget_enabled).toLowerCase() === 'true'
         : defaults.events_widget_enabled;
+
+    const title = siteSettings.events_widget_title === undefined 
+        ? defaults.events_widget_title 
+        : (siteSettings.events_widget_title || defaults.events_widget_title);
+
 
     return {
         events_widget_enabled: isEnabledBoolean,
         events_widget_position: (siteSettings.events_widget_position as EventWidgetPosition) || defaults.events_widget_position,
         events_widget_detail_level: (siteSettings.events_widget_detail_level as EventWidgetDetailLevel) || defaults.events_widget_detail_level,
         events_widget_item_count: siteSettings.events_widget_item_count || defaults.events_widget_item_count,
+        events_widget_title: title,
+        multilingual_enabled: siteSettings.multilingual_enabled !== undefined ? String(siteSettings.multilingual_enabled).toLowerCase() === 'true' : defaults.multilingual_enabled,
+        default_language: (siteSettings.default_language as 'en' | 'de') || defaults.default_language,
     };
 };
 
@@ -699,44 +773,88 @@ export const updateSiteSetting = async (key: keyof SiteSettings, value: any): Pr
 
 
 export const initializePlaceholderData = () => {
-    if (users.length === 0 && categories.length === 0) {
-        console.warn("Placeholder data arrays are empty. Initializing with defaults.");
-
-        const adminUserPlaceholder: User = {
-            id: 'admin-user-placeholder-fallback', username: "admin", email: "admin@forumlite.com",
-            password: "password123", isAdmin: true, createdAt: new Date('2023-01-01T10:00:00Z'), lastActive: new Date(),
-            aboutMe: "Default administrator account for placeholder data (fallback).", points: 0, postCount: 0,
-            avatarUrl: 'https://avatar.vercel.sh/admin.png?size=128',
-        };
-        users = [adminUserPlaceholder];
-
-        const generalCatData: Omit<Category, 'topicCount' | 'postCount' | 'lastPost'> = { id: 'cat1-placeholder-fallback', name: 'General Discussion (Fallback)', description: 'Talk about anything (fallback).', createdAt: new Date('2023-01-10T09:00:00Z') };
-        const introCatData: Omit<Category, 'topicCount' | 'postCount' | 'lastPost'> = { id: 'cat2-placeholder-fallback', name: 'Introductions (Fallback)', description: 'Introduce yourself (fallback).', createdAt: new Date('2023-01-10T09:01:00Z') };
-        const techCatData: Omit<Category, 'topicCount' | 'postCount' | 'lastPost'> = { id: 'cat3-placeholder-fallback', name: 'Tech Help (Fallback)', description: 'Get tech help (fallback).', createdAt: new Date('2023-01-10T09:02:00Z') };
-        categories = [generalCatData, introCatData, techCatData];
-
-        const welcomeTopicPlaceholder: Topic = {
-            id: 'topic1-placeholder-fallback', title: "Welcome to ForumLite (Fallback)", categoryId: generalCatData.id,
-            authorId: adminUserPlaceholder.id, createdAt: new Date('2023-01-10T10:00:00Z'), lastActivity: new Date('2023-01-10T10:05:00Z'), postCount: 1,
-        };
-        const techTopicPlaceholder: Topic = {
-            id: 'topic2-placeholder-fallback', title: "PC Problems (Fallback)", categoryId: techCatData.id,
-            authorId: adminUserPlaceholder.id, createdAt: new Date('2023-01-11T11:00:00Z'), lastActivity: new Date('2023-01-11T11:00:00Z'), postCount: 1,
-        };
-        topics = [welcomeTopicPlaceholder, techTopicPlaceholder];
-
-        posts = [
-            { id: 'post1-placeholder-fallback', content: "This is the first post in the fallback placeholder topic.", topicId: welcomeTopicPlaceholder.id, authorId: adminUserPlaceholder.id, createdAt: new Date('2023-01-10T10:00:00Z'), reactions: [] },
-            { id: 'post2-placeholder-fallback', content: "Post your tech issues here (fallback).", topicId: techTopicPlaceholder.id, authorId: adminUserPlaceholder.id, createdAt: new Date('2023-01-11T11:00:00Z'), reactions: [] }
-        ];
-
-         events = [
-            { id: 'event1-placeholder', title: 'Community Meetup (Placeholder)', type: 'event', date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), time: '18:00', description: 'Join us for a virtual community meetup!', link: '#', createdAt: new Date() },
-            { id: 'event2-placeholder', title: 'Next.js Webinar (Placeholder)', type: 'webinar', date: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), time: '10:00', description: 'Learn about the latest Next.js features.', link: '#', createdAt: new Date() },
-        ];
-
-        console.log("Placeholder data initialized with defaults.");
+    if (users.length > 0 && categories.length > 0) {
+        console.log("Placeholder data already initialized.");
+        return;
     }
+    console.warn("Placeholder data arrays are empty. Initializing with defaults.");
+
+    const adminUserPlaceholder: User = {
+        id: 'admin-user-placeholder', username: "admin", email: "admin@forumlite.com",
+        password: "password123", isAdmin: true, createdAt: new Date('2023-01-01T10:00:00Z'), lastActive: new Date(),
+        aboutMe: "Default administrator account for placeholder data.", points: 0, postCount: 0,
+        avatarUrl: 'https://avatar.vercel.sh/admin.png?size=128', language: 'en',
+    };
+    users = [adminUserPlaceholder];
+
+    const generalCatData: Omit<Category, 'topicCount' | 'postCount' | 'lastPost'> = { id: 'cat1-placeholder', name: 'General Discussion', description: 'Talk about anything.', createdAt: new Date('2023-01-10T09:00:00Z') };
+    const introCatData: Omit<Category, 'topicCount' | 'postCount' | 'lastPost'> = { id: 'cat2-placeholder', name: 'Introductions', description: 'Introduce yourself to the community.', createdAt: new Date('2023-01-10T09:01:00Z') };
+    const techCatData: Omit<Category, 'topicCount' | 'postCount' | 'lastPost'> = { id: 'cat3-placeholder', name: 'Technical Help', description: 'Get help with technical issues.', createdAt: new Date('2023-01-10T09:02:00Z') };
+    categories = [generalCatData, introCatData, techCatData];
+
+    const welcomeTopicPlaceholder: Topic = {
+        id: 'topic1-placeholder', title: "Welcome to ForumLite!", categoryId: generalCatData.id,
+        authorId: adminUserPlaceholder.id, createdAt: new Date('2023-01-10T10:00:00Z'), lastActivity: new Date('2023-01-10T10:05:00Z'), postCount: 1,
+        firstPostContentSnippet: "This is the first topic on ForumLite. Feel free to look around and start discussions!",
+        firstPostImageUrl: undefined,
+    };
+    const techTopicPlaceholder: Topic = {
+        id: 'topic2-placeholder', title: "Having trouble with your PC?", categoryId: techCatData.id,
+        authorId: adminUserPlaceholder.id, createdAt: new Date('2023-01-11T11:00:00Z'), lastActivity: new Date('2023-01-11T11:00:00Z'), postCount: 1,
+        firstPostContentSnippet: "Post your technical issues here and the community might be able to help.",
+        firstPostImageUrl: undefined,
+    };
+    topics = [welcomeTopicPlaceholder, techTopicPlaceholder];
+
+    posts = [
+        { id: 'post1-placeholder', content: "This is the first post in the fallback placeholder topic.", topicId: welcomeTopicPlaceholder.id, authorId: adminUserPlaceholder.id, createdAt: new Date('2023-01-10T10:00:00Z'), reactions: [] },
+        { id: 'post2-placeholder', content: "Post your tech issues here (fallback).", topicId: techTopicPlaceholder.id, authorId: adminUserPlaceholder.id, createdAt: new Date('2023-01-11T11:00:00Z'), reactions: [] }
+    ];
+
+    events = [
+        { id: 'event1-placeholder', title: 'Community Meetup (Placeholder)', type: 'event', date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), time: '18:00', description: 'Join us for a virtual community meetup!', link: '#', createdAt: new Date() },
+        { id: 'event2-placeholder', title: 'Next.js Webinar (Placeholder)', type: 'webinar', date: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), time: '10:00', description: 'Learn about the latest Next.js features.', link: '#', createdAt: new Date() },
+    ];
+    
+    siteSettings = {
+        events_widget_enabled: true,
+        events_widget_position: 'above_categories',
+        events_widget_detail_level: 'full',
+        events_widget_item_count: 3,
+        events_widget_title: "Upcoming Events & Webinars",
+        multilingual_enabled: false,
+        default_language: 'en',
+    };
+
+    console.log("Placeholder data initialized with defaults.");
 };
 
+// Ensure placeholder data is initialized when this module is first imported
 initializePlaceholderData();
+
+// Functions for testing or admin features not directly tied to user actions:
+export const _resetPlaceholderData = () => {
+    users = [];
+    categories = [];
+    topics = [];
+    posts = [];
+    notifications = [];
+    conversations = [];
+    privateMessages = [];
+    events = [];
+    siteSettings = {
+        events_widget_enabled: true,
+        events_widget_position: 'above_categories',
+        events_widget_detail_level: 'full',
+        events_widget_item_count: 3,
+        events_widget_title: "Upcoming Events & Webinars",
+        multilingual_enabled: false,
+        default_language: 'en',
+    };
+    console.log("Placeholder data has been reset.");
+    initializePlaceholderData(); // Re-initialize with defaults
+};
+
+export const _getPlaceholderData = () => ({
+    users, categories, topics, posts, notifications, conversations, privateMessages, events, siteSettings
+});
