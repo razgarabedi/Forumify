@@ -4,7 +4,7 @@ import { Pool } from 'pg';
 import type { User, Category, Topic, Post, Notification, Conversation, PrivateMessage, Reaction, ReactionType, CategoryLastPostInfo, EventDetails, EventType, SiteSettings, EventWidgetPosition, EventWidgetDetailLevel } from './types';
 import { v4 as uuidv4 } from 'uuid'; // For generating unique IDs
 import * as placeholder from './placeholder-data'; // Import placeholder data functions
-import { cookies } from 'next/headers'; // Import cookies for dynamic rendering signal
+import { unstable_noStore as noStore } from 'next/cache';
 
 let pool: Pool | undefined = undefined;
 
@@ -89,6 +89,7 @@ const mapDbRowToUser = async (row: any): Promise<User> => {
         avatarUrl: row.avatar_url,
         points: row.points ?? 0,
         postCount: await getUserPostCount(row.id),
+        language: row.language as 'en' | 'de' || 'en',
     };
 };
 
@@ -98,7 +99,7 @@ export const getAllUsers = async (): Promise<User[]> => {
     return placeholder.getAllUsers();
   }
   try {
-    const result = await query('SELECT id, username, email, password_hash, is_admin, created_at, about_me, location, website_url, social_media_url, signature, last_active, avatar_url, points FROM users ORDER BY created_at DESC');
+    const result = await query('SELECT id, username, email, password_hash, is_admin, created_at, about_me, location, website_url, social_media_url, signature, last_active, avatar_url, points, language FROM users ORDER BY created_at DESC');
     return Promise.all(result.rows.map(mapDbRowToUser));
   } catch (error: any) {
     console.error("[DB Error] getAllUsers: Error querying database. Falling back to placeholder data.", error.message);
@@ -112,7 +113,7 @@ export const findUserByEmail = async (email: string): Promise<User | null> => {
     return placeholder.findUserByEmail(email);
   }
   try {
-    const result = await query('SELECT id, username, email, password_hash, is_admin, created_at, about_me, location, website_url, social_media_url, signature, last_active, avatar_url, points FROM users WHERE email = $1', [email]);
+    const result = await query('SELECT id, username, email, password_hash, is_admin, created_at, about_me, location, website_url, social_media_url, signature, last_active, avatar_url, points, language FROM users WHERE email = $1', [email]);
     if (result.rows.length === 0) return null;
     return mapDbRowToUser(result.rows[0]);
   } catch (error: any) {
@@ -127,7 +128,7 @@ export const findUserById = async (id: string): Promise<User | null> => {
     return placeholder.findUserById(id);
   }
   try {
-    const result = await query('SELECT id, username, email, password_hash, is_admin, created_at, about_me, location, website_url, social_media_url, signature, last_active, avatar_url, points FROM users WHERE id = $1', [id]);
+    const result = await query('SELECT id, username, email, password_hash, is_admin, created_at, about_me, location, website_url, social_media_url, signature, last_active, avatar_url, points, language FROM users WHERE id = $1', [id]);
     if (result.rows.length === 0) return null;
     return mapDbRowToUser(result.rows[0]);
   } catch (error: any) {
@@ -142,7 +143,7 @@ export const findUserByUsername = async (username: string): Promise<User | null>
     return placeholder.findUserByUsername(username);
   }
   try {
-    const result = await query('SELECT id, username, email, password_hash, is_admin, created_at, about_me, location, website_url, social_media_url, signature, last_active, avatar_url, points FROM users WHERE lower(username) = lower($1)', [username]);
+    const result = await query('SELECT id, username, email, password_hash, is_admin, created_at, about_me, location, website_url, social_media_url, signature, last_active, avatar_url, points, language FROM users WHERE lower(username) = lower($1)', [username]);
     if (result.rows.length === 0) return null;
     return mapDbRowToUser(result.rows[0]);
   } catch (error: any) {
@@ -163,6 +164,7 @@ interface CreateUserParams {
     signature?: string;
     lastActive: Date;
     avatarUrl?: string;
+    language?: 'en' | 'de';
 }
 
 export const createUser = async (userData: CreateUserParams): Promise<User> => {
@@ -176,18 +178,18 @@ export const createUser = async (userData: CreateUserParams): Promise<User> => {
     const passwordHash = userData.password;
 
     const result = await query(
-      'INSERT INTO users (id, username, email, password_hash, is_admin, created_at, last_active, about_me, location, website_url, social_media_url, signature, avatar_url, points) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING *',
+      'INSERT INTO users (id, username, email, password_hash, is_admin, created_at, last_active, about_me, location, website_url, social_media_url, signature, avatar_url, points, language) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) RETURNING *',
       [
         userId, userData.username, userData.email, passwordHash, userData.isAdmin ?? false,
         now, userData.lastActive || now, userData.aboutMe || `Hello, I'm ${userData.username}!`,
         userData.location, userData.websiteUrl, userData.socialMediaUrl,
         userData.signature || `Regards, ${userData.username}`,
-        userData.avatarUrl || `https://avatar.vercel.sh/${userData.username}.png?size=128`, 0
+        userData.avatarUrl || `https://avatar.vercel.sh/${userData.username}.png?size=128`, 0, userData.language || 'en'
       ]
     );
     return mapDbRowToUser(result.rows[0]);
   } catch (error: any) {
-    console.error("[DB Error] createUser: Error querying database. Falling back to placeholder data (if applicable).", error.message);
+    console.error("[DB Error] createUser: Error querying database. Fallback to placeholder data (if applicable).", error.message);
     return placeholder.createUser(userData);
   }
 };
@@ -198,10 +200,10 @@ export const updateUserProfile = async (userId: string, profileData: Partial<Omi
         return placeholder.updateUserProfile(userId, profileData);
     }
     try {
-        const { aboutMe, location, websiteUrl, socialMediaUrl, signature, avatarUrl } = profileData;
+        const { aboutMe, location, websiteUrl, socialMediaUrl, signature, avatarUrl, language } = profileData;
         const result = await query(
-            'UPDATE users SET about_me = COALESCE($1, about_me), location = COALESCE($2, location), website_url = COALESCE($3, website_url), social_media_url = COALESCE($4, social_media_url), signature = COALESCE($5, signature), avatar_url = COALESCE($6, avatar_url), last_active = NOW() WHERE id = $7 RETURNING *',
-            [aboutMe, location, websiteUrl, socialMediaUrl, signature, avatarUrl, userId]
+            'UPDATE users SET about_me = COALESCE($1, about_me), location = COALESCE($2, location), website_url = COALESCE($3, website_url), social_media_url = COALESCE($4, social_media_url), signature = COALESCE($5, signature), avatar_url = COALESCE($6, avatar_url), language = COALESCE($7, language), last_active = NOW() WHERE id = $8 RETURNING *',
+            [aboutMe, location, websiteUrl, socialMediaUrl, signature, avatarUrl, language, userId]
         );
         if (result.rows.length === 0) return null;
         return mapDbRowToUser(result.rows[0]);
@@ -272,7 +274,7 @@ export const deleteUser = async (userId: string): Promise<boolean> => {
         await client.query('UPDATE posts SET author_id = NULL WHERE author_id = $1', [userId]);
         await client.query('UPDATE topics SET author_id = NULL WHERE author_id = $1', [userId]);
         await client.query('DELETE FROM notifications WHERE sender_id = $1 OR recipient_user_id = $1', [userId]);
-        await client.query('DELETE FROM events WHERE id IN (SELECT id FROM events WHERE TRUE)'); // Assuming events are not user-specific for now
+        await client.query('DELETE FROM events WHERE id IN (SELECT id FROM events WHERE TRUE)'); 
 
         const userConversations = await client.query('SELECT id, participant_ids FROM conversations WHERE $1 = ANY(participant_ids)', [userId]);
         for (const convo of userConversations.rows) {
@@ -450,41 +452,56 @@ export const deleteCategory = async (categoryId: string): Promise<boolean> => {
 
 const mapDbRowToTopic = async (row: any): Promise<Topic> => {
     let author: User | undefined = undefined;
-    if (row.author_id_fk) {
+    if (row.author_id_fk) { // Use data from JOIN if available
         author = {
             id: row.author_id_fk,
             username: row.author_username,
             avatarUrl: row.author_avatar_url,
-            email: row.author_email,
+            email: row.author_email, // May not be needed for Topic.author display
             createdAt: new Date(row.author_created_at),
             points: row.author_points ?? 0,
-            postCount: await getUserPostCount(row.author_id_fk),
+            postCount: await getUserPostCount(row.author_id_fk), // Still an N+1 for lists, but okay for single topic
             isAdmin: row.author_is_admin,
             location: row.author_location,
         };
-    } else if (row.author_id) {
-        author = await findUserById(row.author_id) ?? undefined;
     }
 
-    let category: Category | undefined = undefined;
-    if (row.category_id_fk && row.category_name) {
-         category = await getCategoryById(row.category_id_fk) ?? undefined;
-    } else if (row.category_id) {
-        category = await getCategoryById(row.category_id) ?? undefined;
+    let category: Pick<Category, 'id' | 'name' | 'description' | 'createdAt'> | undefined = undefined;
+    if (row.category_id_fk && row.category_name) { // Use data from JOIN if available
+        category = {
+            id: row.category_id_fk,
+            name: row.category_name,
+            description: row.category_description,
+            createdAt: new Date(row.category_created_at),
+        };
+    }
+
+    const firstPostContentRaw = row.first_post_content || '';
+    // Normalize whitespace (multiple spaces/newlines to single space) then trim
+    const cleanedContent = firstPostContentRaw.replace(/\s\s+/g, ' ').trim();
+    let firstPostContentSnippet: string;
+
+    if (cleanedContent.length > 155) {
+        firstPostContentSnippet = cleanedContent.substring(0, 152).trim() + "...";
+    } else {
+        firstPostContentSnippet = cleanedContent;
     }
 
     return {
         id: row.id,
         title: row.title,
-        categoryId: row.category_id,
-        authorId: row.author_id,
+        categoryId: row.category_id, // Direct foreign key
+        authorId: row.author_id,     // Direct foreign key
         createdAt: new Date(row.created_at),
         lastActivity: new Date(row.last_activity),
         postCount: parseInt(row.post_count, 10) || 0,
         author,
         category,
+        firstPostContentSnippet: firstPostContentSnippet,
+        firstPostImageUrl: row.first_post_image_url || undefined,
     };
 };
+
 
 export const getTopicsByCategory = async (categoryId: string): Promise<Topic[]> => {
     if (!isDbAvailable()) {
@@ -492,12 +509,16 @@ export const getTopicsByCategory = async (categoryId: string): Promise<Topic[]> 
         return placeholder.getTopicsByCategory(categoryId);
     }
     try {
+        // Note: This query does NOT fetch first_post_content and first_post_image_url for performance reasons on list views.
+        // mapDbRowToTopic will handle missing firstPost fields gracefully.
         const result = await query(`
             SELECT t.id, t.title, t.category_id, t.author_id, t.created_at, t.last_activity,
-                   u.username as author_username, u.avatar_url as author_avatar_url,
+                   u.id as author_id_fk, u.username as author_username, u.avatar_url as author_avatar_url, u.email as author_email, u.created_at as author_created_at, u.points as author_points, u.is_admin as author_is_admin, u.location as author_location,
+                   c.id as category_id_fk, c.name as category_name, c.description as category_description, c.created_at as category_created_at,
                    (SELECT COUNT(*) FROM posts p WHERE p.topic_id = t.id) as post_count
             FROM topics t
             LEFT JOIN users u ON t.author_id = u.id
+            LEFT JOIN categories c ON t.category_id = c.id
             WHERE t.category_id = $1
             ORDER BY t.last_activity DESC
         `, [categoryId]);
@@ -517,8 +538,10 @@ export const getTopicById = async (id: string): Promise<Topic | null> => {
         const topicRes = await query(`
             SELECT t.id, t.title, t.category_id, t.author_id, t.created_at, t.last_activity,
                    u.id as author_id_fk, u.username as author_username, u.avatar_url as author_avatar_url, u.email as author_email, u.created_at as author_created_at, u.points as author_points, u.is_admin as author_is_admin, u.location as author_location,
-                   c.id as category_id_fk, c.name as category_name,
-                   (SELECT COUNT(*) FROM posts p WHERE p.topic_id = t.id) as post_count
+                   c.id as category_id_fk, c.name as category_name, c.description as category_description, c.created_at as category_created_at,
+                   (SELECT COUNT(*) FROM posts p_count WHERE p_count.topic_id = t.id) as post_count,
+                   (SELECT p_first.content FROM posts p_first WHERE p_first.topic_id = t.id ORDER BY p_first.created_at ASC LIMIT 1) as first_post_content,
+                   (SELECT p_first.image_url FROM posts p_first WHERE p_first.topic_id = t.id ORDER BY p_first.created_at ASC LIMIT 1) as first_post_image_url
             FROM topics t
             LEFT JOIN users u ON t.author_id = u.id
             LEFT JOIN categories c ON t.category_id = c.id
@@ -606,9 +629,8 @@ const mapDbRowToPost = async (row: any): Promise<Post> => {
             postCount: await getUserPostCount(row.author_id_fk),
             isAdmin: row.author_is_admin,
             location: row.author_location,
+            language: row.author_language as 'en' | 'de' || 'en',
         };
-    } else if (row.author_id) {
-         author = await findUserById(row.author_id) ?? undefined;
     }
 
     let topic: Pick<Topic, 'id' | 'title' | 'categoryId' | 'authorId' | 'createdAt' | 'lastActivity'> | undefined = undefined;
@@ -621,8 +643,6 @@ const mapDbRowToPost = async (row: any): Promise<Post> => {
             createdAt: new Date(row.topic_created_at),
             lastActivity: new Date(row.topic_last_activity),
         };
-    } else if (row.topic_id) {
-        topic = await getTopicByIdSimple(row.topic_id) ?? undefined;
     }
 
     return {
@@ -648,7 +668,7 @@ export const getPostsByTopic = async (topicId: string): Promise<Post[]> => {
     try {
         const result = await query(`
             SELECT p.id, p.content, p.topic_id, p.author_id, p.created_at, p.updated_at, p.image_url,
-                   u.id as author_id_fk, u.username as author_username, u.avatar_url as author_avatar_url, u.email as author_email, u.created_at as author_created_at, u.is_admin as author_is_admin, u.location as author_location, u.points as author_points,
+                   u.id as author_id_fk, u.username as author_username, u.avatar_url as author_avatar_url, u.email as author_email, u.created_at as author_created_at, u.is_admin as author_is_admin, u.location as author_location, u.points as author_points, u.language as author_language,
                    t.id as topic_id_fk, t.title as topic_title, t.category_id as topic_category_id, t.author_id as topic_author_id, t.created_at as topic_created_at, t.last_activity as topic_last_activity
             FROM posts p
             LEFT JOIN users u ON p.author_id = u.id
@@ -1217,22 +1237,29 @@ export const deleteEvent = async (eventId: string): Promise<boolean> => {
 
 // --- Site Settings Functions ---
 export const getAllSiteSettings = async (): Promise<SiteSettings> => {
-    cookies(); // Signal dynamic rendering
+    noStore(); // Opt out of caching for this function
     const defaults: SiteSettings = {
         events_widget_enabled: true,
         events_widget_position: 'above_categories',
         events_widget_detail_level: 'full',
         events_widget_item_count: 3,
+        events_widget_title: "Upcoming Events & Webinars",
+        multilingual_enabled: false,
+        default_language: 'en',
     };
 
     if (!isDbAvailable()) {
         console.warn("[DB Fallback] getAllSiteSettings: Using placeholder data with defaults.");
-        const placeholderSettings = await placeholder.getAllSiteSettings();
+        // Ensure placeholder function also returns a complete SiteSettings object
+        const placeholderSettings = await placeholder.getAllSiteSettings(); // Assuming this returns Partial<SiteSettings> or similar
         return {
             events_widget_enabled: placeholderSettings.events_widget_enabled !== undefined ? placeholderSettings.events_widget_enabled : defaults.events_widget_enabled,
             events_widget_position: placeholderSettings.events_widget_position || defaults.events_widget_position,
             events_widget_detail_level: placeholderSettings.events_widget_detail_level || defaults.events_widget_detail_level,
             events_widget_item_count: placeholderSettings.events_widget_item_count || defaults.events_widget_item_count,
+            events_widget_title: placeholderSettings.events_widget_title === undefined ? defaults.events_widget_title : (placeholderSettings.events_widget_title || defaults.events_widget_title),
+            multilingual_enabled: placeholderSettings.multilingual_enabled !== undefined ? placeholderSettings.multilingual_enabled : defaults.multilingual_enabled,
+            default_language: placeholderSettings.default_language || defaults.default_language,
         };
     }
 
@@ -1242,12 +1269,17 @@ export const getAllSiteSettings = async (): Promise<SiteSettings> => {
         result.rows.forEach(row => {
             settingsMap[row.key] = row.value;
         });
+        
+        const fetchedTitle = settingsMap.events_widget_title;
 
         return {
             events_widget_enabled: settingsMap.events_widget_enabled !== undefined ? settingsMap.events_widget_enabled === 'true' : defaults.events_widget_enabled,
             events_widget_position: (settingsMap.events_widget_position as EventWidgetPosition) || defaults.events_widget_position,
             events_widget_detail_level: (settingsMap.events_widget_detail_level as EventWidgetDetailLevel) || defaults.events_widget_detail_level,
             events_widget_item_count: settingsMap.events_widget_item_count !== undefined ? parseInt(settingsMap.events_widget_item_count, 10) : defaults.events_widget_item_count,
+            events_widget_title: fetchedTitle === undefined ? defaults.events_widget_title : (fetchedTitle || defaults.events_widget_title),
+            multilingual_enabled: settingsMap.multilingual_enabled !== undefined ? settingsMap.multilingual_enabled === 'true' : defaults.multilingual_enabled,
+            default_language: (settingsMap.default_language as 'en' | 'de') || defaults.default_language,
         };
     } catch (error: any) {
         console.error("[DB Error] getAllSiteSettings: Error querying database. Falling back to defaults.", error.message);
@@ -1281,7 +1313,7 @@ async function initializeDatabase() {
   const client = await currentPool.connect();
   try {
     await client.query('BEGIN');
-    await client.query(`CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, username TEXT NOT NULL UNIQUE, email TEXT NOT NULL UNIQUE, password_hash TEXT NOT NULL, is_admin BOOLEAN DEFAULT FALSE, created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP, about_me TEXT, location TEXT, website_url TEXT, social_media_url TEXT, signature TEXT, last_active TIMESTAMPTZ, avatar_url TEXT, points INTEGER DEFAULT 0);`);
+    await client.query(`CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, username TEXT NOT NULL UNIQUE, email TEXT NOT NULL UNIQUE, password_hash TEXT NOT NULL, is_admin BOOLEAN DEFAULT FALSE, created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP, about_me TEXT, location TEXT, website_url TEXT, social_media_url TEXT, signature TEXT, last_active TIMESTAMPTZ, avatar_url TEXT, points INTEGER DEFAULT 0, language TEXT DEFAULT 'en');`);
     await client.query(`CREATE TABLE IF NOT EXISTS categories (id TEXT PRIMARY KEY, name TEXT NOT NULL UNIQUE, description TEXT, created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP);`);
     await client.query(`CREATE TABLE IF NOT EXISTS topics (id TEXT PRIMARY KEY, title TEXT NOT NULL, category_id TEXT NOT NULL REFERENCES categories(id) ON DELETE CASCADE, author_id TEXT REFERENCES users(id) ON DELETE SET NULL, created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP, last_activity TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP); CREATE INDEX IF NOT EXISTS idx_topics_category_id ON topics(category_id); CREATE INDEX IF NOT EXISTS idx_topics_author_id ON topics(author_id);`);
     await client.query(`CREATE TABLE IF NOT EXISTS posts (id TEXT PRIMARY KEY, content TEXT NOT NULL, topic_id TEXT NOT NULL REFERENCES topics(id) ON DELETE CASCADE, author_id TEXT REFERENCES users(id) ON DELETE SET NULL, created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMPTZ, image_url TEXT); CREATE INDEX IF NOT EXISTS idx_posts_topic_id ON posts(topic_id); CREATE INDEX IF NOT EXISTS idx_posts_author_id ON posts(author_id);`);
@@ -1299,6 +1331,9 @@ async function initializeDatabase() {
         ['events_widget_position', 'above_categories'],
         ['events_widget_detail_level', 'full'],
         ['events_widget_item_count', 3],
+        ['events_widget_title', "Upcoming Events & Webinars"],
+        ['multilingual_enabled', false],
+        ['default_language', 'en'],
     ];
 
     for (const [key, value] of defaultSettingsEntries) {
@@ -1369,8 +1404,9 @@ const getTopicByTitleAndCategoryInternal = async (title: string, categoryId: str
   const row = result.rows[0];
   return {
       id: row.id, title: row.title, categoryId: row.category_id, authorId: row.author_id,
-      createdAt: new Date(row.created_at), lastActivity: new Date(row.last_activity), postCount:0
-    };
+      createdAt: new Date(row.created_at), lastActivity: new Date(row.last_activity), postCount:0,
+      firstPostContentSnippet: '', // Placeholder, not fetched here
+  };
 };
 
 const createTopicInternal = async (topicData: CreateTopicParamsDB, client: any): Promise<void> => {
@@ -1393,3 +1429,4 @@ if (isDbAvailable()) {
     console.warn("DATABASE_URL not set. Initializing placeholder data directly if needed (db.ts).");
     placeholder.initializePlaceholderData?.();
 }
+
