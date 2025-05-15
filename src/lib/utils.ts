@@ -1,3 +1,4 @@
+
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 
@@ -28,4 +29,22 @@ export function parseMentions(content: string): string[] {
  */
 export function isValidDate(d: any): d is Date {
   return d instanceof Date && !isNaN(d.getTime());
+}
+
+/**
+ * Generates a URL-friendly slug from a given text.
+ * @param text The text to slugify.
+ * @returns A URL-friendly slug.
+ */
+export function generateSlug(text: string): string {
+  if (!text) return '';
+  return text
+    .toString()
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, '-')           // Replace spaces with -
+    .replace(/[^\w-]+/g, '')       // Remove all non-word chars but hyphens (allows letters, numbers, underscore, hyphen)
+    .replace(/--+/g, '-')          // Replace multiple - with single -
+    .replace(/^-+/, '')             // Trim - from start of text
+    .replace(/-+$/, '');            // Trim - from end of text
 }

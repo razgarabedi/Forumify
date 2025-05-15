@@ -22,6 +22,7 @@ export type CategoryLastPostInfo = {
   id: string; // post id
   topicId: string;
   topicTitle: string;
+  topicSlug?: string; // Added topic slug
   authorId: string;
   authorUsername: string;
   authorAvatarUrl?: string;
@@ -31,6 +32,7 @@ export type CategoryLastPostInfo = {
 export type Category = {
   id: string;
   name: string;
+  slug: string; // Added slug field
   description?: string;
   createdAt: Date;
   topicCount: number;
@@ -41,6 +43,7 @@ export type Category = {
 export type Topic = {
   id: string;
   title: string;
+  slug: string; // Added slug field
   categoryId: string;
   authorId: string;
   createdAt: Date;
@@ -82,6 +85,7 @@ export type Notification = {
   postId?: string; // Post where the mention/reaction occurred (optional for PM)
   topicId?: string; // Topic of the post (optional for PM)
   topicTitle?: string; // Title of the topic for display (optional for PM)
+  topicSlug?: string; // Slug of the topic for links
   conversationId?: string; // Conversation ID if it's a private message notification
   reactionType?: ReactionType; // Type of reaction if notification.type is 'reaction'
   createdAt: Date;
@@ -168,7 +172,7 @@ export type SiteSettings = {
   events_widget_position: EventWidgetPosition;
   events_widget_detail_level: EventWidgetDetailLevel;
   events_widget_item_count: number;
-  events_widget_title?: string; // Optional, defaults in widget
+  events_widget_title?: string; 
   multilingual_enabled: boolean;
   default_language: 'en' | 'de';
 };
@@ -183,3 +187,4 @@ export const siteSettingKeys: SiteSettingKey[] = [
   'multilingual_enabled',
   'default_language'
 ];
+
