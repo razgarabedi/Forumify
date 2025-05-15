@@ -15,6 +15,7 @@ export type User = {
   avatarUrl?: string; // For custom avatar uploads, or keep using Vercel Avatars
   postCount?: number; // Denormalized, can be calculated
   points?: number; // Points accumulated from post reactions
+  language?: 'en' | 'de'; // User's preferred language
 };
 
 export type CategoryLastPostInfo = {
@@ -47,6 +48,8 @@ export type Topic = {
   postCount?: number; // Optional: denormalized count
   author?: User; // Optional: include author details
   category?: Category; // Optional: include category details
+  firstPostContentSnippet: string; // For meta description
+  firstPostImageUrl?: string;     // For meta image
 };
 
 export type ReactionType = 'like' | 'love' | 'haha' | 'wow' | 'sad' | 'angry';
@@ -151,9 +154,32 @@ export type EventDetails = {
 export type EventWidgetPosition = 'above_categories' | 'below_categories';
 export type EventWidgetDetailLevel = 'full' | 'compact';
 
+export type SiteSettingKey = 
+  | 'events_widget_enabled' 
+  | 'events_widget_position' 
+  | 'events_widget_detail_level'
+  | 'events_widget_item_count'
+  | 'events_widget_title'
+  | 'multilingual_enabled'
+  | 'default_language';
+
 export type SiteSettings = {
   events_widget_enabled: boolean;
   events_widget_position: EventWidgetPosition;
   events_widget_detail_level: EventWidgetDetailLevel;
-  events_widget_item_count: number; // New setting for item count
+  events_widget_item_count: number;
+  events_widget_title?: string; // Optional, defaults in widget
+  multilingual_enabled: boolean;
+  default_language: 'en' | 'de';
 };
+
+// Helper for Zod schema if needed, or direct usage in Zod
+export const siteSettingKeys: SiteSettingKey[] = [
+  'events_widget_enabled',
+  'events_widget_position',
+  'events_widget_detail_level',
+  'events_widget_item_count',
+  'events_widget_title',
+  'multilingual_enabled',
+  'default_language'
+];
