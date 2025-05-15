@@ -1,8 +1,8 @@
 
 import type { User, Category, Topic, Post, Notification, Conversation, PrivateMessage, Reaction, ReactionType, CategoryLastPostInfo, EventDetails, EventType, SiteSettings, EventWidgetPosition, EventWidgetDetailLevel } from './types';
 import { v4 as uuidv4 } from 'uuid'; // For generating unique IDs in placeholder
-import { unstable_noStore as noStore } from 'next/cache'; // Opt out of caching
-
+import { unstable_noStore as noStore } from 'next/cache'; 
+import { generateSlug } from './utils'; // Import generateSlug
 
 let users: User[] = [];
 let categories: Omit<Category, 'topicCount' | 'postCount' | 'lastPost'>[] = [];
@@ -224,6 +224,7 @@ export const getCategories = async (): Promise<Category[]> => {
               id: latestPostData.id,
               topicId: latestPostTopic.id,
               topicTitle: latestPostTopic.title,
+              topicSlug: latestPostTopic.slug,
               authorId: latestPostAuthor.id,
               authorUsername: latestPostAuthor.username,
               authorAvatarUrl: latestPostAuthor.avatarUrl,
@@ -261,6 +262,7 @@ export const getCategoryById = async (id: string): Promise<Category | null> => {
             id: latestPostData.id,
             topicId: latestPostTopic.id,
             topicTitle: latestPostTopic.title,
+            topicSlug: latestPostTopic.slug,
             authorId: latestPostAuthor.id,
             authorUsername: latestPostAuthor.username,
             authorAvatarUrl: latestPostAuthor.avatarUrl,
@@ -274,9 +276,11 @@ export const getCategoryById = async (id: string): Promise<Category | null> => {
 
 export const createCategory = async (categoryData: Pick<Category, 'name' | 'description'>): Promise<Category> => {
     await new Promise(resolve => setTimeout(resolve, 50));
+    const slug = generateSlug(categoryData.name);
     const newCategoryData: Omit<Category, 'topicCount' | 'postCount' | 'lastPost'> = {
         id: uuidv4(),
         name: categoryData.name,
+        slug: slug,
         description: categoryData.description,
         createdAt: new Date(),
     };
@@ -288,7 +292,8 @@ export const updateCategory = async (categoryId: string, data: { name: string; d
     await new Promise(resolve => setTimeout(resolve, 50));
     const catIndex = categories.findIndex(c => c.id === categoryId);
     if (catIndex === -1) return null;
-    categories[catIndex] = { ...categories[catIndex], ...data };
+    const newSlug = generateSlug(data.name);
+    categories[catIndex] = { ...categories[catIndex], ...data, slug: newSlug };
     return getCategoryById(categoryId);
 }
 
@@ -320,9 +325,11 @@ export const getTopicsByCategory = async (categoryId: string): Promise<Topic[]> 
             snippet = snippet.substring(0, 152).trim() + "...";
         }
     }
+    const category = await getCategoryById(topic.categoryId);
     return { 
         ...topic, 
         author, 
+        category: category || undefined,
         postCount: topicPosts.length, 
         createdAt: new Date(topic.createdAt), 
         lastActivity: new Date(topic.lastActivity),
@@ -365,14 +372,14 @@ export const getTopicById = async (id: string): Promise<Topic | null> => {
     };
 }
 
-export const getTopicByIdSimple = async (id: string): Promise<Topic | null> => {
+export const getTopicByIdSimple = async (id: string): Promise<Pick<Topic, 'id' | 'title' | 'slug' | 'categoryId' | 'authorId' | 'createdAt' | 'lastActivity'> | null> => {
     await new Promise(resolve => setTimeout(resolve, 10));
     const topic = topics.find(t => t.id === id);
     return topic ? { ...topic, createdAt: new Date(topic.createdAt), lastActivity: new Date(topic.lastActivity) } : null;
 }
 
 
-interface CreateTopicParams extends Omit<Topic, 'id' | 'createdAt' | 'lastActivity' | 'postCount' | 'author' | 'category' | 'firstPostContentSnippet' | 'firstPostImageUrl'> {
+interface CreateTopicParams extends Omit<Topic, 'id' | 'slug' | 'createdAt' | 'lastActivity' | 'postCount' | 'author' | 'category' | 'firstPostContentSnippet' | 'firstPostImageUrl'> {
     firstPostContent: string;
     firstPostImageUrl?: string;
 }
@@ -380,15 +387,20 @@ interface CreateTopicParams extends Omit<Topic, 'id' | 'createdAt' | 'lastActivi
 export const createTopic = async (topicData: CreateTopicParams): Promise<Topic> => {
     await new Promise(resolve => setTimeout(resolve, 50));
     const now = new Date();
+    const category = await getCategoryById(topicData.categoryId);
+    if (!category) throw new Error(`Placeholder: Category with ID ${topicData.categoryId} not found.`);
+    const slug = generateSlug(`${category.name} ${topicData.title}`);
+
     const newTopicData: Topic = {
         id: uuidv4(),
         title: topicData.title,
+        slug: slug,
         categoryId: topicData.categoryId,
         authorId: topicData.authorId,
         createdAt: now,
         lastActivity: now,
-        postCount: 0, // Will be updated by createPost
-        firstPostContentSnippet: '', // Will be updated by createPost logic
+        postCount: 0, 
+        firstPostContentSnippet: '', 
         firstPostImageUrl: topicData.firstPostImageUrl,
     };
     topics.push(newTopicData);
@@ -401,7 +413,6 @@ export const createTopic = async (topicData: CreateTopicParams): Promise<Topic> 
         imageUrl: topicData.firstPostImageUrl,
     });
 
-    // Update the topic with the first post's snippet and image if available
     let snippet = '';
     if (firstPost.content) {
         snippet = firstPost.content.replace(/\s\s+/g, ' ').trim();
@@ -413,7 +424,7 @@ export const createTopic = async (topicData: CreateTopicParams): Promise<Topic> 
     if (topicIndex !== -1) {
         topics[topicIndex].firstPostContentSnippet = snippet;
         topics[topicIndex].firstPostImageUrl = firstPost.imageUrl;
-        topics[topicIndex].postCount = 1; // Since we just created the first post
+        topics[topicIndex].postCount = 1; 
     }
 
     const finalTopic = await getTopicById(newTopicData.id);
@@ -426,8 +437,8 @@ export const getPostsByTopic = async (topicId: string): Promise<Post[]> => {
   const topicPosts = posts.filter(p => p.topicId === topicId).sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
   return Promise.all(topicPosts.map(async post => {
     const author = await findUserById(post.authorId);
-    const topic = await getTopicByIdSimple(post.topicId);
-    return { ...post, author, topic: topic ?? undefined, reactions: post.reactions || [], createdAt: new Date(post.createdAt), updatedAt: post.updatedAt ? new Date(post.updatedAt) : undefined };
+    const topicData = await getTopicByIdSimple(post.topicId);
+    return { ...post, author, topic: topicData ?? undefined, reactions: post.reactions || [], createdAt: new Date(post.createdAt), updatedAt: post.updatedAt ? new Date(post.updatedAt) : undefined };
   }));
 };
 
@@ -545,9 +556,15 @@ export const getTotalPostCount = async (): Promise<number> => (posts.length);
 
 export const createNotification = async (data: Omit<Notification, 'id' | 'createdAt' | 'isRead'>): Promise<Notification> => {
     await new Promise(resolve => setTimeout(resolve, 10));
+    let topicSlug = data.topicSlug;
+    if (data.topicId && !data.topicSlug) {
+        const topic = await getTopicByIdSimple(data.topicId);
+        topicSlug = topic?.slug;
+    }
     const newNotification: Notification = {
         id: uuidv4(),
         ...data,
+        topicSlug,
         createdAt: new Date(),
         isRead: false,
     };
@@ -557,10 +574,19 @@ export const createNotification = async (data: Omit<Notification, 'id' | 'create
 
 export const getNotificationsByUserId = async (userId: string): Promise<Notification[]> => {
     await new Promise(resolve => setTimeout(resolve, 10));
-    return notifications
-        .filter(n => n.recipientUserId === userId)
-        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-        .map(n => ({ ...n, createdAt: new Date(n.createdAt) }));
+    return Promise.all(
+        notifications
+            .filter(n => n.recipientUserId === userId)
+            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+            .map(async n => {
+                let topicSlug = n.topicSlug;
+                if (n.topicId && !n.topicSlug) {
+                    const topic = await getTopicByIdSimple(n.topicId);
+                    topicSlug = topic?.slug;
+                }
+                return { ...n, topicSlug, createdAt: new Date(n.createdAt) };
+            })
+    );
 };
 
 export const getUnreadNotificationCount = async (userId: string): Promise<number> => {
@@ -733,7 +759,7 @@ export const deleteEvent = async (eventId: string): Promise<boolean> => {
 
 // --- Site Settings Functions (Placeholder) ---
 export const getAllSiteSettings = async (): Promise<SiteSettings> => {
-    noStore(); // Opt out of caching
+    unstable_noStore(); 
     await new Promise(resolve => setTimeout(resolve, 10));
     const defaults: SiteSettings = {
         events_widget_enabled: true,
@@ -749,16 +775,16 @@ export const getAllSiteSettings = async (): Promise<SiteSettings> => {
         ? String(siteSettings.events_widget_enabled).toLowerCase() === 'true'
         : defaults.events_widget_enabled;
 
-    const title = siteSettings.events_widget_title === undefined 
-        ? defaults.events_widget_title 
-        : (siteSettings.events_widget_title || defaults.events_widget_title);
+    const title = siteSettings.events_widget_title !== undefined
+        ? (siteSettings.events_widget_title || defaults.events_widget_title) 
+        : defaults.events_widget_title;
 
 
     return {
         events_widget_enabled: isEnabledBoolean,
         events_widget_position: (siteSettings.events_widget_position as EventWidgetPosition) || defaults.events_widget_position,
         events_widget_detail_level: (siteSettings.events_widget_detail_level as EventWidgetDetailLevel) || defaults.events_widget_detail_level,
-        events_widget_item_count: siteSettings.events_widget_item_count || defaults.events_widget_item_count,
+        events_widget_item_count: siteSettings.events_widget_item_count !== undefined ? Number(siteSettings.events_widget_item_count) : defaults.events_widget_item_count,
         events_widget_title: title,
         multilingual_enabled: siteSettings.multilingual_enabled !== undefined ? String(siteSettings.multilingual_enabled).toLowerCase() === 'true' : defaults.multilingual_enabled,
         default_language: (siteSettings.default_language as 'en' | 'de') || defaults.default_language,
@@ -780,26 +806,26 @@ export const initializePlaceholderData = () => {
     console.warn("Placeholder data arrays are empty. Initializing with defaults.");
 
     const adminUserPlaceholder: User = {
-        id: 'admin-user-placeholder', username: "admin", email: "admin@forumlite.com",
+        id: 'admin-user-placeholder-fallback', username: "admin", email: "admin@forumlite.com",
         password: "password123", isAdmin: true, createdAt: new Date('2023-01-01T10:00:00Z'), lastActive: new Date(),
         aboutMe: "Default administrator account for placeholder data.", points: 0, postCount: 0,
         avatarUrl: 'https://avatar.vercel.sh/admin.png?size=128', language: 'en',
     };
     users = [adminUserPlaceholder];
 
-    const generalCatData: Omit<Category, 'topicCount' | 'postCount' | 'lastPost'> = { id: 'cat1-placeholder', name: 'General Discussion', description: 'Talk about anything.', createdAt: new Date('2023-01-10T09:00:00Z') };
-    const introCatData: Omit<Category, 'topicCount' | 'postCount' | 'lastPost'> = { id: 'cat2-placeholder', name: 'Introductions', description: 'Introduce yourself to the community.', createdAt: new Date('2023-01-10T09:01:00Z') };
-    const techCatData: Omit<Category, 'topicCount' | 'postCount' | 'lastPost'> = { id: 'cat3-placeholder', name: 'Technical Help', description: 'Get help with technical issues.', createdAt: new Date('2023-01-10T09:02:00Z') };
+    const generalCatData: Omit<Category, 'topicCount' | 'postCount' | 'lastPost'> = { id: 'cat1-placeholder-fallback', name: 'General Discussion (Fallback)', slug: 'general-discussion-fallback', description: 'Talk about anything (fallback).', createdAt: new Date('2023-01-10T09:00:00Z') };
+    const introCatData: Omit<Category, 'topicCount' | 'postCount' | 'lastPost'> = { id: 'cat2-placeholder-fallback', name: 'Introductions (Fallback)', slug: 'introductions-fallback', description: 'Introduce yourself (fallback).', createdAt: new Date('2023-01-10T09:01:00Z') };
+    const techCatData: Omit<Category, 'topicCount' | 'postCount' | 'lastPost'> = { id: 'cat3-placeholder-fallback', name: 'Tech Help (Fallback)', slug: 'tech-help-fallback', description: 'Get tech help (fallback).', createdAt: new Date('2023-01-10T09:02:00Z') };
     categories = [generalCatData, introCatData, techCatData];
 
     const welcomeTopicPlaceholder: Topic = {
-        id: 'topic1-placeholder', title: "Welcome to ForumLite!", categoryId: generalCatData.id,
+        id: 'topic1-placeholder-fallback', title: "Welcome to ForumLite (Fallback)", slug: generateSlug(`${generalCatData.name} Welcome to ForumLite (Fallback)`), categoryId: generalCatData.id,
         authorId: adminUserPlaceholder.id, createdAt: new Date('2023-01-10T10:00:00Z'), lastActivity: new Date('2023-01-10T10:05:00Z'), postCount: 1,
         firstPostContentSnippet: "This is the first topic on ForumLite. Feel free to look around and start discussions!",
         firstPostImageUrl: undefined,
     };
     const techTopicPlaceholder: Topic = {
-        id: 'topic2-placeholder', title: "Having trouble with your PC?", categoryId: techCatData.id,
+        id: 'topic2-placeholder-fallback', title: "PC Problems (Fallback)", slug: generateSlug(`${techCatData.name} PC Problems (Fallback)`), categoryId: techCatData.id,
         authorId: adminUserPlaceholder.id, createdAt: new Date('2023-01-11T11:00:00Z'), lastActivity: new Date('2023-01-11T11:00:00Z'), postCount: 1,
         firstPostContentSnippet: "Post your technical issues here and the community might be able to help.",
         firstPostImageUrl: undefined,
@@ -807,8 +833,8 @@ export const initializePlaceholderData = () => {
     topics = [welcomeTopicPlaceholder, techTopicPlaceholder];
 
     posts = [
-        { id: 'post1-placeholder', content: "This is the first post in the fallback placeholder topic.", topicId: welcomeTopicPlaceholder.id, authorId: adminUserPlaceholder.id, createdAt: new Date('2023-01-10T10:00:00Z'), reactions: [] },
-        { id: 'post2-placeholder', content: "Post your tech issues here (fallback).", topicId: techTopicPlaceholder.id, authorId: adminUserPlaceholder.id, createdAt: new Date('2023-01-11T11:00:00Z'), reactions: [] }
+        { id: 'post1-placeholder-fallback', content: "This is the first post in the fallback placeholder topic.", topicId: welcomeTopicPlaceholder.id, authorId: adminUserPlaceholder.id, createdAt: new Date('2023-01-10T10:00:00Z'), reactions: [] },
+        { id: 'post2-placeholder-fallback', content: "Post your tech issues here (fallback).", topicId: techTopicPlaceholder.id, authorId: adminUserPlaceholder.id, createdAt: new Date('2023-01-11T11:00:00Z'), reactions: [] }
     ];
 
     events = [
@@ -829,10 +855,12 @@ export const initializePlaceholderData = () => {
     console.log("Placeholder data initialized with defaults.");
 };
 
-// Ensure placeholder data is initialized when this module is first imported
-initializePlaceholderData();
 
-// Functions for testing or admin features not directly tied to user actions:
+if (typeof process !== 'undefined' && process.env?.NODE_ENV !== 'test') {
+    initializePlaceholderData();
+}
+
+
 export const _resetPlaceholderData = () => {
     users = [];
     categories = [];
@@ -852,9 +880,10 @@ export const _resetPlaceholderData = () => {
         default_language: 'en',
     };
     console.log("Placeholder data has been reset.");
-    initializePlaceholderData(); // Re-initialize with defaults
+    initializePlaceholderData(); 
 };
 
 export const _getPlaceholderData = () => ({
     users, categories, topics, posts, notifications, conversations, privateMessages, events, siteSettings
 });
+
