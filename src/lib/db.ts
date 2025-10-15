@@ -292,7 +292,7 @@ export const deleteUser = async (userId: string): Promise<boolean> => {
         await client.query('DELETE FROM reactions WHERE user_id = $1', [userId]);
         const result = await client.query('DELETE FROM users WHERE id = $1', [userId]);
         await client.query('COMMIT');
-        return result.rowCount > 0;
+        return (result.rowCount ?? 0) > 0;
     } catch (error) {
         await client.query('ROLLBACK');
         console.error('[DB Error] Error deleting user:', error);
@@ -397,6 +397,41 @@ export const getCategoryById = async (id: string): Promise<Category | null> => {
   }
 };
 
+// Resolve category by slug
+export const getCategoryBySlug = async (slug: string): Promise<Category | null> => {
+  if (!isDbAvailable()) {
+    console.warn(`[DB Fallback] getCategoryBySlug for ${slug}: Database pool not available. Using placeholder data.`);
+    return placeholder.getCategoryBySlug?.(slug) ?? null;
+  }
+  try {
+    const queryText = `
+        SELECT
+            c.id, c.name, c.slug, c.description, c.created_at,
+            COUNT(DISTINCT t.id) AS topic_count,
+            COUNT(DISTINCT p.id) AS post_count,
+            (SELECT p_last.id FROM posts p_last JOIN topics t_last ON p_last.topic_id = t_last.id WHERE t_last.category_id = c.id ORDER BY p_last.created_at DESC LIMIT 1) as last_post_id,
+            (SELECT t_last.id FROM posts p_last JOIN topics t_last ON p_last.topic_id = t_last.id WHERE t_last.category_id = c.id ORDER BY p_last.created_at DESC LIMIT 1) as last_post_topic_id,
+            (SELECT t_last.title FROM posts p_last JOIN topics t_last ON p_last.topic_id = t_last.id WHERE t_last.category_id = c.id ORDER BY p_last.created_at DESC LIMIT 1) as last_post_topic_title,
+            (SELECT t_last.slug FROM posts p_last JOIN topics t_last ON p_last.topic_id = t_last.id WHERE t_last.category_id = c.id ORDER BY p_last.created_at DESC LIMIT 1) as last_post_topic_slug,
+            (SELECT u_last.id FROM posts p_last JOIN topics t_last ON p_last.topic_id = t_last.id JOIN users u_last ON p_last.author_id = u_last.id WHERE t_last.category_id = c.id ORDER BY p_last.created_at DESC LIMIT 1) as last_post_author_id,
+            (SELECT u_last.username FROM posts p_last JOIN topics t_last ON p_last.topic_id = t_last.id JOIN users u_last ON p_last.author_id = u_last.id WHERE t_last.category_id = c.id ORDER BY p_last.created_at DESC LIMIT 1) as last_post_author_username,
+            (SELECT u_last.avatar_url FROM posts p_last JOIN topics t_last ON p_last.topic_id = t_last.id JOIN users u_last ON p_last.author_id = u_last.id WHERE t_last.category_id = c.id ORDER BY p_last.created_at DESC LIMIT 1) as last_post_author_avatar_url,
+            (SELECT p_last.created_at FROM posts p_last JOIN topics t_last ON p_last.topic_id = t_last.id WHERE t_last.category_id = c.id ORDER BY p_last.created_at DESC LIMIT 1) as last_post_created_at
+        FROM categories c
+        LEFT JOIN topics t ON c.id = t.category_id
+        LEFT JOIN posts p ON t.id = p.topic_id
+        WHERE c.slug = $1
+        GROUP BY c.id, c.name, c.slug, c.description, c.created_at;
+    `;
+    const result = await query(queryText, [slug]);
+    if (result.rows.length === 0) return null;
+    return mapDbRowToCategory(result.rows[0]);
+  } catch (error: any) {
+    console.error(`[DB Error] getCategoryBySlug for ${slug}: Error querying database. Falling back to placeholder data.`, error.message);
+    return placeholder.getCategoryBySlug?.(slug) ?? null;
+  }
+};
+
 export const createCategory = async (categoryData: Pick<Category, 'name' | 'description'>): Promise<Category> => {
   if (!isDbAvailable()) {
     console.warn("[DB Fallback] createCategory: Database pool not available. Using placeholder data.");
@@ -452,7 +487,7 @@ export const deleteCategory = async (categoryId: string): Promise<boolean> => {
     }
     try {
         const result = await query('DELETE FROM categories WHERE id = $1', [categoryId]);
-        return result.rowCount > 0;
+        return (result.rowCount ?? 0) > 0;
     } catch (error: any) {
         console.error(`[DB Error] deleteCategory ${categoryId}: Error querying database. Fallback to placeholder.`, error.message);
         return placeholder.deleteCategory(categoryId);
@@ -584,6 +619,32 @@ export const getTopicById = async (id: string): Promise<Topic | null> => {
         console.error(`[DB Error] getTopicById for ${id}: Error querying database. Fallback to placeholder.`, error.message);
         return placeholder.getTopicById(id);
     }
+};
+
+// Resolve topic by slug
+export const getTopicBySlug = async (slug: string): Promise<Topic | null> => {
+  if (!isDbAvailable()) {
+    console.warn(`[DB Fallback] getTopicBySlug for ${slug}: Using placeholder data.`);
+    return placeholder.getTopicBySlug?.(slug) ?? null;
+  }
+  try {
+    const result = await query(`
+      SELECT t.id, t.title, t.slug, t.category_id, t.author_id, t.created_at, t.last_activity,
+             u.id as author_id_fk, u.username as author_username, u.avatar_url as author_avatar_url, u.email as author_email, u.created_at as author_created_at, u.points as author_points, u.is_admin as author_is_admin, u.location as author_location,
+             c.id as category_id_fk, c.name as category_name, c.slug as category_slug, c.description as category_description, c.created_at as category_created_at,
+             (SELECT COUNT(*) FROM posts p WHERE p.topic_id = t.id) as post_count
+      FROM topics t
+      LEFT JOIN users u ON t.author_id = u.id
+      LEFT JOIN categories c ON t.category_id = c.id
+      WHERE t.slug = $1
+      LIMIT 1
+    `, [slug]);
+    if (result.rows.length === 0) return null;
+    return mapDbRowToTopic(result.rows[0]);
+  } catch (error: any) {
+    console.error(`[DB Error] getTopicBySlug for ${slug}: Error querying database. Fallback to placeholder.`, error.message);
+    return placeholder.getTopicBySlug?.(slug) ?? null;
+  }
 };
 
 export const getTopicByIdSimple = async (id: string): Promise<Pick<Topic, 'id' | 'title' | 'slug' | 'categoryId' | 'authorId' | 'createdAt' | 'lastActivity'> | null> => {
@@ -825,7 +886,7 @@ export const deletePost = async (postId: string, userId: string, isAdmin: boolea
         await client.query('COMMIT');
         await updateUserLastActive(userId);
         if (postToDelete.author_id) await calculateUserPoints(postToDelete.author_id);
-        return result.rowCount > 0;
+        return (result.rowCount ?? 0) > 0;
     } catch (error: any) {
         await client.query('ROLLBACK');
         console.error(`[DB Error] deletePost ${postId}: Error deleting post. Fallback to placeholder.`, error.message);
@@ -1012,7 +1073,7 @@ export const markNotificationAsRead = async (notificationId: string, userId: str
     }
     try {
         const result = await query('UPDATE notifications SET is_read = TRUE WHERE id = $1 AND recipient_user_id = $2', [notificationId, userId]);
-        return result.rowCount > 0;
+        return (result.rowCount ?? 0) > 0;
     } catch (error: any) {
         console.error(`[DB Error] markNotificationAsRead ${notificationId}: Fallback to placeholder.`, error.message);
         return placeholder.markNotificationAsRead(notificationId, userId);
@@ -1026,7 +1087,7 @@ export const markAllNotificationsAsRead = async (userId: string): Promise<boolea
     }
     try {
         const result = await query('UPDATE notifications SET is_read = TRUE WHERE recipient_user_id = $1 AND is_read = FALSE', [userId]);
-        return result.rowCount > 0;
+        return (result.rowCount ?? 0) > 0;
     } catch (error: any) {
         console.error(`[DB Error] markAllNotificationsAsRead for ${userId}: Fallback to placeholder.`, error.message);
         return placeholder.markAllNotificationsAsRead(userId);
@@ -1285,7 +1346,7 @@ export const deleteEvent = async (eventId: string): Promise<boolean> => {
     }
     try {
         const result = await query('DELETE FROM events WHERE id = $1', [eventId]);
-        return result.rowCount > 0;
+        return (result.rowCount ?? 0) > 0;
     } catch (error: any) {
         console.error(`[DB Error] deleteEvent ${eventId}: Fallback to placeholder.`, error.message);
         return placeholder.deleteEvent(eventId);
@@ -1314,6 +1375,7 @@ export const getAllSiteSettings = async (): Promise<SiteSettings> => {
         seo_bing_site_verification: "",
         seo_robots_txt: "User-agent: *\nAllow: /",
         seo_sitemap_enabled: true,
+        seo_friendly_urls_enabled: false,
     };
 
     if (!isDbAvailable()) {
@@ -1338,6 +1400,7 @@ export const getAllSiteSettings = async (): Promise<SiteSettings> => {
             seo_bing_site_verification: placeholderSettings.seo_bing_site_verification !== undefined ? (placeholderSettings.seo_bing_site_verification || defaults.seo_bing_site_verification) : defaults.seo_bing_site_verification,
             seo_robots_txt: placeholderSettings.seo_robots_txt !== undefined ? (placeholderSettings.seo_robots_txt || defaults.seo_robots_txt) : defaults.seo_robots_txt,
             seo_sitemap_enabled: placeholderSettings.seo_sitemap_enabled !== undefined ? placeholderSettings.seo_sitemap_enabled : defaults.seo_sitemap_enabled,
+            seo_friendly_urls_enabled: placeholderSettings.seo_friendly_urls_enabled !== undefined ? placeholderSettings.seo_friendly_urls_enabled : defaults.seo_friendly_urls_enabled,
         };
     }
 
@@ -1367,6 +1430,7 @@ export const getAllSiteSettings = async (): Promise<SiteSettings> => {
             seo_bing_site_verification: settingsMap.seo_bing_site_verification !== undefined ? (settingsMap.seo_bing_site_verification || defaults.seo_bing_site_verification) : defaults.seo_bing_site_verification,
             seo_robots_txt: settingsMap.seo_robots_txt !== undefined ? (settingsMap.seo_robots_txt || defaults.seo_robots_txt) : defaults.seo_robots_txt,
             seo_sitemap_enabled: settingsMap.seo_sitemap_enabled !== undefined ? settingsMap.seo_sitemap_enabled === 'true' : defaults.seo_sitemap_enabled,
+            seo_friendly_urls_enabled: settingsMap.seo_friendly_urls_enabled !== undefined ? settingsMap.seo_friendly_urls_enabled === 'true' : defaults.seo_friendly_urls_enabled,
         };
     } catch (error: any) {
         console.error("[DB Error] getAllSiteSettings: Error querying database. Falling back to defaults.", error.message);
@@ -1377,7 +1441,7 @@ export const getAllSiteSettings = async (): Promise<SiteSettings> => {
 export const updateSiteSetting = async (key: string, value: string): Promise<void> => {
     if (!isDbAvailable()) {
         console.warn(`[DB Fallback] updateSiteSetting for ${key}: Using placeholder data.`);
-        return placeholder.updateSiteSetting(key, value);
+        return placeholder.updateSiteSetting(key as keyof SiteSettings, value);
     }
     try {
         await query(
@@ -1386,7 +1450,7 @@ export const updateSiteSetting = async (key: string, value: string): Promise<voi
         );
     } catch (error: any) {
         console.error(`[DB Error] updateSiteSetting for ${key}: Fallback to placeholder.`, error.message);
-        return placeholder.updateSiteSetting(key, value);
+        return placeholder.updateSiteSetting(key as keyof SiteSettings, value);
     }
 };
 
@@ -1439,6 +1503,7 @@ async function initializeDatabase() {
         ['seo_bing_site_verification', ""],
         ['seo_robots_txt', "User-agent: *\nAllow: /"],
         ['seo_sitemap_enabled', true],
+        ['seo_friendly_urls_enabled', false],
     ];
 
     for (const [key, value] of defaultSettingsEntries) {
@@ -1534,6 +1599,7 @@ const createTopicInternal = async (topicData: CreateTopicParamsDB, client: any):
       [uuidv4(), topicData.firstPostContent, topicId, topicData.authorId, now, topicData.firstPostImageUrl]
     );
 };
+
 
 
 if (isDbAvailable()) {

@@ -6,11 +6,13 @@ import { getUnreadNotificationCountAction } from '@/lib/actions/notifications';
 import { getUnreadPrivateMessageCountAction } from '@/lib/actions/privateMessages'; // Import PM count action
 import { LogIn, LogOut, UserPlus, Home, ShieldCheck, Settings, User as UserIcon, Settings2, MessageSquare } from 'lucide-react'; // Added MessageSquare
 import { HeaderNotificationDropdown } from './HeaderNotificationDropdown'; 
+import { getAllSiteSettings } from '@/lib/db';
 
 export async function Header() {
   const user = await getCurrentUser();
   let initialUnreadNotifCount = 0;
   let initialUnreadPMCount = 0;
+  const siteSettings = await getAllSiteSettings();
 
   if (user) {
     initialUnreadNotifCount = await getUnreadNotificationCountAction();
@@ -85,7 +87,7 @@ export async function Header() {
                  </span>
              )}
              
-             <HeaderNotificationDropdown user={user} initialUnreadCount={initialUnreadNotifCount} />
+             <HeaderNotificationDropdown user={user} initialUnreadCount={initialUnreadNotifCount} useFriendlyUrls={siteSettings.seo_friendly_urls_enabled} />
 
               <span className="text-sm font-medium mr-2 hidden md:inline">
                 Welcome, {user.username}

@@ -35,12 +35,15 @@ type RawSEOSettingsData = {
   seo_bing_site_verification?: string | null;
   seo_robots_txt?: string | null;
   seo_sitemap_enabled?: string | null;
+  seo_friendly_urls_enabled?: string | null;
 };
 
 export function SEOForm({ initialSettings }: SEOFormProps) {
   const [state, formAction, isPending] = useActionState(updateSEOSettingsAction, initialActionState);
   const { toast } = useToast();
   const formRef = useRef<HTMLFormElement>(null);
+  const sitemapHiddenRef = useRef<HTMLInputElement>(null);
+  const friendlyHiddenRef = useRef<HTMLInputElement>(null);
 
   const currentRawData = state?.rawData as RawSEOSettingsData | undefined;
 
@@ -95,7 +98,7 @@ export function SEOForm({ initialSettings }: SEOFormProps) {
                 name="seo_site_title"
                 type="text"
                 maxLength={60}
-                key={`title-${getDefaultValue('seo_site_title')}`}
+                key="seo_site_title"
                 defaultValue={getDefaultValue('seo_site_title')}
                 disabled={isPending}
                 placeholder="ForumLite - Community Discussion Forum"
@@ -111,7 +114,7 @@ export function SEOForm({ initialSettings }: SEOFormProps) {
                 id="seo_site_description"
                 name="seo_site_description"
                 maxLength={160}
-                key={`description-${getDefaultValue('seo_site_description')}`}
+                key="seo_site_description"
                 defaultValue={getDefaultValue('seo_site_description')}
                 disabled={isPending}
                 placeholder="Join our community forum for engaging discussions, helpful topics, and connecting with like-minded people."
@@ -129,7 +132,7 @@ export function SEOForm({ initialSettings }: SEOFormProps) {
                 name="seo_site_keywords"
                 type="text"
                 maxLength={200}
-                key={`keywords-${getDefaultValue('seo_site_keywords')}`}
+                key="seo_site_keywords"
                 defaultValue={getDefaultValue('seo_site_keywords')}
                 disabled={isPending}
                 placeholder="forum, community, discussion, topics, posts, social"
@@ -159,7 +162,7 @@ export function SEOForm({ initialSettings }: SEOFormProps) {
               id="seo_og_image"
               name="seo_og_image"
               type="url"
-              key={`og-image-${getDefaultValue('seo_og_image')}`}
+              key="seo_og_image"
               defaultValue={getDefaultValue('seo_og_image')}
               disabled={isPending}
               placeholder="https://example.com/og-image.png"
@@ -175,7 +178,7 @@ export function SEOForm({ initialSettings }: SEOFormProps) {
               id="seo_twitter_handle"
               name="seo_twitter_handle"
               type="text"
-              key={`twitter-${getDefaultValue('seo_twitter_handle')}`}
+              key="seo_twitter_handle"
               defaultValue={getDefaultValue('seo_twitter_handle')}
               disabled={isPending}
               placeholder="@yourhandle"
@@ -205,7 +208,7 @@ export function SEOForm({ initialSettings }: SEOFormProps) {
               id="seo_google_analytics_id"
               name="seo_google_analytics_id"
               type="text"
-              key={`ga-${getDefaultValue('seo_google_analytics_id')}`}
+              key="seo_google_analytics_id"
               defaultValue={getDefaultValue('seo_google_analytics_id')}
               disabled={isPending}
               placeholder="G-XXXXXXXXXX"
@@ -235,7 +238,7 @@ export function SEOForm({ initialSettings }: SEOFormProps) {
               id="seo_google_site_verification"
               name="seo_google_site_verification"
               type="text"
-              key={`google-verification-${getDefaultValue('seo_google_site_verification')}`}
+              key="seo_google_site_verification"
               defaultValue={getDefaultValue('seo_google_site_verification')}
               disabled={isPending}
               placeholder="google-site-verification=..."
@@ -251,7 +254,7 @@ export function SEOForm({ initialSettings }: SEOFormProps) {
               id="seo_bing_site_verification"
               name="seo_bing_site_verification"
               type="text"
-              key={`bing-verification-${getDefaultValue('seo_bing_site_verification')}`}
+              key="seo_bing_site_verification"
               defaultValue={getDefaultValue('seo_bing_site_verification')}
               disabled={isPending}
               placeholder="msvalidate.01=..."
@@ -280,7 +283,7 @@ export function SEOForm({ initialSettings }: SEOFormProps) {
             <Textarea
               id="seo_robots_txt"
               name="seo_robots_txt"
-              key={`robots-${getDefaultValue('seo_robots_txt')}`}
+              key="seo_robots_txt"
               defaultValue={getDefaultValue('seo_robots_txt')}
               disabled={isPending}
               placeholder="User-agent: *&#10;Allow: /"
@@ -298,16 +301,40 @@ export function SEOForm({ initialSettings }: SEOFormProps) {
                 Generate and serve an XML sitemap for search engines. When enabled, your sitemap will be available at <code className="bg-muted px-1 py-0.5 rounded text-xs">{process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:9002'}/sitemap.xml</code>
               </span>
             </Label>
-            <Switch
-              id="seo_sitemap_enabled"
-              name="seo_sitemap_enabled"
-              key={`sitemap-${getSwitchDefaultChecked('seo_sitemap_enabled')}`} 
-              defaultChecked={getSwitchDefaultChecked('seo_sitemap_enabled')}
-              disabled={isPending}
-              value="true" 
-            />
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="seo_sitemap_enabled"
+                defaultChecked={getSwitchDefaultChecked('seo_sitemap_enabled')}
+                disabled={isPending}
+                onCheckedChange={(checked) => {
+                  if (sitemapHiddenRef.current) sitemapHiddenRef.current.value = checked ? 'true' : 'false';
+                }}
+              />
+              <input ref={sitemapHiddenRef} type="hidden" name="seo_sitemap_enabled" defaultValue={getSwitchDefaultChecked('seo_sitemap_enabled') ? 'true' : 'false'} />
+            </div>
           </div>
           {state?.errors?.seo_sitemap_enabled && <p className="text-sm font-medium text-destructive">{typeof state.errors.seo_sitemap_enabled === 'string' ? state.errors.seo_sitemap_enabled : state.errors.seo_sitemap_enabled?.[0]}</p>}
+
+          <div className="flex items-center justify-between space-x-2">
+            <Label htmlFor="seo_friendly_urls_enabled" className="flex flex-col space-y-1">
+              <span>Enable Friendly URLs</span>
+              <span className="font-normal leading-snug text-muted-foreground">
+                Use readable URLs with topic and category names instead of IDs. For example: <code className="bg-muted px-1 py-0.5 rounded text-xs">/topics/my-awesome-topic</code> instead of <code className="bg-muted px-1 py-0.5 rounded text-xs">/topics/123</code>
+              </span>
+            </Label>
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="seo_friendly_urls_enabled"
+                defaultChecked={getSwitchDefaultChecked('seo_friendly_urls_enabled')}
+                disabled={isPending}
+                onCheckedChange={(checked) => {
+                  if (friendlyHiddenRef.current) friendlyHiddenRef.current.value = checked ? 'true' : 'false';
+                }}
+              />
+              <input ref={friendlyHiddenRef} type="hidden" name="seo_friendly_urls_enabled" defaultValue={getSwitchDefaultChecked('seo_friendly_urls_enabled') ? 'true' : 'false'} />
+            </div>
+          </div>
+          {state?.errors?.seo_friendly_urls_enabled && <p className="text-sm font-medium text-destructive">{typeof state.errors.seo_friendly_urls_enabled === 'string' ? state.errors.seo_friendly_urls_enabled : state.errors.seo_friendly_urls_enabled?.[0]}</p>}
         </CardContent>
       </Card>
       

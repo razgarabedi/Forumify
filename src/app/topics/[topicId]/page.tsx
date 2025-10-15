@@ -1,5 +1,5 @@
 
-import { getTopicById } from '@/lib/db'; // Changed from placeholder-data
+import { getTopicById, getTopicBySlug, getAllSiteSettings } from '@/lib/db'; // Changed from placeholder-data
 import { getPostsByTopic } from '@/lib/actions/forums'; // Action uses db.ts internally
 import { PostList } from '@/components/forums/PostList';
 import { PostForm } from '@/components/forms/PostForm';
@@ -18,11 +18,12 @@ interface TopicPageProps {
 
 export default async function TopicPage({ params }: TopicPageProps) {
     const { topicId } = await params;
+    const siteSettings = await getAllSiteSettings();
     const user = await getCurrentUser();
-    const [topic, initialPosts] = await Promise.all([
-        getTopicById(topicId),
-        getPostsByTopic(topicId), // This action already uses db.ts
-    ]);
+    const topic = siteSettings.seo_friendly_urls_enabled
+        ? (await getTopicBySlug(topicId)) || (await getTopicById(topicId))
+        : await getTopicById(topicId);
+    const initialPosts = await getPostsByTopic(topic?.id || topicId); // use resolved id
 
     if (!topic) {
         notFound();
@@ -33,7 +34,7 @@ export default async function TopicPage({ params }: TopicPageProps) {
             <div>
                  {topic.category && (
                      <Button variant="outline" size="sm" asChild className="mb-4">
-                        <Link href={`/categories/${topic.categoryId}`}>
+                        <Link href={`/categories/${topic.category?.slug ?? topic.categoryId}`}>
                             <ArrowLeft className="mr-2 h-4 w-4" /> Back to {topic.category.name}
                         </Link>
                     </Button>
@@ -87,7 +88,10 @@ export default async function TopicPage({ params }: TopicPageProps) {
 
 export async function generateMetadata({ params }: TopicPageProps) {
   const { topicId } = await params;
-  const topic = await getTopicById(topicId);
+  const siteSettings = await getAllSiteSettings();
+  const topic = siteSettings.seo_friendly_urls_enabled
+    ? (await getTopicBySlug(topicId)) || (await getTopicById(topicId))
+    : await getTopicById(topicId);
   return {
     title: topic ? `${topic.title} - ForumLite` : 'Topic Not Found',
   };

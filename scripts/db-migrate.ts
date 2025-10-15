@@ -172,7 +172,7 @@ async function runMigrations() {
       try {
         await client.query(indexQuery);
       } catch (error) {
-        console.log(`⚠️  Warning: Could not create index: ${error.message}`);
+        console.log(`⚠️  Warning: Could not create index: ${error instanceof Error ? error.message : String(error)}`);
       }
     }
     console.log('✅ Database indexes created/verified');

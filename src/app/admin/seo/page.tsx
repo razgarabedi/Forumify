@@ -35,6 +35,7 @@ export default async function AdminSEOPage() {
         seo_bing_site_verification: "",
         seo_robots_txt: "User-agent: *\nAllow: /",
         seo_sitemap_enabled: true,
+        seo_friendly_urls_enabled: false,
     };
   }
 

@@ -20,10 +20,12 @@ import { fetchNotificationsAction, markNotificationReadAction, getUnreadNotifica
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { getAllSiteSettings } from '@/lib/db';
 
 interface HeaderNotificationDropdownProps {
   user: User | null;
   initialUnreadCount: number;
+  useFriendlyUrls?: boolean;
 }
 
 const MAX_NOTIFICATIONS_IN_DROPDOWN = 5;
@@ -38,7 +40,8 @@ const reactionIcons: Record<ReactionType, React.ElementType> = {
 };
 
 
-export function HeaderNotificationDropdown({ user, initialUnreadCount }: HeaderNotificationDropdownProps) {
+export function HeaderNotificationDropdown({ user, initialUnreadCount, useFriendlyUrls }: HeaderNotificationDropdownProps) {
+  // This component is client; pass the preference from parent if needed. For now, fetch once via server where used.
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(initialUnreadCount);
@@ -100,7 +103,8 @@ export function HeaderNotificationDropdown({ user, initialUnreadCount }: HeaderN
     if (notification.type === 'private_message' && notification.conversationId) {
       router.push(`/messages/${notification.conversationId}`);
     } else if ((notification.type === 'mention' || notification.type === 'reaction') && notification.topicId && notification.postId) {
-      router.push(`/topics/${notification.topicId}#post-${notification.postId}`);
+      const topicPath = useFriendlyUrls ? (notification.topicSlug || notification.topicId) : notification.topicId;
+      router.push(`/topics/${topicPath}#post-${notification.postId}`);
     } else {
       console.warn("HeaderNotificationDropdown: Could not determine navigation path for notification:", notification);
     }

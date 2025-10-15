@@ -178,7 +178,7 @@ async function validateConfiguration() {
       console.log(`   📅 Server time: ${result.rows[0].current_time}`);
     } catch (error) {
       console.log('   ❌ Database connection: Failed');
-      console.log(`   🔍 Error: ${error.message}`);
+      console.log(`   🔍 Error: ${error instanceof Error ? error.message : String(error)}`);
     }
   } else {
     console.log('   ❌ Database connection: Cannot test (DATABASE_URL not set)');
@@ -189,7 +189,7 @@ async function validateConfiguration() {
   if (smtpHost && smtpPort && smtpUser && smtpPass) {
     try {
       const nodemailer = await import('nodemailer');
-      const transporter = nodemailer.createTransporter({
+      const transporter = nodemailer.createTransport({
         host: smtpHost,
         port: parseInt(smtpPort),
         secure: smtpPort === '465',
@@ -203,7 +203,7 @@ async function validateConfiguration() {
       console.log('   ✅ SMTP connection: Successful');
     } catch (error) {
       console.log('   ❌ SMTP connection: Failed');
-      console.log(`   🔍 Error: ${error.message}`);
+      console.log(`   🔍 Error: ${error instanceof Error ? error.message : String(error)}`);
     }
   } else {
     console.log('   ⚪ SMTP connection: Not configured');

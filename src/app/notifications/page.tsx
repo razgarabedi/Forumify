@@ -2,6 +2,7 @@
 import { getCurrentUser } from '@/lib/actions/auth';
 import { fetchNotificationsAction, markAllNotificationsReadAction } from '@/lib/actions/notifications';
 import { NotificationItem } from './_components/NotificationItem';
+import { getAllSiteSettings } from '@/lib/db';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { BellOff, CheckCheck, ExternalLink } from 'lucide-react'; // Added ExternalLink
@@ -21,6 +22,7 @@ export default async function NotificationsPage() {
 
   const notifications = await fetchNotificationsAction();
   const unreadCount = notifications.filter(n => !n.isRead).length;
+  const siteSettings = await getAllSiteSettings();
 
   async function handleMarkAllRead() {
     "use server";
@@ -64,7 +66,7 @@ export default async function NotificationsPage() {
       ) : (
         <div className="space-y-3">
           {notifications.map((notification) => (
-            <NotificationItem key={notification.id} notification={notification} />
+            <NotificationItem key={notification.id} notification={notification} useFriendlyUrls={siteSettings.seo_friendly_urls_enabled} />
           ))}
         </div>
       )}

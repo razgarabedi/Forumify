@@ -18,7 +18,7 @@ export async function GET() {
       getAllUsers(),
     ]);
 
-    const sitemapData = await generateSitemapData(categories, topics, users);
+    const sitemapData = await generateSitemapData(siteSettings, categories, topics, users);
 
     // Generate XML sitemap
     const sitemapXml = `<?xml version="1.0" encoding="UTF-8"?>

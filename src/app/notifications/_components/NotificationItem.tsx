@@ -4,6 +4,7 @@
 import React from 'react';
 import type { Notification, ReactionType } from '@/lib/types';
 import { useRouter } from 'next/navigation';
+import { getAllSiteSettings } from '@/lib/db';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { BellRing, CheckCircle2, Eye, ExternalLink, MessageSquare, ThumbsUp, Heart, Laugh, SmilePlus, Frown, Angry } from 'lucide-react';
@@ -16,6 +17,7 @@ import { useActionState } from 'react';
 
 interface NotificationItemProps {
   notification: Notification;
+  useFriendlyUrls?: boolean;
 }
 
 const initialActionStateForButton = { success: false, message: '' };
@@ -29,7 +31,7 @@ const reactionIcons: Record<ReactionType, React.ElementType> = {
   angry: Angry,
 };
 
-export function NotificationItem({ notification }: NotificationItemProps) {
+export function NotificationItem({ notification, useFriendlyUrls }: NotificationItemProps) {
   const { toast } = useToast();
   const router = useRouter();
   // Removed locale usage
@@ -49,8 +51,8 @@ export function NotificationItem({ notification }: NotificationItemProps) {
     if (notification.type === 'private_message' && notification.conversationId) {
       router.push(`/messages/${notification.conversationId}`);
     } else if ((notification.type === 'mention' || notification.type === 'reaction') && notification.topicId && notification.postId) {
-      const topicSlug = notification.topicSlug || notification.topicId; // Fallback to ID if slug is not present
-      router.push(`/topics/${notification.topicId}/${topicSlug}#post-${notification.postId}`);
+      const topicPath = useFriendlyUrls ? (notification.topicSlug || notification.topicId) : notification.topicId;
+      router.push(`/topics/${topicPath}#post-${notification.postId}`);
     } else {
         console.warn("NotificationItem: Could not determine navigation path for notification:", notification);
     }

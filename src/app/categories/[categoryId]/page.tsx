@@ -1,5 +1,5 @@
 
-import { getTopicsByCategory, getCategoryById } from '@/lib/db'; // Changed from placeholder-data
+import { getTopicsByCategory, getCategoryById, getCategoryBySlug, getAllSiteSettings } from '@/lib/db'; // Changed from placeholder-data
 import { TopicList } from '@/components/forums/TopicList';
 import { getCurrentUser } from '@/lib/actions/auth';
 import Link from 'next/link';
@@ -15,11 +15,12 @@ interface CategoryPageProps {
 
 export default async function CategoryPage({ params }: CategoryPageProps) {
     const { categoryId } = await params;
+    const siteSettings = await getAllSiteSettings();
     const user = await getCurrentUser();
-    const [category, topics] = await Promise.all([
-        getCategoryById(categoryId),
-        getTopicsByCategory(categoryId),
-    ]);
+    const category = siteSettings.seo_friendly_urls_enabled
+        ? (await getCategoryBySlug(categoryId)) || (await getCategoryById(categoryId))
+        : await getCategoryById(categoryId);
+    const topics = await getTopicsByCategory(category?.id || categoryId);
 
     if (!category) {
         notFound();
@@ -55,7 +56,10 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
 
 export async function generateMetadata({ params }: CategoryPageProps) {
   const { categoryId } = await params;
-  const category = await getCategoryById(categoryId);
+  const siteSettings = await getAllSiteSettings();
+  const category = siteSettings.seo_friendly_urls_enabled
+    ? (await getCategoryBySlug(categoryId)) || (await getCategoryById(categoryId))
+    : await getCategoryById(categoryId);
   return {
     title: category ? `${category.name} - ForumLite` : 'Category Not Found',
   };

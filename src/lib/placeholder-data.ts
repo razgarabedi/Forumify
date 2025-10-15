@@ -31,6 +31,7 @@ let siteSettings: Partial<SiteSettings> = {
     seo_bing_site_verification: "",
     seo_robots_txt: "User-agent: *\nAllow: /",
     seo_sitemap_enabled: true,
+    seo_friendly_urls_enabled: false,
 };
 
 
@@ -349,6 +350,12 @@ export const getTopics = async (): Promise<Topic[]> => {
   }));
 };
 
+export const getCategoryBySlug = async (slug: string): Promise<Category | null> => {
+  await new Promise(resolve => setTimeout(resolve, 10));
+  const category = categories.find(c => c.slug === slug);
+  return category ? { ...category } : null;
+};
+
 export const getTopicsByCategory = async (categoryId: string): Promise<Topic[]> => {
   await new Promise(resolve => setTimeout(resolve, 50));
   const categoryTopics = topics
@@ -481,6 +488,33 @@ export const getPostsByTopic = async (topicId: string): Promise<Post[]> => {
     const topicData = await getTopicByIdSimple(post.topicId);
     return { ...post, author, topic: topicData ?? undefined, reactions: post.reactions || [], createdAt: new Date(post.createdAt), updatedAt: post.updatedAt ? new Date(post.updatedAt) : undefined };
   }));
+};
+
+export const getTopicBySlug = async (slug: string): Promise<Topic | null> => {
+  await new Promise(resolve => setTimeout(resolve, 10));
+  const topicData = topics.find(t => t.slug === slug);
+  if (!topicData) return null;
+  const author = await findUserById(topicData.authorId);
+  const category = await getCategoryById(topicData.categoryId);
+  const topicPosts = posts.filter(p => p.topicId === topicData.id).sort((a,b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  const firstPost = topicPosts[0];
+  let snippet = '';
+  if (firstPost && firstPost.content) {
+      snippet = firstPost.content.replace(/\s\s+/g, ' ').trim();
+      if (snippet.length > 155) {
+          snippet = snippet.substring(0, 152).trim() + "...";
+      }
+  }
+  return {
+    ...topicData,
+    author,
+    category: category || undefined,
+    postCount: topicPosts.length,
+    createdAt: new Date(topicData.createdAt),
+    lastActivity: new Date(topicData.lastActivity),
+    firstPostContentSnippet: snippet,
+    firstPostImageUrl: firstPost?.imageUrl,
+  };
 };
 
 export const getUserPostCount = async (userId: string): Promise<number> => {

@@ -43,6 +43,20 @@ const nextConfig: NextConfig = {
    experimental: {
     serverActions: {}, // Changed from true to {} to satisfy "Expected object" error
   },
+  turbopack: {
+    resolveAlias: {
+      'refractor/core': 'refractor/lib/core.js',
+    },
+  },
+  webpack: (config) => {
+    // Ensure refractor subpath imports resolve correctly in bundler
+    config.resolve = config.resolve || {};
+    config.resolve.alias = {
+      ...(config.resolve.alias || {}),
+      'refractor/core': require.resolve('refractor/lib/core.js'),
+    };
+    return config;
+  },
 };
 
 export default nextConfig;

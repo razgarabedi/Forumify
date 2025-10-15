@@ -50,7 +50,7 @@ export type Topic = {
   lastActivity: Date;
   postCount?: number; // Optional: denormalized count
   author?: User; // Optional: include author details
-  category?: Category; // Optional: include category details
+  category?: Pick<Category, 'id' | 'name' | 'description' | 'createdAt' | 'slug'>; // Optional: include category details
   firstPostContentSnippet: string; // For meta description
   firstPostImageUrl?: string;     // For meta image
 };
@@ -72,7 +72,7 @@ export type Post = {
   updatedAt?: Date;
   imageUrl?: string; // For uploaded images as data URIs
   author?: User; // Optional: include author details
-  topic?: Topic;   // Optional: include topic details
+  topic?: Pick<Topic, 'id' | 'title' | 'slug' | 'categoryId' | 'authorId' | 'createdAt' | 'lastActivity'>;   // Optional: include topic details
   reactions: Reaction[]; // Array of reactions on the post
 };
 
@@ -175,7 +175,8 @@ export type SiteSettingKey =
   | 'seo_google_site_verification'
   | 'seo_bing_site_verification'
   | 'seo_robots_txt'
-  | 'seo_sitemap_enabled';
+  | 'seo_sitemap_enabled'
+  | 'seo_friendly_urls_enabled';
 
 export type SiteSettings = {
   events_widget_enabled: boolean;
@@ -196,6 +197,7 @@ export type SiteSettings = {
   seo_bing_site_verification?: string;
   seo_robots_txt?: string;
   seo_sitemap_enabled: boolean;
+  seo_friendly_urls_enabled: boolean;
 };
 
 // Helper for Zod schema if needed, or direct usage in Zod
@@ -216,7 +218,8 @@ export const siteSettingKeys: SiteSettingKey[] = [
   'seo_google_site_verification',
   'seo_bing_site_verification',
   'seo_robots_txt',
-  'seo_sitemap_enabled'
+  'seo_sitemap_enabled',
+  'seo_friendly_urls_enabled'
 ];
 
 // SEO Types

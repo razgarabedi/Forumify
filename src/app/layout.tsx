@@ -52,7 +52,7 @@ export default function RootLayout({
             enableSystem
             disableTransitionOnChange
          >
-            <div className="relative flex min-h-screen flex-col bg-background">
+            <div className="relative flex min-h-screen flex-col bg-background" suppressHydrationWarning>
               <Header />
               <main className="flex-1 container max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8"> {/* Adjusted padding */}
                  {children}

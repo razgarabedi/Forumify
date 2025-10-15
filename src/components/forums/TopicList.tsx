@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import type { Topic } from '@/lib/types';
+import { getAllSiteSettings } from '@/lib/db';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { MessageSquare, Clock, UserCircle } from 'lucide-react'; // Added UserCircle
@@ -9,7 +10,8 @@ interface TopicListProps {
     topics: Topic[];
 }
 
-export function TopicList({ topics }: TopicListProps) {
+export async function TopicList({ topics }: TopicListProps) {
+    const siteSettings = await getAllSiteSettings();
     if (!topics || topics.length === 0) {
         return <p className="text-muted-foreground mt-6 text-center py-10">No topics found in this category yet.</p>;
     }
@@ -29,7 +31,7 @@ export function TopicList({ topics }: TopicListProps) {
                             </Link>
                             <div className="flex-1 min-w-0"> {/* Ensure text wraps */}
                                <CardTitle className="text-base font-medium leading-snug line-clamp-2">
-                                    <Link href={`/topics/${topic.id}`} className="group-hover:text-primary">
+                                    <Link href={`/topics/${siteSettings.seo_friendly_urls_enabled ? (topic.slug || '') : topic.id}`} className="group-hover:text-primary">
                                         {topic.title}
                                     </Link>
                                 </CardTitle>

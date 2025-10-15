@@ -1,7 +1,41 @@
 import type { Metadata } from 'next';
-import type { SEOData, PageSEOData, SiteSettings, StructuredData } from './types';
+import type { SEOData, PageSEOData, SiteSettings, StructuredData, Topic, Category, User } from './types';
 
 const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:9002';
+
+/**
+ * Generate friendly URLs based on SEO settings
+ */
+export function generateFriendlyUrl(type: 'topic' | 'category' | 'user', item: Topic | Category | User, settings: SiteSettings): string {
+  if (!settings.seo_friendly_urls_enabled) {
+    // Return ID-based URLs when friendly URLs are disabled
+    switch (type) {
+      case 'topic':
+        return `/topics/${(item as Topic).id}`;
+      case 'category':
+        return `/categories/${(item as Category).id}`;
+      case 'user':
+        return `/users/${(item as User).username}`;
+      default:
+        return '/';
+    }
+  }
+
+  // Generate friendly URLs using slugs/names
+  switch (type) {
+    case 'topic':
+      const topic = item as Topic;
+      return `/topics/${topic.slug || topic.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')}`;
+    case 'category':
+      const category = item as Category;
+      return `/categories/${category.slug || category.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')}`;
+    case 'user':
+      const user = item as User;
+      return `/users/${user.username}`;
+    default:
+      return '/';
+  }
+}
 
 /**
  * Generate metadata for a page using SEO data and site settings
@@ -198,6 +232,7 @@ export function generateStructuredData(
  * Generate sitemap data
  */
 export async function generateSitemapData(
+  siteSettings: SiteSettings,
   categories: any[],
   topics: any[],
   users: any[]
@@ -226,8 +261,11 @@ export async function generateSitemapData(
 
   // Add categories
   categories.forEach((category) => {
+    const categoryUrl = siteSettings.seo_friendly_urls_enabled 
+      ? generateFriendlyUrl('category', category, siteSettings)
+      : `/categories/${category.id}`;
     sitemapData.push({
-      url: `${baseUrl}/categories/${category.id}`,
+      url: `${baseUrl}${categoryUrl}`,
       lastModified: category.updatedAt || category.createdAt,
       changeFrequency: 'weekly',
       priority: 0.8,
@@ -236,8 +274,11 @@ export async function generateSitemapData(
 
   // Add topics
   topics.forEach((topic) => {
+    const topicUrl = siteSettings.seo_friendly_urls_enabled 
+      ? generateFriendlyUrl('topic', topic, siteSettings)
+      : `/topics/${topic.id}`;
     sitemapData.push({
-      url: `${baseUrl}/topics/${topic.id}`,
+      url: `${baseUrl}${topicUrl}`,
       lastModified: topic.updatedAt || topic.createdAt,
       changeFrequency: 'daily',
       priority: 0.7,
@@ -246,8 +287,11 @@ export async function generateSitemapData(
 
   // Add user profiles
   users.forEach((user) => {
+    const userUrl = siteSettings.seo_friendly_urls_enabled 
+      ? generateFriendlyUrl('user', user, siteSettings)
+      : `/users/${user.username}`;
     sitemapData.push({
-      url: `${baseUrl}/users/${user.username}`,
+      url: `${baseUrl}${userUrl}`,
       lastModified: user.updatedAt || user.createdAt,
       changeFrequency: 'monthly',
       priority: 0.5,

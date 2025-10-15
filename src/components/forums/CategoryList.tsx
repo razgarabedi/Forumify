@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import type { Category } from '@/lib/types';
+import { getAllSiteSettings } from '@/lib/db';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { MessageSquare, Folder, Clock, UserCircle } from 'lucide-react'; // Using Folder icon for category
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -9,7 +10,8 @@ interface CategoryListProps {
     categories: Category[];
 }
 
-export function CategoryList({ categories }: CategoryListProps) {
+export async function CategoryList({ categories }: CategoryListProps) {
+    const siteSettings = await getAllSiteSettings();
     if (!categories || categories.length === 0) {
         return <p className="text-muted-foreground mt-4 text-center py-10">No categories found.</p>;
     }
@@ -20,7 +22,7 @@ export function CategoryList({ categories }: CategoryListProps) {
                 <Card key={category.id} className="hover:shadow-lg transition-shadow duration-200 border border-border hover:border-primary/60 bg-card hover:bg-muted/50">
                     <div className="grid grid-cols-1 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] items-start">
                         {/* Category Info Section */}
-                        <Link href={`/categories/${category.id}`} className="block group transition-all duration-200 ease-in-out md:border-r md:border-border/50">
+                        <Link href={`/categories/${siteSettings.seo_friendly_urls_enabled ? category.slug : category.id}`} className="block group transition-all duration-200 ease-in-out md:border-r md:border-border/50">
                             <CardHeader className="pb-3 flex flex-row items-start gap-4 space-y-0 p-3 sm:p-4">
                                 <Folder className="h-6 w-6 text-primary flex-shrink-0 mt-1" />
                                 <div className="flex-1">
@@ -59,7 +61,7 @@ export function CategoryList({ categories }: CategoryListProps) {
                                         </Avatar>
                                     </Link>
                                     <div className="min-w-0">
-                                        <Link href={`/topics/${category.lastPost.topicId}#post-${category.lastPost.id}`} className="font-semibold text-foreground/90 hover:text-primary line-clamp-1 break-all" title={category.lastPost.topicTitle}>
+                                        <Link href={`/topics/${siteSettings.seo_friendly_urls_enabled ? (category.lastPost.topicSlug || category.lastPost.topicId) : category.lastPost.topicId}#post-${category.lastPost.id}`} className="font-semibold text-foreground/90 hover:text-primary line-clamp-1 break-all" title={category.lastPost.topicTitle}>
                                             {category.lastPost.topicTitle}
                                         </Link>
                                         <div className="flex items-center gap-1 text-muted-foreground/80">

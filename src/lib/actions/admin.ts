@@ -79,7 +79,9 @@ export async function updateCategoryAction(categoryId: string, data: { name: str
     } catch (error: any) {
         console.error("Update Category Action Error:", error);
          if (error instanceof z.ZodError) {
-            return { success: false, message: "Validation failed.", errors: error.flatten().fieldErrors };
+            return { success: false, message: "Validation failed.", errors: Object.fromEntries(
+                Object.entries(error.flatten().fieldErrors).filter(([_, value]) => value !== undefined)
+            ) as Record<string, string[]> };
         }
         return { success: false, message: error.message || "Failed to update category." };
     }
@@ -127,7 +129,9 @@ export async function createEventAction(prevState: ActionResponse | undefined, f
         const validatedFields = EventSchema.safeParse(rawData);
 
         if (!validatedFields.success) {
-            return { success: false, message: "Validation failed.", errors: validatedFields.error.flatten().fieldErrors };
+            return { success: false, message: "Validation failed.", errors: Object.fromEntries(
+                Object.entries(validatedFields.error.flatten().fieldErrors).filter(([_, value]) => value !== undefined)
+            ) as Record<string, string[]> };
         }
         const eventData = {
             ...validatedFields.data,
@@ -158,7 +162,9 @@ export async function updateEventAction(eventId: string, prevState: ActionRespon
         const validatedFields = EventSchema.safeParse(rawData);
 
         if (!validatedFields.success) {
-            return { success: false, message: "Validation failed.", errors: validatedFields.error.flatten().fieldErrors };
+            return { success: false, message: "Validation failed.", errors: Object.fromEntries(
+                Object.entries(validatedFields.error.flatten().fieldErrors).filter(([_, value]) => value !== undefined)
+            ) as Record<string, string[]> };
         }
 
         const eventData = {
@@ -216,6 +222,7 @@ const SEOSettingsSchema = z.object({
     seo_bing_site_verification: z.string().max(100, "Bing verification code is too long.").optional().or(z.literal('')),
     seo_robots_txt: z.string().max(1000, "Robots.txt content is too long.").optional().or(z.literal('')),
     seo_sitemap_enabled: z.preprocess((val) => String(val).toLowerCase() === 'true', z.boolean()),
+    seo_friendly_urls_enabled: z.preprocess((val) => String(val).toLowerCase() === 'true', z.boolean()),
 });
 
 export async function updateSiteSettingsAction(prevState: ActionResponse | undefined, formData: FormData): Promise<ActionResponse> {
@@ -234,11 +241,14 @@ export async function updateSiteSettingsAction(prevState: ActionResponse | undef
         const validatedFields = SiteSettingsSchema.safeParse(rawDataToReturn);
 
         if (!validatedFields.success) {
-            console.error("Site Settings Validation Errors:", validatedFields.error.flatten().fieldErrors);
+            const fieldErrors = Object.fromEntries(
+                Object.entries(validatedFields.error.flatten().fieldErrors).filter(([_, value]) => value !== undefined)
+            ) as Record<string, string[]>;
+            console.error("Site Settings Validation Errors:", fieldErrors);
             return { 
                 success: false, 
                 message: "Validation failed for site settings.", 
-                errors: validatedFields.error.flatten().fieldErrors,
+                errors: fieldErrors,
                 rawData: rawDataToReturn 
             };
         }
@@ -279,6 +289,7 @@ export async function updateSEOSettingsAction(prevState: ActionResponse | undefi
         seo_bing_site_verification: formData.get('seo_bing_site_verification') as string | null,
         seo_robots_txt: formData.get('seo_robots_txt') as string | null,
         seo_sitemap_enabled: formData.get('seo_sitemap_enabled') ? String(formData.get('seo_sitemap_enabled')) : 'false',
+        seo_friendly_urls_enabled: formData.get('seo_friendly_urls_enabled') ? String(formData.get('seo_friendly_urls_enabled')) : 'false',
     };
 
     try {
@@ -287,11 +298,14 @@ export async function updateSEOSettingsAction(prevState: ActionResponse | undefi
         const validatedFields = SEOSettingsSchema.safeParse(rawDataToReturn);
 
         if (!validatedFields.success) {
-            console.error("SEO Settings Validation Errors:", validatedFields.error.flatten().fieldErrors);
+            const fieldErrors = Object.fromEntries(
+                Object.entries(validatedFields.error.flatten().fieldErrors).filter(([_, value]) => value !== undefined)
+            ) as Record<string, string[]>;
+            console.error("SEO Settings Validation Errors:", fieldErrors);
             return { 
                 success: false, 
                 message: "Validation failed for SEO settings.", 
-                errors: validatedFields.error.flatten().fieldErrors,
+                errors: fieldErrors,
                 rawData: rawDataToReturn 
             };
         }
@@ -306,7 +320,8 @@ export async function updateSEOSettingsAction(prevState: ActionResponse | undefi
             seo_google_site_verification, 
             seo_bing_site_verification, 
             seo_robots_txt, 
-            seo_sitemap_enabled 
+            seo_sitemap_enabled,
+            seo_friendly_urls_enabled 
         } = validatedFields.data;
 
         await dbUpdateSiteSetting('seo_site_title', seo_site_title || "ForumLite - Community Discussion Forum");
@@ -319,6 +334,7 @@ export async function updateSEOSettingsAction(prevState: ActionResponse | undefi
         await dbUpdateSiteSetting('seo_bing_site_verification', seo_bing_site_verification || "");
         await dbUpdateSiteSetting('seo_robots_txt', seo_robots_txt || "User-agent: *\nAllow: /");
         await dbUpdateSiteSetting('seo_sitemap_enabled', String(seo_sitemap_enabled));
+        await dbUpdateSiteSetting('seo_friendly_urls_enabled', String(seo_friendly_urls_enabled));
 
         revalidatePath('/admin/seo');
         revalidatePath('/'); // Revalidate homepage to reflect SEO changes
