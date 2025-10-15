@@ -14,7 +14,7 @@ interface CategoryPageProps {
 }
 
 export default async function CategoryPage({ params }: CategoryPageProps) {
-    const { categoryId } = params;
+    const { categoryId } = await params;
     const user = await getCurrentUser();
     const [category, topics] = await Promise.all([
         getCategoryById(categoryId),
@@ -54,7 +54,8 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
 }
 
 export async function generateMetadata({ params }: CategoryPageProps) {
-  const category = await getCategoryById(params.categoryId);
+  const { categoryId } = await params;
+  const category = await getCategoryById(categoryId);
   return {
     title: category ? `${category.name} - ForumLite` : 'Category Not Found',
   };

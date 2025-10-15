@@ -18,7 +18,8 @@ interface UserProfilePageProps {
 }
 
 export async function generateMetadata({ params }: UserProfilePageProps) {
-  const decodedUsername = decodeURIComponent(params.username);
+  const { username } = await params;
+  const decodedUsername = decodeURIComponent(username);
   const user = await findUserByUsername(decodedUsername);
   return {
     title: user ? `${user.username}'s Profile - ForumLite` : 'User Not Found',
@@ -27,7 +28,8 @@ export async function generateMetadata({ params }: UserProfilePageProps) {
 
 export default async function UserProfilePage({ params }: UserProfilePageProps) {
   const viewingUser = await getCurrentUser();
-  const decodedUsername = decodeURIComponent(params.username);
+  const { username } = await params;
+  const decodedUsername = decodeURIComponent(username);
   const profileUser = await findUserByUsername(decodedUsername);
 
   if (!profileUser) {

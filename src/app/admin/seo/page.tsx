@@ -1,20 +1,19 @@
-
 import { getAllSiteSettings } from "@/lib/db";
-import { SiteSettingsForm } from "./_components/SiteSettingsForm";
-import { Cog, AlertTriangle } from "lucide-react";
+import { SEOForm } from "./_components/SEOForm";
+import { Search, AlertTriangle } from "lucide-react";
 
 export const metadata = {
-  title: 'Site Settings - Admin Panel',
+  title: 'SEO Settings - Admin Panel',
 };
 
-export default async function AdminSiteSettingsPage() {
+export default async function AdminSEOPage() {
   let initialSettings;
   let error: string | null = null;
 
   try {
     initialSettings = await getAllSiteSettings();
   } catch (e: any) {
-    error = "Failed to load site settings. " + e.message;
+    error = "Failed to load SEO settings. " + e.message;
     console.error(error);
     // Initialize with defaults if fetching fails, so the form can still render
     initialSettings = {
@@ -23,16 +22,29 @@ export default async function AdminSiteSettingsPage() {
         events_widget_detail_level: 'full',
         events_widget_item_count: 3,
         events_widget_title: "Upcoming Events & Webinars",
+        multilingual_enabled: false,
+        default_language: 'en',
+        // SEO Defaults
+        seo_site_title: "ForumLite - Community Discussion Forum",
+        seo_site_description: "Join our community forum for engaging discussions, helpful topics, and connecting with like-minded people.",
+        seo_site_keywords: "forum, community, discussion, topics, posts, social",
+        seo_og_image: "",
+        seo_twitter_handle: "",
+        seo_google_analytics_id: "",
+        seo_google_site_verification: "",
+        seo_bing_site_verification: "",
+        seo_robots_txt: "User-agent: *\nAllow: /",
+        seo_sitemap_enabled: true,
     };
   }
 
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-2">
-        <Cog className="h-7 w-7 text-primary" />
-        <h1 className="text-3xl font-bold">Site Settings</h1>
+        <Search className="h-7 w-7 text-primary" />
+        <h1 className="text-3xl font-bold">SEO Settings</h1>
       </div>
-      <p className="text-muted-foreground">Manage global settings for the forum.</p>
+      <p className="text-muted-foreground">Configure search engine optimization settings for your forum.</p>
 
       {error && (
         <div className="rounded-md border border-destructive bg-destructive/10 p-4 text-destructive">
@@ -45,7 +57,7 @@ export default async function AdminSiteSettingsPage() {
         </div>
       )}
 
-      <SiteSettingsForm initialSettings={initialSettings} />
+      <SEOForm initialSettings={initialSettings} />
     </div>
   );
 }

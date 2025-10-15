@@ -106,7 +106,7 @@ export async function login(prevState: ActionResponse | undefined, formData: For
       return { message: "Invalid email or password.", success: false };
     }
 
-    cookies().set(SESSION_COOKIE_NAME, user.id, {
+    (await cookies()).set(SESSION_COOKIE_NAME, user.id, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         maxAge: 60 * 60 * 24 * 7,
@@ -157,7 +157,7 @@ export async function register(prevState: ActionResponse | undefined, formData: 
       lastActive: new Date(), 
     });
 
-     cookies().set(SESSION_COOKIE_NAME, newUser.id, {
+     (await cookies()).set(SESSION_COOKIE_NAME, newUser.id, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         maxAge: 60 * 60 * 24 * 7,
@@ -179,12 +179,12 @@ export async function logout() {
     if (user) {
         await updateUserLastActive(user.id); 
     }
-    cookies().delete(SESSION_COOKIE_NAME);
+    (await cookies()).delete(SESSION_COOKIE_NAME);
     revalidatePath('/', 'layout');
 }
 
 export async function getCurrentUser(): Promise<User | null> {
-    const userId = cookies().get(SESSION_COOKIE_NAME)?.value;
+    const userId = (await cookies()).get(SESSION_COOKIE_NAME)?.value;
     if (!userId) {
         return null;
     }

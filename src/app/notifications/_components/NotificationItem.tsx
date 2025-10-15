@@ -12,7 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { markNotificationReadAction } from '@/lib/actions/notifications';
 import { cn } from '@/lib/utils';
 import { useActionState } from 'react';
-import { useLocale } from 'next-intl'; // Import useLocale
+// Removed next-intl dependency
 
 interface NotificationItemProps {
   notification: Notification;
@@ -32,7 +32,7 @@ const reactionIcons: Record<ReactionType, React.ElementType> = {
 export function NotificationItem({ notification }: NotificationItemProps) {
   const { toast } = useToast();
   const router = useRouter();
-  const locale = useLocale(); // Get current locale
+  // Removed locale usage
   const [buttonState, buttonFormAction, isButtonPending] = useActionState(markNotificationReadAction.bind(null, notification.id), initialActionStateForButton);
 
   const handleItemClick = async () => {
@@ -47,10 +47,10 @@ export function NotificationItem({ notification }: NotificationItemProps) {
       }
     }
     if (notification.type === 'private_message' && notification.conversationId) {
-      router.push(`/${locale}/messages/${notification.conversationId}`);
+      router.push(`/messages/${notification.conversationId}`);
     } else if ((notification.type === 'mention' || notification.type === 'reaction') && notification.topicId && notification.postId) {
       const topicSlug = notification.topicSlug || notification.topicId; // Fallback to ID if slug is not present
-      router.push(`/${locale}/topics/${notification.topicId}/${topicSlug}#post-${notification.postId}`);
+      router.push(`/topics/${notification.topicId}/${topicSlug}#post-${notification.postId}`);
     } else {
         console.warn("NotificationItem: Could not determine navigation path for notification:", notification);
     }

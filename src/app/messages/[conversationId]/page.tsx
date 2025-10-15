@@ -17,10 +17,11 @@ interface ConversationPageProps {
 }
 
 export async function generateMetadata({ params }: ConversationPageProps) {
+  const { conversationId } = await params;
   const currentUser = await getCurrentUser();
   if (!currentUser) return { title: 'Private Message - ForumLite' };
 
-  const conversation = await dbGetConversationById(params.conversationId);
+  const conversation = await dbGetConversationById(conversationId);
 
   if (conversation) {
     const otherParticipantId = conversation.participantIds.find(id => id !== currentUser.id);
@@ -34,8 +35,8 @@ export async function generateMetadata({ params }: ConversationPageProps) {
         return { title: `${title} - ForumLite` };
       }
     }
-  } else if (params.conversationId.startsWith('conv-')) { 
-    const idWithoutPrefix = params.conversationId.substring(5); 
+  } else if (conversationId.startsWith('conv-')) { 
+    const idWithoutPrefix = conversationId.substring(5); 
     const idParts = idWithoutPrefix.split('--s-'); 
     const participantIdsStr = idParts[0]; 
     const ids = participantIdsStr.split('__');
@@ -55,7 +56,7 @@ export async function generateMetadata({ params }: ConversationPageProps) {
 
 
 export default async function ConversationPage({ params }: ConversationPageProps) {
-  const { conversationId } = params;
+  const { conversationId } = await params;
   const currentUser = await getCurrentUser();
 
   if (!currentUser) {

@@ -165,7 +165,17 @@ export type SiteSettingKey =
   | 'events_widget_item_count'
   | 'events_widget_title'
   | 'multilingual_enabled'
-  | 'default_language';
+  | 'default_language'
+  | 'seo_site_title'
+  | 'seo_site_description'
+  | 'seo_site_keywords'
+  | 'seo_og_image'
+  | 'seo_twitter_handle'
+  | 'seo_google_analytics_id'
+  | 'seo_google_site_verification'
+  | 'seo_bing_site_verification'
+  | 'seo_robots_txt'
+  | 'seo_sitemap_enabled';
 
 export type SiteSettings = {
   events_widget_enabled: boolean;
@@ -175,6 +185,17 @@ export type SiteSettings = {
   events_widget_title?: string; 
   multilingual_enabled: boolean;
   default_language: 'en' | 'de';
+  // SEO Settings
+  seo_site_title?: string;
+  seo_site_description?: string;
+  seo_site_keywords?: string;
+  seo_og_image?: string;
+  seo_twitter_handle?: string;
+  seo_google_analytics_id?: string;
+  seo_google_site_verification?: string;
+  seo_bing_site_verification?: string;
+  seo_robots_txt?: string;
+  seo_sitemap_enabled: boolean;
 };
 
 // Helper for Zod schema if needed, or direct usage in Zod
@@ -185,6 +206,38 @@ export const siteSettingKeys: SiteSettingKey[] = [
   'events_widget_item_count',
   'events_widget_title',
   'multilingual_enabled',
-  'default_language'
+  'default_language',
+  'seo_site_title',
+  'seo_site_description',
+  'seo_site_keywords',
+  'seo_og_image',
+  'seo_twitter_handle',
+  'seo_google_analytics_id',
+  'seo_google_site_verification',
+  'seo_bing_site_verification',
+  'seo_robots_txt',
+  'seo_sitemap_enabled'
 ];
 
+// SEO Types
+export type SEOData = {
+  title: string;
+  description: string;
+  keywords?: string;
+  ogImage?: string;
+  ogType?: 'website' | 'article';
+  twitterCard?: 'summary' | 'summary_large_image';
+  canonicalUrl?: string;
+  noIndex?: boolean;
+  noFollow?: boolean;
+};
+
+export type StructuredData = {
+  '@context': string;
+  '@type': string;
+  [key: string]: any;
+};
+
+export type PageSEOData = SEOData & {
+  structuredData?: StructuredData[];
+};

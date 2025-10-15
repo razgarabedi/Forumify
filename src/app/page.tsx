@@ -9,6 +9,30 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { LogIn, UserPlus, AlertTriangle } from 'lucide-react';
 import { EventsWidget } from '@/components/widgets/EventsWidget'; // Import the widget
+import { generatePageMetadata, generateStructuredData } from '@/lib/seo';
+import type { Metadata } from 'next';
+
+export async function generateMetadata(): Promise<Metadata> {
+  try {
+    const siteSettings = await getAllSiteSettings();
+    return generatePageMetadata(
+      {
+        title: siteSettings.seo_site_title || 'ForumLite - Community Discussion Forum',
+        description: siteSettings.seo_site_description || 'Join our community forum for engaging discussions, helpful topics, and connecting with like-minded people.',
+        keywords: siteSettings.seo_site_keywords,
+        ogImage: siteSettings.seo_og_image,
+        ogType: 'website',
+        canonicalUrl: '/',
+      },
+      siteSettings
+    );
+  } catch (error) {
+    return {
+      title: 'ForumLite - Community Discussion Forum',
+      description: 'Join our community forum for engaging discussions, helpful topics, and connecting with like-minded people.',
+    };
+  }
+}
 
 export default async function Home() {
   let categories: Category[] = [];
@@ -32,6 +56,7 @@ export default async function Home() {
         events_widget_position: 'above_categories',
         events_widget_detail_level: 'full',
         events_widget_item_count: 3,
+        events_widget_title: "Upcoming Events & Webinars",
     };
   }
 
@@ -39,17 +64,32 @@ export default async function Home() {
   const eventsWidgetEnabled = siteSettings.events_widget_enabled;
   const eventsWidgetPosition = siteSettings.events_widget_position;
   const eventsWidgetDetailLevel = siteSettings.events_widget_detail_level;
+  const eventsWidgetTitle = siteSettings.events_widget_title || "Upcoming Events & Webinars";
 
   const renderEventsWidget = () => {
     if (eventsWidgetEnabled && upcomingEvents.length > 0) {
-      return <EventsWidget events={upcomingEvents} detailLevel={eventsWidgetDetailLevel} />;
+      return <EventsWidget events={upcomingEvents} detailLevel={eventsWidgetDetailLevel} widgetTitle={eventsWidgetTitle} />;
     }
     return null;
   };
 
+  // Generate structured data
+  const structuredData = generateStructuredData('website', { categories, upcomingEvents }, siteSettings);
+
   return (
-    <div className="space-y-8">
-       <Card className="bg-gradient-to-r from-primary/10 via-background to-background border border-primary/20 shadow-sm">
+    <>
+      {/* Structured Data */}
+      {structuredData.length > 0 && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(structuredData.length === 1 ? structuredData[0] : structuredData),
+          }}
+        />
+      )}
+      
+      <div className="space-y-8">
+         <Card className="bg-gradient-to-r from-primary/10 via-background to-background border border-primary/20 shadow-sm">
         <CardHeader>
            <CardTitle className="text-2xl sm:text-3xl font-bold text-primary">Welcome to ForumLite!</CardTitle>
            <CardDescription className="text-base text-foreground/80 mt-1">
@@ -96,6 +136,7 @@ export default async function Home() {
       </div>
 
       {eventsWidgetPosition === 'below_categories' && renderEventsWidget()}
-    </div>
+      </div>
+    </>
   );
 }

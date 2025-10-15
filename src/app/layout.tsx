@@ -6,16 +6,36 @@ import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer'; // Import Footer
 import { Toaster } from "@/components/ui/toaster"; // Import Toaster
 import { ThemeProvider } from "@/components/ThemeProvider"; // Correct import path for ThemeProvider
+import { getAllSiteSettings } from '@/lib/db';
+import { generatePageMetadata } from '@/lib/seo';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
   subsets: ['latin'],
 });
 
-export const metadata: Metadata = {
-  title: 'ForumLite', // Updated App Name
-  description: 'A simple forum application built with Next.js', // Updated description
-};
+export async function generateMetadata(): Promise<Metadata> {
+  try {
+    const siteSettings = await getAllSiteSettings();
+    return generatePageMetadata(
+      {
+        title: siteSettings.seo_site_title || 'ForumLite',
+        description: siteSettings.seo_site_description || 'A simple forum application built with Next.js',
+        keywords: siteSettings.seo_site_keywords,
+        ogImage: siteSettings.seo_og_image,
+        ogType: 'website',
+        canonicalUrl: '/',
+      },
+      siteSettings
+    );
+  } catch (error) {
+    // Fallback metadata if database is unavailable
+    return {
+      title: 'ForumLite',
+      description: 'A simple forum application built with Next.js',
+    };
+  }
+}
 
 export default function RootLayout({
   children,

@@ -204,6 +204,20 @@ const SiteSettingsSchema = z.object({
     events_widget_title: z.string().min(1, "Widget title cannot be empty.").max(100, "Widget title is too long.").optional().or(z.literal('')),
 });
 
+// SEO Settings Schema
+const SEOSettingsSchema = z.object({
+    seo_site_title: z.string().min(1, "Site title cannot be empty.").max(60, "Site title is too long.").optional().or(z.literal('')),
+    seo_site_description: z.string().min(1, "Site description cannot be empty.").max(160, "Site description is too long.").optional().or(z.literal('')),
+    seo_site_keywords: z.string().max(200, "Keywords are too long.").optional().or(z.literal('')),
+    seo_og_image: z.string().url("Must be a valid URL.").optional().or(z.literal('')),
+    seo_twitter_handle: z.string().max(50, "Twitter handle is too long.").optional().or(z.literal('')),
+    seo_google_analytics_id: z.string().max(50, "Google Analytics ID is too long.").optional().or(z.literal('')),
+    seo_google_site_verification: z.string().max(100, "Google verification code is too long.").optional().or(z.literal('')),
+    seo_bing_site_verification: z.string().max(100, "Bing verification code is too long.").optional().or(z.literal('')),
+    seo_robots_txt: z.string().max(1000, "Robots.txt content is too long.").optional().or(z.literal('')),
+    seo_sitemap_enabled: z.preprocess((val) => String(val).toLowerCase() === 'true', z.boolean()),
+});
+
 export async function updateSiteSettingsAction(prevState: ActionResponse | undefined, formData: FormData): Promise<ActionResponse> {
     // This object will hold the raw values from formData for potential return on error
     const rawDataToReturn = {
@@ -247,6 +261,74 @@ export async function updateSiteSettingsAction(prevState: ActionResponse | undef
         return { 
             success: false, 
             message: error.message || "Failed to update site settings.",
+            rawData: rawDataToReturn 
+        };
+    }
+}
+
+export async function updateSEOSettingsAction(prevState: ActionResponse | undefined, formData: FormData): Promise<ActionResponse> {
+    // This object will hold the raw values from formData for potential return on error
+    const rawDataToReturn = {
+        seo_site_title: formData.get('seo_site_title') as string | null,
+        seo_site_description: formData.get('seo_site_description') as string | null,
+        seo_site_keywords: formData.get('seo_site_keywords') as string | null,
+        seo_og_image: formData.get('seo_og_image') as string | null,
+        seo_twitter_handle: formData.get('seo_twitter_handle') as string | null,
+        seo_google_analytics_id: formData.get('seo_google_analytics_id') as string | null,
+        seo_google_site_verification: formData.get('seo_google_site_verification') as string | null,
+        seo_bing_site_verification: formData.get('seo_bing_site_verification') as string | null,
+        seo_robots_txt: formData.get('seo_robots_txt') as string | null,
+        seo_sitemap_enabled: formData.get('seo_sitemap_enabled') ? String(formData.get('seo_sitemap_enabled')) : 'false',
+    };
+
+    try {
+        await checkAdmin();
+        
+        const validatedFields = SEOSettingsSchema.safeParse(rawDataToReturn);
+
+        if (!validatedFields.success) {
+            console.error("SEO Settings Validation Errors:", validatedFields.error.flatten().fieldErrors);
+            return { 
+                success: false, 
+                message: "Validation failed for SEO settings.", 
+                errors: validatedFields.error.flatten().fieldErrors,
+                rawData: rawDataToReturn 
+            };
+        }
+
+        const { 
+            seo_site_title, 
+            seo_site_description, 
+            seo_site_keywords, 
+            seo_og_image, 
+            seo_twitter_handle, 
+            seo_google_analytics_id, 
+            seo_google_site_verification, 
+            seo_bing_site_verification, 
+            seo_robots_txt, 
+            seo_sitemap_enabled 
+        } = validatedFields.data;
+
+        await dbUpdateSiteSetting('seo_site_title', seo_site_title || "ForumLite - Community Discussion Forum");
+        await dbUpdateSiteSetting('seo_site_description', seo_site_description || "Join our community forum for engaging discussions, helpful topics, and connecting with like-minded people.");
+        await dbUpdateSiteSetting('seo_site_keywords', seo_site_keywords || "forum, community, discussion, topics, posts, social");
+        await dbUpdateSiteSetting('seo_og_image', seo_og_image || "");
+        await dbUpdateSiteSetting('seo_twitter_handle', seo_twitter_handle || "");
+        await dbUpdateSiteSetting('seo_google_analytics_id', seo_google_analytics_id || "");
+        await dbUpdateSiteSetting('seo_google_site_verification', seo_google_site_verification || "");
+        await dbUpdateSiteSetting('seo_bing_site_verification', seo_bing_site_verification || "");
+        await dbUpdateSiteSetting('seo_robots_txt', seo_robots_txt || "User-agent: *\nAllow: /");
+        await dbUpdateSiteSetting('seo_sitemap_enabled', String(seo_sitemap_enabled));
+
+        revalidatePath('/admin/seo');
+        revalidatePath('/'); // Revalidate homepage to reflect SEO changes
+        return { success: true, message: "SEO settings updated successfully." };
+
+    } catch (error: any) {
+        console.error("Update SEO Settings Error:", error);
+        return { 
+            success: false, 
+            message: error.message || "Failed to update SEO settings.",
             rawData: rawDataToReturn 
         };
     }

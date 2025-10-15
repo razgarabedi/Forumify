@@ -20,6 +20,17 @@ let siteSettings: Partial<SiteSettings> = {
     events_widget_title: "Upcoming Events & Webinars",
     multilingual_enabled: false,
     default_language: 'en',
+    // SEO Defaults
+    seo_site_title: "ForumLite - Community Discussion Forum",
+    seo_site_description: "Join our community forum for engaging discussions, helpful topics, and connecting with like-minded people.",
+    seo_site_keywords: "forum, community, discussion, topics, posts, social",
+    seo_og_image: "",
+    seo_twitter_handle: "",
+    seo_google_analytics_id: "",
+    seo_google_site_verification: "",
+    seo_bing_site_verification: "",
+    seo_robots_txt: "User-agent: *\nAllow: /",
+    seo_sitemap_enabled: true,
 };
 
 
@@ -307,6 +318,36 @@ export const deleteCategory = async (categoryId: string): Promise<boolean> => {
     return categories.length < initialLength;
 }
 
+
+export const getTopics = async (): Promise<Topic[]> => {
+  await new Promise(resolve => setTimeout(resolve, 50));
+  const allTopics = topics
+    .sort((a, b) => new Date(b.lastActivity).getTime() - new Date(a.lastActivity).getTime());
+
+  return Promise.all(allTopics.map(async topic => {
+    const author = await findUserById(topic.authorId);
+    const topicPosts = posts.filter(p => p.topicId === topic.id).sort((a,b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    const firstPost = topicPosts[0];
+    let snippet = '';
+    if (firstPost && firstPost.content) {
+        snippet = firstPost.content.replace(/\s\s+/g, ' ').trim();
+        if (snippet.length > 155) {
+            snippet = snippet.substring(0, 152).trim() + "...";
+        }
+    }
+    const category = await getCategoryById(topic.categoryId);
+    return { 
+        ...topic, 
+        author, 
+        category: category || undefined,
+        postCount: topicPosts.length, 
+        createdAt: new Date(topic.createdAt), 
+        lastActivity: new Date(topic.lastActivity),
+        firstPostContentSnippet: snippet,
+        firstPostImageUrl: firstPost?.imageUrl 
+    };
+  }));
+};
 
 export const getTopicsByCategory = async (categoryId: string): Promise<Topic[]> => {
   await new Promise(resolve => setTimeout(resolve, 50));
@@ -759,7 +800,7 @@ export const deleteEvent = async (eventId: string): Promise<boolean> => {
 
 // --- Site Settings Functions (Placeholder) ---
 export const getAllSiteSettings = async (): Promise<SiteSettings> => {
-    unstable_noStore(); 
+    noStore(); 
     await new Promise(resolve => setTimeout(resolve, 10));
     const defaults: SiteSettings = {
         events_widget_enabled: true,
@@ -769,6 +810,17 @@ export const getAllSiteSettings = async (): Promise<SiteSettings> => {
         events_widget_title: "Upcoming Events & Webinars",
         multilingual_enabled: false,
         default_language: 'en',
+        // SEO Defaults
+        seo_site_title: "ForumLite - Community Discussion Forum",
+        seo_site_description: "Join our community forum for engaging discussions, helpful topics, and connecting with like-minded people.",
+        seo_site_keywords: "forum, community, discussion, topics, posts, social",
+        seo_og_image: "",
+        seo_twitter_handle: "",
+        seo_google_analytics_id: "",
+        seo_google_site_verification: "",
+        seo_bing_site_verification: "",
+        seo_robots_txt: "User-agent: *\nAllow: /",
+        seo_sitemap_enabled: true,
     };
     
     const isEnabledBoolean = siteSettings.events_widget_enabled !== undefined
@@ -850,6 +902,17 @@ export const initializePlaceholderData = () => {
         events_widget_title: "Upcoming Events & Webinars",
         multilingual_enabled: false,
         default_language: 'en',
+        // SEO Defaults
+        seo_site_title: "ForumLite - Community Discussion Forum",
+        seo_site_description: "Join our community forum for engaging discussions, helpful topics, and connecting with like-minded people.",
+        seo_site_keywords: "forum, community, discussion, topics, posts, social",
+        seo_og_image: "",
+        seo_twitter_handle: "",
+        seo_google_analytics_id: "",
+        seo_google_site_verification: "",
+        seo_bing_site_verification: "",
+        seo_robots_txt: "User-agent: *\nAllow: /",
+        seo_sitemap_enabled: true,
     };
 
     console.log("Placeholder data initialized with defaults.");
@@ -878,6 +941,17 @@ export const _resetPlaceholderData = () => {
         events_widget_title: "Upcoming Events & Webinars",
         multilingual_enabled: false,
         default_language: 'en',
+        // SEO Defaults
+        seo_site_title: "ForumLite - Community Discussion Forum",
+        seo_site_description: "Join our community forum for engaging discussions, helpful topics, and connecting with like-minded people.",
+        seo_site_keywords: "forum, community, discussion, topics, posts, social",
+        seo_og_image: "",
+        seo_twitter_handle: "",
+        seo_google_analytics_id: "",
+        seo_google_site_verification: "",
+        seo_bing_site_verification: "",
+        seo_robots_txt: "User-agent: *\nAllow: /",
+        seo_sitemap_enabled: true,
     };
     console.log("Placeholder data has been reset.");
     initializePlaceholderData(); 

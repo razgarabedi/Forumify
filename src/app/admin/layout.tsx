@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { getCurrentUser } from '@/lib/actions/auth';
 import { Card, CardContent } from '@/components/ui/card';
-import { Home, Users, LayoutGrid, Settings2 as AdminSettingsIcon, ArrowLeft, CalendarClock, Cog } from 'lucide-react'; // Added CalendarClock, Cog
+import { Home, Users, LayoutGrid, Settings2 as AdminSettingsIcon, ArrowLeft, CalendarClock, Cog, Search } from 'lucide-react'; // Added CalendarClock, Cog, Search
 import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
 
@@ -54,6 +54,11 @@ export default async function AdminLayout({ children }: AdminLayoutProps) {
                <Button variant="ghost" className="justify-start" asChild>
                   <Link href="/admin/site-settings">
                     <Cog className="mr-2 h-4 w-4" /> Site Settings
+                  </Link>
+               </Button>
+               <Button variant="ghost" className="justify-start" asChild>
+                  <Link href="/admin/seo">
+                    <Search className="mr-2 h-4 w-4" /> SEO Settings
                   </Link>
                </Button>
                <div className="flex-grow"></div>

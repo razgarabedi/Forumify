@@ -17,7 +17,7 @@ interface TopicPageProps {
 }
 
 export default async function TopicPage({ params }: TopicPageProps) {
-    const { topicId } = params;
+    const { topicId } = await params;
     const user = await getCurrentUser();
     const [topic, initialPosts] = await Promise.all([
         getTopicById(topicId),
@@ -86,7 +86,8 @@ export default async function TopicPage({ params }: TopicPageProps) {
 }
 
 export async function generateMetadata({ params }: TopicPageProps) {
-  const topic = await getTopicById(params.topicId);
+  const { topicId } = await params;
+  const topic = await getTopicById(topicId);
   return {
     title: topic ? `${topic.title} - ForumLite` : 'Topic Not Found',
   };

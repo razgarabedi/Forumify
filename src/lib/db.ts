@@ -513,6 +513,29 @@ const mapDbRowToTopic = async (row: any): Promise<Topic> => {
 };
 
 
+export const getTopics = async (): Promise<Topic[]> => {
+    if (!isDbAvailable()) {
+        console.warn("[DB Fallback] getTopics: Using placeholder data.");
+        return placeholder.getTopics();
+    }
+    try {
+        const result = await query(`
+            SELECT t.id, t.title, t.slug, t.category_id, t.author_id, t.created_at, t.last_activity,
+                   u.id as author_id_fk, u.username as author_username, u.avatar_url as author_avatar_url, u.email as author_email, u.created_at as author_created_at, u.points as author_points, u.is_admin as author_is_admin, u.location as author_location,
+                   c.id as category_id_fk, c.name as category_name, c.slug as category_slug, c.description as category_description, c.created_at as category_created_at,
+                   (SELECT COUNT(*) FROM posts p WHERE p.topic_id = t.id) as post_count
+            FROM topics t
+            LEFT JOIN users u ON t.author_id = u.id
+            LEFT JOIN categories c ON t.category_id = c.id
+            ORDER BY t.last_activity DESC
+        `);
+        return Promise.all(result.rows.map(mapDbRowToTopic));
+    } catch (error: any) {
+        console.error("[DB Error] getTopics: Error querying database. Fallback to placeholder.", error.message);
+        return placeholder.getTopics();
+    }
+};
+
 export const getTopicsByCategory = async (categoryId: string): Promise<Topic[]> => {
     if (!isDbAvailable()) {
         console.warn(`[DB Fallback] getTopicsByCategory for ${categoryId}: Using placeholder data.`);
@@ -1271,7 +1294,7 @@ export const deleteEvent = async (eventId: string): Promise<boolean> => {
 
 // --- Site Settings Functions ---
 export const getAllSiteSettings = async (): Promise<SiteSettings> => {
-    unstable_noStore(); 
+    noStore(); 
     const defaults: SiteSettings = {
         events_widget_enabled: true,
         events_widget_position: 'above_categories',
@@ -1280,6 +1303,17 @@ export const getAllSiteSettings = async (): Promise<SiteSettings> => {
         events_widget_title: "Upcoming Events & Webinars",
         multilingual_enabled: false,
         default_language: 'en',
+        // SEO Defaults
+        seo_site_title: "ForumLite - Community Discussion Forum",
+        seo_site_description: "Join our community forum for engaging discussions, helpful topics, and connecting with like-minded people.",
+        seo_site_keywords: "forum, community, discussion, topics, posts, social",
+        seo_og_image: "",
+        seo_twitter_handle: "",
+        seo_google_analytics_id: "",
+        seo_google_site_verification: "",
+        seo_bing_site_verification: "",
+        seo_robots_txt: "User-agent: *\nAllow: /",
+        seo_sitemap_enabled: true,
     };
 
     if (!isDbAvailable()) {
@@ -1293,6 +1327,17 @@ export const getAllSiteSettings = async (): Promise<SiteSettings> => {
             events_widget_title: placeholderSettings.events_widget_title !== undefined ? (placeholderSettings.events_widget_title || defaults.events_widget_title) : defaults.events_widget_title,
             multilingual_enabled: placeholderSettings.multilingual_enabled !== undefined ? placeholderSettings.multilingual_enabled : defaults.multilingual_enabled,
             default_language: placeholderSettings.default_language || defaults.default_language,
+            // SEO Settings
+            seo_site_title: placeholderSettings.seo_site_title !== undefined ? (placeholderSettings.seo_site_title || defaults.seo_site_title) : defaults.seo_site_title,
+            seo_site_description: placeholderSettings.seo_site_description !== undefined ? (placeholderSettings.seo_site_description || defaults.seo_site_description) : defaults.seo_site_description,
+            seo_site_keywords: placeholderSettings.seo_site_keywords !== undefined ? (placeholderSettings.seo_site_keywords || defaults.seo_site_keywords) : defaults.seo_site_keywords,
+            seo_og_image: placeholderSettings.seo_og_image !== undefined ? (placeholderSettings.seo_og_image || defaults.seo_og_image) : defaults.seo_og_image,
+            seo_twitter_handle: placeholderSettings.seo_twitter_handle !== undefined ? (placeholderSettings.seo_twitter_handle || defaults.seo_twitter_handle) : defaults.seo_twitter_handle,
+            seo_google_analytics_id: placeholderSettings.seo_google_analytics_id !== undefined ? (placeholderSettings.seo_google_analytics_id || defaults.seo_google_analytics_id) : defaults.seo_google_analytics_id,
+            seo_google_site_verification: placeholderSettings.seo_google_site_verification !== undefined ? (placeholderSettings.seo_google_site_verification || defaults.seo_google_site_verification) : defaults.seo_google_site_verification,
+            seo_bing_site_verification: placeholderSettings.seo_bing_site_verification !== undefined ? (placeholderSettings.seo_bing_site_verification || defaults.seo_bing_site_verification) : defaults.seo_bing_site_verification,
+            seo_robots_txt: placeholderSettings.seo_robots_txt !== undefined ? (placeholderSettings.seo_robots_txt || defaults.seo_robots_txt) : defaults.seo_robots_txt,
+            seo_sitemap_enabled: placeholderSettings.seo_sitemap_enabled !== undefined ? placeholderSettings.seo_sitemap_enabled : defaults.seo_sitemap_enabled,
         };
     }
 
@@ -1311,6 +1356,17 @@ export const getAllSiteSettings = async (): Promise<SiteSettings> => {
             events_widget_title: settingsMap.events_widget_title !== undefined ? (settingsMap.events_widget_title || defaults.events_widget_title) : defaults.events_widget_title,
             multilingual_enabled: settingsMap.multilingual_enabled !== undefined ? settingsMap.multilingual_enabled === 'true' : defaults.multilingual_enabled,
             default_language: (settingsMap.default_language as 'en' | 'de') || defaults.default_language,
+            // SEO Settings
+            seo_site_title: settingsMap.seo_site_title !== undefined ? (settingsMap.seo_site_title || defaults.seo_site_title) : defaults.seo_site_title,
+            seo_site_description: settingsMap.seo_site_description !== undefined ? (settingsMap.seo_site_description || defaults.seo_site_description) : defaults.seo_site_description,
+            seo_site_keywords: settingsMap.seo_site_keywords !== undefined ? (settingsMap.seo_site_keywords || defaults.seo_site_keywords) : defaults.seo_site_keywords,
+            seo_og_image: settingsMap.seo_og_image !== undefined ? (settingsMap.seo_og_image || defaults.seo_og_image) : defaults.seo_og_image,
+            seo_twitter_handle: settingsMap.seo_twitter_handle !== undefined ? (settingsMap.seo_twitter_handle || defaults.seo_twitter_handle) : defaults.seo_twitter_handle,
+            seo_google_analytics_id: settingsMap.seo_google_analytics_id !== undefined ? (settingsMap.seo_google_analytics_id || defaults.seo_google_analytics_id) : defaults.seo_google_analytics_id,
+            seo_google_site_verification: settingsMap.seo_google_site_verification !== undefined ? (settingsMap.seo_google_site_verification || defaults.seo_google_site_verification) : defaults.seo_google_site_verification,
+            seo_bing_site_verification: settingsMap.seo_bing_site_verification !== undefined ? (settingsMap.seo_bing_site_verification || defaults.seo_bing_site_verification) : defaults.seo_bing_site_verification,
+            seo_robots_txt: settingsMap.seo_robots_txt !== undefined ? (settingsMap.seo_robots_txt || defaults.seo_robots_txt) : defaults.seo_robots_txt,
+            seo_sitemap_enabled: settingsMap.seo_sitemap_enabled !== undefined ? settingsMap.seo_sitemap_enabled === 'true' : defaults.seo_sitemap_enabled,
         };
     } catch (error: any) {
         console.error("[DB Error] getAllSiteSettings: Error querying database. Falling back to defaults.", error.message);
@@ -1372,6 +1428,17 @@ async function initializeDatabase() {
         ['events_widget_title', "Upcoming Events & Webinars"],
         ['multilingual_enabled', false],
         ['default_language', 'en'],
+        // SEO Defaults
+        ['seo_site_title', "ForumLite - Community Discussion Forum"],
+        ['seo_site_description', "Join our community forum for engaging discussions, helpful topics, and connecting with like-minded people."],
+        ['seo_site_keywords', "forum, community, discussion, topics, posts, social"],
+        ['seo_og_image', ""],
+        ['seo_twitter_handle', ""],
+        ['seo_google_analytics_id', ""],
+        ['seo_google_site_verification', ""],
+        ['seo_bing_site_verification', ""],
+        ['seo_robots_txt', "User-agent: *\nAllow: /"],
+        ['seo_sitemap_enabled', true],
     ];
 
     for (const [key, value] of defaultSettingsEntries) {
