@@ -123,6 +123,35 @@ CREATE TABLE site_settings (
 );
 ```
 
+##### Known Site Setting Keys (New)
+
+The application initializes and reads the following keys:
+
+| Key | Type | Default | Notes |
+|-----|------|---------|-------|
+| `events_widget_enabled` | boolean | `true` | Show events widget on homepage |
+| `events_widget_position` | enum | `above_categories` | `above_categories` or `below_categories` |
+| `events_widget_detail_level` | enum | `full` | `full` or `compact` |
+| `events_widget_item_count` | number | `3` | 1-10 |
+| `events_widget_title` | string | "Upcoming Events & Webinars" | Widget heading |
+| `seo_site_title` | string | "ForumLite - Community Discussion Forum" | SEO title |
+| `seo_site_description` | string | "Join our community..." | Meta description |
+| `seo_site_keywords` | string | "forum, community, ..." | Keywords |
+| `seo_og_image` | string | "" | Image URL |
+| `seo_twitter_handle` | string | "" | Twitter handle |
+| `seo_google_analytics_id` | string | "" | GA4 ID |
+| `seo_google_site_verification` | string | "" | Search Console |
+| `seo_bing_site_verification` | string | "" | Bing |
+| `seo_robots_txt` | string | "User-agent: *\nAllow: /" | robots.txt content |
+| `seo_sitemap_enabled` | boolean | `true` | Generate sitemap |
+| `seo_friendly_urls_enabled` | boolean | `false` | Use slugs for topic/category URLs |
+| `links_docs_url` | string(URL) | "" | Footer/Admin helpful link |
+| `links_community_url` | string(URL) | "" | Footer/Admin helpful link |
+| `core_welcome_banner` | string | "The simple, modern platform for community discussions." | Homepage banner text |
+| `core_censor_words` | string | "" | Multi-line or comma-separated `word=****` rules |
+| `core_discussion_sorting` | enum | `latest` | `latest`, `newest`, `top` |
+| `core_allow_signups` | boolean | `true` | If `false`, `/register` redirects to `/?error=registration_disabled` |
+
 #### Notifications Table
 
 ```sql

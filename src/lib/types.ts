@@ -181,7 +181,19 @@ export type SiteSettingKey =
   | 'seo_bing_site_verification'
   | 'seo_robots_txt'
   | 'seo_sitemap_enabled'
-  | 'seo_friendly_urls_enabled';
+  | 'seo_friendly_urls_enabled'
+  | 'links_docs_url'
+  | 'links_community_url'
+  | 'core_welcome_banner'
+  | 'core_censor_words'
+  | 'core_discussion_sorting'
+  | 'core_allow_signups'
+  // Appearance
+  | 'appearance_logo_url'
+  | 'appearance_favicon_url'
+  | 'appearance_custom_header_html'
+  | 'appearance_custom_footer_html'
+  | 'appearance_custom_css';
 
 export type SiteSettings = {
   events_widget_enabled: boolean;
@@ -203,6 +215,20 @@ export type SiteSettings = {
   seo_robots_txt?: string;
   seo_sitemap_enabled: boolean;
   seo_friendly_urls_enabled: boolean;
+  // External Links
+  links_docs_url?: string;
+  links_community_url?: string;
+  // Core Settings
+  core_welcome_banner?: string;
+  core_censor_words?: string;
+  core_discussion_sorting?: 'latest' | 'newest' | 'top';
+  core_allow_signups?: boolean;
+  // Appearance
+  appearance_logo_url?: string; // Data URL or external URL
+  appearance_favicon_url?: string; // Data URL or external URL
+  appearance_custom_header_html?: string; // Injected into <head>
+  appearance_custom_footer_html?: string; // Injected before </body>
+  appearance_custom_css?: string; // Injected into <style>
 };
 
 // Helper for Zod schema if needed, or direct usage in Zod
@@ -224,7 +250,19 @@ export const siteSettingKeys: SiteSettingKey[] = [
   'seo_bing_site_verification',
   'seo_robots_txt',
   'seo_sitemap_enabled',
-  'seo_friendly_urls_enabled'
+  'seo_friendly_urls_enabled',
+  'links_docs_url',
+  'links_community_url',
+  'core_welcome_banner',
+  'core_censor_words',
+  'core_discussion_sorting',
+  'core_allow_signups',
+  // Appearance
+  'appearance_logo_url',
+  'appearance_favicon_url',
+  'appearance_custom_header_html',
+  'appearance_custom_footer_html',
+  'appearance_custom_css'
 ];
 
 // SEO Types

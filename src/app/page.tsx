@@ -5,6 +5,7 @@ import { CategoryList } from '@/components/forums/CategoryList';
 import { CategoryForm } from '@/components/forms/CategoryForm';
 import { getCurrentUser } from '@/lib/actions/auth';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { LogIn, UserPlus, AlertTriangle } from 'lucide-react';
@@ -34,7 +35,7 @@ export async function generateMetadata(): Promise<Metadata> {
   }
 }
 
-export default async function Home() {
+export default async function Home({ searchParams }: { searchParams?: Promise<{ error?: string }> }) {
   let categories: Category[] = [];
   let pageError: string | null = null;
   let upcomingEvents = [];
@@ -61,6 +62,7 @@ export default async function Home() {
   }
 
   const user = await getCurrentUser();
+  const resolvedSearchParams = await searchParams;
   const eventsWidgetEnabled = siteSettings.events_widget_enabled;
   const eventsWidgetPosition = siteSettings.events_widget_position;
   const eventsWidgetDetailLevel = siteSettings.events_widget_detail_level;
@@ -89,25 +91,39 @@ export default async function Home() {
       )}
       
       <div className="space-y-8">
+        {resolvedSearchParams?.error === 'registration_disabled' && (
+          <Alert className="border-destructive bg-destructive/10">
+            <AlertTriangle className="h-4 w-4 text-destructive" />
+            <AlertTitle className="text-destructive">Registration Disabled</AlertTitle>
+            <AlertDescription className="text-destructive-foreground">
+              New registrations are currently not allowed. Please try again later.
+            </AlertDescription>
+          </Alert>
+        )}
+         {/* Registration disabled alert via query param */}
+         {/* Note: For full reliability, we can adapt to Route Handler or middleware later */}
+         {typeof window === 'undefined' ? null : null}
          <Card className="bg-gradient-to-r from-primary/10 via-background to-background border border-primary/20 shadow-sm">
         <CardHeader>
            <CardTitle className="text-2xl sm:text-3xl font-bold text-primary">Welcome to ForumLite!</CardTitle>
            <CardDescription className="text-base text-foreground/80 mt-1">
-               The simple, modern platform for community discussions.
+               {siteSettings.core_welcome_banner || 'The simple, modern platform for community discussions.'}
             </CardDescription>
         </CardHeader>
-         {!user && (
+          {!user && (
              <CardContent className="flex flex-col sm:flex-row gap-3">
                  <Button asChild>
                     <Link href="/login">
                         <LogIn className="mr-2 h-4 w-4"/> Login
                     </Link>
                 </Button>
-                 <Button variant="secondary" asChild>
+                 {siteSettings.core_allow_signups !== false && (
+                   <Button variant="secondary" asChild>
                      <Link href="/register">
                          <UserPlus className="mr-2 h-4 w-4"/> Register
                      </Link>
-                 </Button>
+                   </Button>
+                 )}
              </CardContent>
          )}
       </Card>

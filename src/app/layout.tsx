@@ -8,6 +8,7 @@ import { Toaster } from "@/components/ui/toaster"; // Import Toaster
 import { ThemeProvider } from "@/components/ThemeProvider"; // Correct import path for ThemeProvider
 import { getAllSiteSettings } from '@/lib/db';
 import { generatePageMetadata } from '@/lib/seo';
+import { CustomInjections } from '@/components/layout/CustomInjections';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -42,6 +43,7 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Note: RootLayout cannot be async; fetch settings in header/footer and metadata.
   return (
     // Remove any whitespace between <html> and <body>
     <html lang="en" suppressHydrationWarning>
@@ -53,11 +55,17 @@ export default function RootLayout({
             disableTransitionOnChange
          >
             <div className="relative flex min-h-screen flex-col bg-background" suppressHydrationWarning>
+              {/* Custom header HTML and CSS via site settings */}
+              <CustomInjections position="header" />
+              {/* Inject custom header HTML and CSS */}
+              {/* These are rendered by a dedicated component to keep RootLayout synchronous */}
               <Header />
               <main className="flex-1 container max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8"> {/* Adjusted padding */}
                  {children}
               </main>
               <Footer /> {/* Add Footer here */}
+              {/* Custom footer HTML via site settings */}
+              <CustomInjections position="footer" />
             </div>
              <Toaster /> {/* Add Toaster here */}
         </ThemeProvider>

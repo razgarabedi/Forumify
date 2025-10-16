@@ -31,6 +31,7 @@ import oneDark from 'react-syntax-highlighter/dist/esm/styles/prism/one-dark';
 import Link from 'next/link'; 
 import type { CodeProps, Components } from 'react-markdown/lib/ast-to-react';
 import { ReactionButtons } from './ReactionButtons';
+import { getAllSiteSettings } from '@/lib/db';
 
 
 interface PostProps {
@@ -198,8 +199,28 @@ export function Post({ post, currentUser, onEdit, isFirstPost = false }: PostPro
     }), []);
     
     const processedContent = useMemo(() => {
-        // Mentions are now handled by the ReactMarkdown components.
-        return post.content;
+        // Apply simple censor rules based on site settings passed via data attributes or fallback env
+        // Note: This component is client-side; for now we do a best-effort fetch via a data attribute if provided in parent.
+        let content = post.content;
+        const censorRaw = (typeof window !== 'undefined' && (window as any).__FORUMLITE_CENSOR__) as string | undefined;
+        const rulesRaw = censorRaw || '';
+        const rules = rulesRaw
+            .split(/\r?\n|,/)
+            .map(r => r.trim())
+            .filter(Boolean)
+            .map(line => {
+                const eqIdx = line.indexOf('=');
+                if (eqIdx === -1) return { pattern: line, replacement: '****' };
+                return { pattern: line.slice(0, eqIdx).trim(), replacement: line.slice(eqIdx + 1).trim() || '****' };
+            });
+        for (const { pattern, replacement } of rules) {
+            try {
+                if (!pattern) continue;
+                const regex = new RegExp(`\\b${pattern.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&')}\\b`, 'gi');
+                content = content.replace(regex, replacement);
+            } catch {}
+        }
+        return content;
     }, [post.content]);
 
 

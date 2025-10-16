@@ -1,7 +1,7 @@
 
 import { ThemeToggler } from './ThemeToggler';
 import { getAllSiteSettings } from '@/lib/db';
-import { Twitter, Globe, Map } from 'lucide-react';
+import { Twitter, Globe, Map, BookOpen, Users } from 'lucide-react';
 
 export async function Footer() {
   let siteSettings;
@@ -68,6 +68,34 @@ export async function Footer() {
               >
                 <Map className="h-4 w-4" />
                 <span className="hidden sm:inline">Sitemap</span>
+              </a>
+            )}
+
+            {/* Docs Link */}
+            {siteSettings.links_docs_url && (
+              <a
+                href={siteSettings.links_docs_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1 text-sm text-muted-foreground hover:text-primary transition-colors"
+                title="Documentation"
+              >
+                <BookOpen className="h-4 w-4" />
+                <span className="hidden sm:inline">Docs</span>
+              </a>
+            )}
+
+            {/* Community Link */}
+            {siteSettings.links_community_url && (
+              <a
+                href={siteSettings.links_community_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1 text-sm text-muted-foreground hover:text-primary transition-colors"
+                title="Community"
+              >
+                <Users className="h-4 w-4" />
+                <span className="hidden sm:inline">Community</span>
               </a>
             )}
             

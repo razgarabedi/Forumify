@@ -55,6 +55,10 @@ export default async function TopicPage({ params }: TopicPageProps) {
 
             <Separator />
 
+            {/* Expose censor rules to client via window to avoid extra fetch */}
+            <script
+              dangerouslySetInnerHTML={{ __html: `window.__FORUMLITE_CENSOR__ = ${JSON.stringify(siteSettings.core_censor_words || '')};` }}
+            />
             <PostList initialPosts={initialPosts} topicId={topicId} currentUser={user} />
 
             {user ? (

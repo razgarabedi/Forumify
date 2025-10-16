@@ -14,6 +14,8 @@ import {
     updateSiteSetting as dbUpdateSiteSetting,
 } from '@/lib/db';
 import { z } from 'zod';
+import { getGroups as dbGetGroups, createGroup as dbCreateGroup, deleteGroup as dbDeleteGroup, getGroupPermissions as dbGetGroupPermissions, setGroupPermission as dbSetGroupPermission } from '@/lib/db';
+import type { PermissionKey, PermissionScopeType } from '@/lib/permissions';
 import type { ActionResponse, EventType, EventWidgetPosition, EventWidgetDetailLevel } from '@/lib/types';
 
 async function checkAdmin() {
@@ -209,6 +211,14 @@ const SiteSettingsSchema = z.object({
     events_widget_detail_level: z.enum(['full', 'compact'] as [EventWidgetDetailLevel, ...EventWidgetDetailLevel[]]),
     events_widget_item_count: z.coerce.number().int().min(1, "Must show at least 1 item.").max(10, "Cannot show more than 10 items."),
     events_widget_title: z.string().min(1, "Widget title cannot be empty.").max(100, "Widget title is too long.").optional().or(z.literal('')),
+    // External Links
+    links_docs_url: z.string().url('Must be a valid URL.').optional().or(z.literal('')),
+    links_community_url: z.string().url('Must be a valid URL.').optional().or(z.literal('')),
+    // Core Settings
+    core_welcome_banner: z.string().max(500, "Welcome banner is too long.").optional().or(z.literal('')),
+    core_censor_words: z.string().max(5000, "Censor list too long.").optional().or(z.literal('')),
+    core_discussion_sorting: z.enum(['latest','newest','top'] as ['latest'|'newest'|'top', ...('latest'|'newest'|'top')[]]).optional().or(z.literal('')),
+    core_allow_signups: z.preprocess((val) => String(val).toLowerCase() === 'true', z.boolean()).optional(),
 });
 
 // SEO Settings Schema
@@ -226,6 +236,15 @@ const SEOSettingsSchema = z.object({
     seo_friendly_urls_enabled: z.preprocess((val) => String(val).toLowerCase() === 'true', z.boolean()),
 });
 
+// Appearance Settings Schema
+const AppearanceSettingsSchema = z.object({
+    appearance_logo_url: z.string().max(2000000).optional().or(z.literal('')),
+    appearance_favicon_url: z.string().max(2000000).optional().or(z.literal('')),
+    appearance_custom_header_html: z.string().max(20000).optional().or(z.literal('')),
+    appearance_custom_footer_html: z.string().max(20000).optional().or(z.literal('')),
+    appearance_custom_css: z.string().max(50000).optional().or(z.literal('')),
+});
+
 export async function updateSiteSettingsAction(prevState: ActionResponse | undefined, formData: FormData): Promise<ActionResponse> {
     // This object will hold the raw values from formData for potential return on error
     const rawDataToReturn = {
@@ -234,6 +253,12 @@ export async function updateSiteSettingsAction(prevState: ActionResponse | undef
         events_widget_detail_level: formData.get('events_widget_detail_level') as EventWidgetDetailLevel | null,
         events_widget_item_count: formData.get('events_widget_item_count') as string | null,
         events_widget_title: formData.get('events_widget_title') as string | null,
+        links_docs_url: formData.get('links_docs_url') as string | null,
+        links_community_url: formData.get('links_community_url') as string | null,
+        core_welcome_banner: formData.get('core_welcome_banner') as string | null,
+        core_censor_words: formData.get('core_censor_words') as string | null,
+        core_discussion_sorting: formData.get('core_discussion_sorting') as string | null,
+        core_allow_signups: formData.get('core_allow_signups') ? String(formData.get('core_allow_signups')) : 'false',
     };
 
     try {
@@ -254,17 +279,23 @@ export async function updateSiteSettingsAction(prevState: ActionResponse | undef
             };
         }
 
-        const { events_widget_enabled, events_widget_position, events_widget_detail_level, events_widget_item_count, events_widget_title } = validatedFields.data;
+        const { events_widget_enabled, events_widget_position, events_widget_detail_level, events_widget_item_count, events_widget_title, links_docs_url, links_community_url, core_welcome_banner, core_censor_words, core_discussion_sorting, core_allow_signups } = validatedFields.data;
 
         await dbUpdateSiteSetting('events_widget_enabled', String(events_widget_enabled));
         await dbUpdateSiteSetting('events_widget_position', events_widget_position);
         await dbUpdateSiteSetting('events_widget_detail_level', events_widget_detail_level);
         await dbUpdateSiteSetting('events_widget_item_count', String(events_widget_item_count));
         await dbUpdateSiteSetting('events_widget_title', events_widget_title || "Upcoming Events & Webinars");
+        await dbUpdateSiteSetting('links_docs_url', links_docs_url || "");
+        await dbUpdateSiteSetting('links_community_url', links_community_url || "");
+        await dbUpdateSiteSetting('core_welcome_banner', core_welcome_banner || "The simple, modern platform for community discussions.");
+        await dbUpdateSiteSetting('core_censor_words', core_censor_words || "");
+        await dbUpdateSiteSetting('core_discussion_sorting', core_discussion_sorting || 'latest');
+        await dbUpdateSiteSetting('core_allow_signups', String(core_allow_signups ?? true));
 
 
         revalidatePath('/admin/site-settings');
-        revalidatePath('/'); // Revalidate homepage to reflect widget changes
+        revalidatePath('/'); // Revalidate homepage to reflect settings changes
         return { success: true, message: "Site settings updated successfully." };
 
     } catch (error: any) {
@@ -349,4 +380,120 @@ export async function updateSEOSettingsAction(prevState: ActionResponse | undefi
             rawData: rawDataToReturn 
         };
     }
+}
+
+export async function updateAppearanceSettingsAction(prevState: ActionResponse | undefined, formData: FormData): Promise<ActionResponse> {
+    const rawDataToReturn = {
+        appearance_logo_url: formData.get('appearance_logo_url') as string | null,
+        appearance_favicon_url: formData.get('appearance_favicon_url') as string | null,
+        appearance_custom_header_html: formData.get('appearance_custom_header_html') as string | null,
+        appearance_custom_footer_html: formData.get('appearance_custom_footer_html') as string | null,
+        appearance_custom_css: formData.get('appearance_custom_css') as string | null,
+    };
+
+    try {
+        await checkAdmin();
+
+        const validatedFields = AppearanceSettingsSchema.safeParse(rawDataToReturn);
+        if (!validatedFields.success) {
+            const fieldErrors = Object.fromEntries(
+                Object.entries(validatedFields.error.flatten().fieldErrors).filter(([_, value]) => value !== undefined)
+            ) as Record<string, string[]>;
+            console.error("Appearance Settings Validation Errors:", fieldErrors);
+            return {
+                success: false,
+                message: "Validation failed for appearance settings.",
+                errors: fieldErrors,
+                rawData: rawDataToReturn,
+            };
+        }
+
+        const {
+            appearance_logo_url,
+            appearance_favicon_url,
+            appearance_custom_header_html,
+            appearance_custom_footer_html,
+            appearance_custom_css,
+        } = validatedFields.data;
+
+        await dbUpdateSiteSetting('appearance_logo_url', appearance_logo_url || '');
+        await dbUpdateSiteSetting('appearance_favicon_url', appearance_favicon_url || '');
+        await dbUpdateSiteSetting('appearance_custom_header_html', appearance_custom_header_html || '');
+        await dbUpdateSiteSetting('appearance_custom_footer_html', appearance_custom_footer_html || '');
+        await dbUpdateSiteSetting('appearance_custom_css', appearance_custom_css || '');
+
+        revalidatePath('/admin/appearance');
+        revalidatePath('/');
+        return { success: true, message: 'Appearance settings updated successfully.' };
+    } catch (error: any) {
+        console.error('Update Appearance Settings Error:', error);
+        return {
+            success: false,
+            message: error.message || 'Failed to update appearance settings.',
+            rawData: rawDataToReturn,
+        };
+    }
+}
+
+// --- Groups & Permissions Actions ---
+export async function getGroupsAction(): Promise<ActionResponse> {
+  try {
+    await checkAdmin();
+    const groups = await dbGetGroups();
+    return { success: true, message: 'ok', groups };
+  } catch (error: any) {
+    return { success: false, message: error.message || 'Failed to fetch groups' };
+  }
+}
+
+export async function createGroupAction(prev: ActionResponse | undefined, formData: FormData): Promise<ActionResponse> {
+  try {
+    await checkAdmin();
+    const name = String(formData.get('name') || '').trim();
+    if (!name) return { success: false, message: 'Group name is required' };
+    const group = await dbCreateGroup(name, false);
+    revalidatePath('/admin/permissions');
+    return { success: true, message: 'Group created', group };
+  } catch (error: any) {
+    return { success: false, message: error.message || 'Failed to create group' };
+  }
+}
+
+export async function deleteGroupAction(groupId: string): Promise<ActionResponse> {
+  try {
+    await checkAdmin();
+    const ok = await dbDeleteGroup(groupId);
+    if (!ok) return { success: false, message: 'Cannot delete system group or group not found' };
+    revalidatePath('/admin/permissions');
+    return { success: true, message: 'Group deleted' };
+  } catch (error: any) {
+    return { success: false, message: error.message || 'Failed to delete group' };
+  }
+}
+
+export async function getGroupPermissionsAction(groupId: string): Promise<ActionResponse> {
+  try {
+    await checkAdmin();
+    const permissions = await dbGetGroupPermissions(groupId);
+    return { success: true, message: 'ok', permissions };
+  } catch (error: any) {
+    return { success: false, message: error.message || 'Failed to fetch permissions' };
+  }
+}
+
+export async function setGroupPermissionAction(prev: ActionResponse | undefined, formData: FormData): Promise<ActionResponse> {
+  try {
+    await checkAdmin();
+    const groupId = String(formData.get('groupId'));
+    const permission = String(formData.get('permission')) as PermissionKey;
+    const allowed = String(formData.get('allowed')).toLowerCase() === 'true';
+    const scopeType = (String(formData.get('scopeType') || 'global') as PermissionScopeType);
+    const scopeId = (formData.get('scopeId') as string | null) || null;
+    if (!groupId || !permission) return { success: false, message: 'Missing groupId or permission' };
+    await dbSetGroupPermission(groupId, permission, allowed, scopeType, scopeId);
+    revalidatePath('/admin/permissions');
+    return { success: true, message: 'Permission updated', groupId, permission, allowed, scopeType, scopeId };
+  } catch (error: any) {
+    return { success: false, message: error.message || 'Failed to set permission' };
+  }
 }

@@ -2,6 +2,7 @@
 // src/lib/db.ts
 import { Pool } from 'pg';
 import type { User, Category, Topic, Post, Notification, Conversation, PrivateMessage, Reaction, ReactionType, CategoryLastPostInfo, EventDetails, EventType, SiteSettings, EventWidgetPosition, EventWidgetDetailLevel } from './types';
+import type { Group, GroupPermission, PermissionKey, PermissionScopeType } from './permissions';
 import { v4 as uuidv4 } from 'uuid'; // For generating unique IDs
 import { unstable_noStore as noStore } from 'next/cache';
 import { generateSlug } from './utils'; // Import generateSlug
@@ -525,7 +526,14 @@ export const getTopics = async (): Promise<Topic[]> => {
 };
 
 export const getTopicsByCategory = async (categoryId: string): Promise<Topic[]> => {
+    return getTopicsByCategorySorted(categoryId, 'latest');
+};
+
+export const getTopicsByCategorySorted = async (categoryId: string, sortBy: 'latest' | 'newest' | 'top'): Promise<Topic[]> => {
     try {
+        let orderBy = 't.last_activity DESC';
+        if (sortBy === 'newest') orderBy = 't.created_at DESC';
+        if (sortBy === 'top') orderBy = 'post_count DESC NULLS LAST';
         const result = await query(`
             SELECT t.id, t.title, t.slug, t.category_id, t.author_id, t.created_at, t.last_activity,
                    u.id as author_id_fk, u.username as author_username, u.avatar_url as author_avatar_url, u.email as author_email, u.created_at as author_created_at, u.points as author_points, u.is_admin as author_is_admin, u.location as author_location,
@@ -535,11 +543,11 @@ export const getTopicsByCategory = async (categoryId: string): Promise<Topic[]> 
             LEFT JOIN users u ON t.author_id = u.id
             LEFT JOIN categories c ON t.category_id = c.id
             WHERE t.category_id = $1 OR t.category_id IN (SELECT id FROM categories WHERE parent_id = $1)
-            ORDER BY t.last_activity DESC
+            ORDER BY ${orderBy}
         `, [categoryId]);
         return Promise.all(result.rows.map(mapDbRowToTopic));
     } catch (error: any) {
-        console.error(`[DB Error] getTopicsByCategory for ${categoryId}: Error querying database.`, error.message);
+        console.error(`[DB Error] getTopicsByCategorySorted for ${categoryId}: Error querying database.`, error.message);
         throw error;
     }
 };
@@ -1186,7 +1194,7 @@ export const deleteEvent = async (eventId: string): Promise<boolean> => {
 // --- Site Settings Functions ---
 export const getAllSiteSettings = async (): Promise<SiteSettings> => {
     noStore(); 
-    const defaults: SiteSettings = {
+    const defaults: any = {
         events_widget_enabled: true,
         events_widget_position: 'above_categories',
         events_widget_detail_level: 'full',
@@ -1206,6 +1214,20 @@ export const getAllSiteSettings = async (): Promise<SiteSettings> => {
         seo_robots_txt: "User-agent: *\nAllow: /",
         seo_sitemap_enabled: true,
         seo_friendly_urls_enabled: false,
+        // External Links Defaults
+        links_docs_url: "",
+        links_community_url: "",
+        // Core settings defaults
+        core_welcome_banner: "The simple, modern platform for community discussions.",
+        core_censor_words: "",
+        core_discussion_sorting: 'latest',
+        core_allow_signups: true,
+        // Appearance defaults
+        appearance_logo_url: "",
+        appearance_favicon_url: "",
+        appearance_custom_header_html: "",
+        appearance_custom_footer_html: "",
+        appearance_custom_css: "",
     };
 
     // No placeholder fallback; DB is required.
@@ -1237,6 +1259,20 @@ export const getAllSiteSettings = async (): Promise<SiteSettings> => {
             seo_robots_txt: settingsMap.seo_robots_txt !== undefined ? (settingsMap.seo_robots_txt || defaults.seo_robots_txt) : defaults.seo_robots_txt,
             seo_sitemap_enabled: settingsMap.seo_sitemap_enabled !== undefined ? settingsMap.seo_sitemap_enabled === 'true' : defaults.seo_sitemap_enabled,
             seo_friendly_urls_enabled: settingsMap.seo_friendly_urls_enabled !== undefined ? settingsMap.seo_friendly_urls_enabled === 'true' : defaults.seo_friendly_urls_enabled,
+            // External Links
+            links_docs_url: settingsMap.links_docs_url !== undefined ? (settingsMap.links_docs_url || defaults.links_docs_url) : defaults.links_docs_url,
+            links_community_url: settingsMap.links_community_url !== undefined ? (settingsMap.links_community_url || defaults.links_community_url) : defaults.links_community_url,
+            // Core Settings
+            core_welcome_banner: settingsMap.core_welcome_banner !== undefined ? (settingsMap.core_welcome_banner || defaults.core_welcome_banner) : defaults.core_welcome_banner,
+            core_censor_words: settingsMap.core_censor_words !== undefined ? (settingsMap.core_censor_words || defaults.core_censor_words) : defaults.core_censor_words,
+            core_discussion_sorting: (settingsMap.core_discussion_sorting as any) || defaults.core_discussion_sorting,
+            core_allow_signups: settingsMap.core_allow_signups !== undefined ? settingsMap.core_allow_signups === 'true' : (defaults.core_allow_signups as boolean),
+            // Appearance
+            appearance_logo_url: settingsMap.appearance_logo_url !== undefined ? (settingsMap.appearance_logo_url || defaults.appearance_logo_url) : defaults.appearance_logo_url,
+            appearance_favicon_url: settingsMap.appearance_favicon_url !== undefined ? (settingsMap.appearance_favicon_url || defaults.appearance_favicon_url) : defaults.appearance_favicon_url,
+            appearance_custom_header_html: settingsMap.appearance_custom_header_html !== undefined ? (settingsMap.appearance_custom_header_html || defaults.appearance_custom_header_html) : defaults.appearance_custom_header_html,
+            appearance_custom_footer_html: settingsMap.appearance_custom_footer_html !== undefined ? (settingsMap.appearance_custom_footer_html || defaults.appearance_custom_footer_html) : defaults.appearance_custom_footer_html,
+            appearance_custom_css: settingsMap.appearance_custom_css !== undefined ? (settingsMap.appearance_custom_css || defaults.appearance_custom_css) : defaults.appearance_custom_css,
         };
     } catch (error: any) {
         console.error("[DB Error] getAllSiteSettings: Error querying database.", error.message);
@@ -1254,6 +1290,85 @@ export const updateSiteSetting = async (key: string, value: string): Promise<voi
         console.error(`[DB Error] updateSiteSetting for ${key}:`, error.message);
         throw error;
     }
+};
+
+// --- Groups & Permissions ---
+const mapDbRowToGroup = (row: any): Group => ({ id: row.id, name: row.name, isSystem: row.is_system, createdAt: new Date(row.created_at) });
+
+export const getGroups = async (): Promise<Group[]> => {
+  try {
+    const result = await query('SELECT * FROM user_groups ORDER BY is_system DESC, name ASC');
+    return result.rows.map(mapDbRowToGroup);
+  } catch (error: any) {
+    console.error('[DB Error] getGroups:', error.message);
+    throw error;
+  }
+};
+
+export const createGroup = async (name: string, isSystem = false): Promise<Group> => {
+  try {
+    const result = await query('INSERT INTO user_groups (name, is_system) VALUES ($1, $2) RETURNING *', [name, isSystem]);
+    return mapDbRowToGroup(result.rows[0]);
+  } catch (error: any) {
+    console.error('[DB Error] createGroup:', error.message);
+    throw error;
+  }
+};
+
+export const deleteGroup = async (groupId: string): Promise<boolean> => {
+  try {
+    const result = await query('DELETE FROM user_groups WHERE id = $1::uuid AND is_system = FALSE', [groupId]);
+    return (result.rowCount ?? 0) > 0;
+  } catch (error: any) {
+    console.error('[DB Error] deleteGroup:', error.message);
+    throw error;
+  }
+};
+
+export const getGroupPermissions = async (groupId: string): Promise<GroupPermission[]> => {
+  try {
+    const res = await query('SELECT group_id, permission, allowed, scope_type, scope_id FROM group_permissions WHERE group_id = $1::uuid', [groupId]);
+    return res.rows.map((r) => ({ groupId: r.group_id, permission: r.permission as PermissionKey, allowed: r.allowed, scopeType: r.scope_type as any, scopeId: r.scope_id === '' ? null : r.scope_id }));
+  } catch (error: any) {
+    console.error('[DB Error] getGroupPermissions:', error.message);
+    throw error;
+  }
+};
+
+export const setGroupPermission = async (groupId: string, permission: PermissionKey, allowed: boolean, scopeType: PermissionScopeType = 'global', scopeId?: string | null): Promise<void> => {
+  try {
+    const normalizedScopeId = scopeType === 'global' ? '' : (scopeId ?? '');
+    await query('INSERT INTO group_permissions (group_id, permission, allowed, scope_type, scope_id) VALUES ($1::uuid, $2, $3, $4, $5) ON CONFLICT (group_id, permission, scope_type, scope_id) DO UPDATE SET allowed = $3', [groupId, permission, allowed, scopeType, normalizedScopeId]);
+  } catch (error: any) {
+    console.error('[DB Error] setGroupPermission:', error.message);
+    throw error;
+  }
+};
+
+export const checkPermissionForUser = async (userId: string | null, permission: PermissionKey, scopeType: PermissionScopeType = 'global', scopeId?: string | null): Promise<boolean> => {
+  try {
+    // Simple mapping: admins always allowed; members if logged; guests otherwise
+    if (userId) {
+      const user = await findUserById(userId);
+      if (user?.isAdmin) return true;
+      const membersRes = await query("SELECT id FROM user_groups WHERE name = 'Members' LIMIT 1");
+      const membersId = membersRes.rows[0]?.id;
+      if (!membersId) return false;
+      const normalizedScopeId = scopeType === 'global' ? '' : (scopeId ?? '');
+      const permRes = await query('SELECT allowed FROM group_permissions WHERE group_id = $1::uuid AND permission = $2 AND scope_type = $3 AND scope_id = $4', [membersId, permission, scopeType, normalizedScopeId]);
+      return permRes.rows[0]?.allowed ?? false;
+    } else {
+      const guestsRes = await query("SELECT id FROM user_groups WHERE name = 'Guests' LIMIT 1");
+      const guestsId = guestsRes.rows[0]?.id;
+      if (!guestsId) return false;
+      const normalizedScopeId = scopeType === 'global' ? '' : (scopeId ?? '');
+      const permRes = await query('SELECT allowed FROM group_permissions WHERE group_id = $1::uuid AND permission = $2 AND scope_type = $3 AND scope_id = $4', [guestsId, permission, scopeType, normalizedScopeId]);
+      return permRes.rows[0]?.allowed ?? false;
+    }
+  } catch (error: any) {
+    console.error('[DB Error] checkPermissionForUser:', error.message);
+    return false;
+  }
 };
 
 // Helper to get category name by ID within a transaction
@@ -1299,6 +1414,13 @@ async function initializeDatabase() {
     await client.query(`CREATE TABLE IF NOT EXISTS private_messages (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE, sender_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE, content TEXT NOT NULL, created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP, read_by TEXT[] DEFAULT '{}'); CREATE INDEX IF NOT EXISTS idx_private_messages_conversation_id ON private_messages(conversation_id);`);
     await client.query(`CREATE TABLE IF NOT EXISTS events (id TEXT PRIMARY KEY, title TEXT NOT NULL, type TEXT NOT NULL, date DATE NOT NULL, time TEXT NOT NULL, description TEXT, link TEXT, created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP); CREATE INDEX IF NOT EXISTS idx_events_date_time ON events(date ASC, time ASC);`);
     await client.query(`CREATE TABLE IF NOT EXISTS site_settings (key TEXT PRIMARY KEY, value TEXT);`);
+    // Groups and Permissions
+    await client.query(`CREATE TABLE IF NOT EXISTS user_groups (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), name TEXT UNIQUE NOT NULL, is_system BOOLEAN DEFAULT FALSE, created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP);`);
+    await client.query(`CREATE TABLE IF NOT EXISTS group_permissions (group_id UUID REFERENCES user_groups(id) ON DELETE CASCADE, permission TEXT NOT NULL, allowed BOOLEAN NOT NULL, scope_type TEXT NOT NULL DEFAULT 'global', scope_id TEXT NOT NULL DEFAULT '', PRIMARY KEY (group_id, permission, scope_type, scope_id));`);
+    // Ensure existing installations have non-null scope_id set to '' and constraint applied
+    try { await client.query(`UPDATE group_permissions SET scope_id = '' WHERE scope_id IS NULL`); } catch {}
+    try { await client.query(`ALTER TABLE group_permissions ALTER COLUMN scope_id SET DEFAULT ''`); } catch {}
+    try { await client.query(`ALTER TABLE group_permissions ALTER COLUMN scope_id SET NOT NULL`); } catch {}
     await client.query('COMMIT');
     console.log("Database tables checked/created successfully.");
 
@@ -1322,6 +1444,20 @@ async function initializeDatabase() {
         ['seo_robots_txt', "User-agent: *\nAllow: /"],
         ['seo_sitemap_enabled', true],
         ['seo_friendly_urls_enabled', false],
+        // External Links
+        ['links_docs_url', ''],
+        ['links_community_url', ''],
+        // Core
+        ['core_welcome_banner', 'The simple, modern platform for community discussions.'],
+        ['core_censor_words', ''],
+        ['core_discussion_sorting', 'latest'],
+        ['core_allow_signups', true],
+        // Appearance
+        ['appearance_logo_url', ''],
+        ['appearance_favicon_url', ''],
+        ['appearance_custom_header_html', ''],
+        ['appearance_custom_footer_html', ''],
+        ['appearance_custom_css', ''],
     ];
 
     for (const [key, value] of defaultSettingsEntries) {
@@ -1360,6 +1496,32 @@ async function initializeDatabase() {
                 await createTopicInternal({ title: "Having trouble with your PC?", categoryId: techCat.id, authorId: adminUser.id, firstPostContent: "Post your technical issues here and the community might be able to help." }, client);
             }
         }
+    }
+
+    // Seed default groups and basic permissions if not present
+    const existingGroups = await client.query('SELECT id, name FROM user_groups');
+    const groupNameToId: Record<string, string> = {};
+    if (existingGroups.rows.length === 0) {
+      const adminGroup = await client.query(`INSERT INTO user_groups (name, is_system) VALUES ($1, TRUE) RETURNING id`, ['Admins']);
+      const membersGroup = await client.query(`INSERT INTO user_groups (name, is_system) VALUES ($1, TRUE) RETURNING id`, ['Members']);
+      const guestsGroup = await client.query(`INSERT INTO user_groups (name, is_system) VALUES ($1, TRUE) RETURNING id`, ['Guests']);
+      groupNameToId['Admins'] = adminGroup.rows[0].id;
+      groupNameToId['Members'] = membersGroup.rows[0].id;
+      groupNameToId['Guests'] = guestsGroup.rows[0].id;
+
+      // Minimal sensible defaults
+      const grantAll = ['view_forum','start_discussions','reply_to_discussions','pin_topics','edit_posts','like_posts','edit_discussions','delete_posts','hide_posts','restore_posts','suspend_users'];
+      for (const perm of grantAll) {
+        await client.query(`INSERT INTO group_permissions (group_id, permission, allowed, scope_type, scope_id) VALUES ($1, $2, TRUE, 'global', '') ON CONFLICT DO NOTHING`, [groupNameToId['Admins'], perm]);
+      }
+      const memberDefaults = ['view_forum','start_discussions','reply_to_discussions','like_posts','edit_posts'];
+      for (const perm of memberDefaults) {
+        await client.query(`INSERT INTO group_permissions (group_id, permission, allowed, scope_type, scope_id) VALUES ($1, $2, TRUE, 'global', '') ON CONFLICT DO NOTHING`, [groupNameToId['Members'], perm]);
+      }
+      const guestDefaults = ['view_forum'];
+      for (const perm of guestDefaults) {
+        await client.query(`INSERT INTO group_permissions (group_id, permission, allowed, scope_type, scope_id) VALUES ($1, $2, TRUE, 'global', '') ON CONFLICT DO NOTHING`, [groupNameToId['Guests'], perm]);
+      }
     }
   } catch (e: any) {
     await client.query('ROLLBACK');

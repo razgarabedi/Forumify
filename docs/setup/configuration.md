@@ -129,6 +129,21 @@ Configure these settings through the admin panel at `/admin/site-settings`:
 | `events_widget_title` | string | "Upcoming Events" | Widget title |
 
 #### SEO Settings
+#### Helpful Links (New)
+
+| Setting | Key | Type | Default | Description |
+|---------|-----|------|---------|-------------|
+| Documentation URL | `links_docs_url` | URL | "" | Shown in footer and on Admin Dashboard if set |
+| Community URL | `links_community_url` | URL | "" | Shown in footer and on Admin Dashboard if set |
+
+#### Basics (Core Settings) (New)
+
+| Setting | Key | Type | Default | Description |
+|---------|-----|------|---------|-------------|
+| Welcome Banner | `core_welcome_banner` | string | "The simple, modern platform for community discussions." | Banner for logged-out users on the homepage |
+| Censor Words | `core_censor_words` | multi-line string | "" | `word=****` rules, one per line or comma-separated; whole-word matches only |
+| Discussion Sorting | `core_discussion_sorting` | enum | `latest` | Category topics default sort: `latest`, `newest`, or `top` |
+| Allow Signups | `core_allow_signups` | boolean | `true` | If `false`, `/register` redirects to `/?error=registration_disabled` and the homepage shows an alert |
 
 | Setting | Type | Default | Description |
 |---------|------|---------|-------------|

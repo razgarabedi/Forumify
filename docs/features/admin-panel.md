@@ -85,6 +85,11 @@ The admin dashboard provides an overview of forum activity and key metrics.
 - **User Management**: Manage user accounts
 - **Site Settings**: Configure forum settings
 
+### Version & Helpful Links (New)
+
+- **Version & Updates**: Shows the currently deployed application version. Automatic update checks will be added in a future release.
+- **Helpful Links**: If configured in Site Settings, quick links to your documentation and community support are displayed.
+
 ## 👥 User Management
 
 ### User List
@@ -257,7 +262,20 @@ Configure the events widget display:
 
 Access site settings at `/admin/site-settings`.
 
-#### Basic Configuration
+#### Basics (Core Settings) (New)
+
+Configure the essential identity and behavior of your forum:
+
+| Setting | Key | Type | Default | Description |
+|---------|-----|------|---------|-------------|
+| Welcome Banner | `core_welcome_banner` | string | "The simple, modern platform for community discussions." | Banner text shown at the top of the homepage for logged-out users |
+| Censor Words | `core_censor_words` | multi-line string | "" | List of word replacement rules. One per line or comma-separated. Format: `word=****`. Example: `foo=bar` replaces whole-word "foo" with "bar" |
+| Discussion Sorting | `core_discussion_sorting` | enum | `latest` | Default category topic sorting: `latest` (last activity), `newest` (creation date), or `top` (most posts) |
+| Allow Signups | `core_allow_signups` | boolean | `true` | When `false`, registration is disabled. Visiting `/register` redirects to `/?error=registration_disabled` and the homepage displays an alert |
+
+Notes:
+- Censoring is currently applied client-side on topic pages for post content (best-effort). Server-side sanitization can be added later.
+- "Top" sorting uses the topic's post count as the ranking metric.
 
 | Setting | Type | Description |
 |---------|------|-------------|
@@ -267,6 +285,15 @@ Access site settings at `/admin/site-settings`.
 | Timezone | Select | Server timezone |
 | Date Format | Select | Date display format |
 | Time Format | Select | 12h/24h format |
+
+#### Helpful Links (Footer & Dashboard) (New)
+
+| Setting | Key | Type | Default | Where it appears |
+|---------|-----|------|---------|-------------------|
+| Documentation URL | `links_docs_url` | URL | "" | Footer and Admin Dashboard "Helpful Links" |
+| Community URL | `links_community_url` | URL | "" | Footer and Admin Dashboard "Helpful Links" |
+
+When these are set, the footer displays quick access icons and the Admin Dashboard shows links under "Helpful Links".
 
 #### User Registration
 

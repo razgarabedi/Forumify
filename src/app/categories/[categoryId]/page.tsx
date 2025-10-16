@@ -1,5 +1,5 @@
 
-import { getTopicsByCategory, getCategoryById, getCategoryBySlug, getAllSiteSettings } from '@/lib/db'; // Changed from placeholder-data
+import { getTopicsByCategory, getTopicsByCategorySorted, getCategoryById, getCategoryBySlug, getAllSiteSettings } from '@/lib/db'; // Changed from placeholder-data
 import { TopicList } from '@/components/forums/TopicList';
 import { getCurrentUser } from '@/lib/actions/auth';
 import Link from 'next/link';
@@ -20,7 +20,7 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
     const category = siteSettings.seo_friendly_urls_enabled
         ? (await getCategoryBySlug(categoryId)) || (await getCategoryById(categoryId))
         : await getCategoryById(categoryId);
-    const topics = await getTopicsByCategory(category?.id || categoryId);
+    const topics = await getTopicsByCategorySorted(category?.id || categoryId, siteSettings.core_discussion_sorting || 'latest');
 
     if (!category) {
         notFound();
