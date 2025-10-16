@@ -34,23 +34,23 @@ function renderForumCard(category: Category, siteSettings: any) {
             <div className="grid grid-cols-1 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] items-start">
                 {/* Forum Info Section */}
                 <Link href={`/categories/${siteSettings.seo_friendly_urls_enabled ? category.slug : category.id}`} className="block group transition-all duration-200 ease-in-out md:border-r md:border-border/30">
-                    <CardHeader className="pb-3 flex flex-row items-start gap-4 space-y-0 p-4">
-                        <div className="p-2 rounded-lg bg-primary/10 group-hover:bg-primary/20 transition-colors">
-                            <MessageSquare className="h-5 w-5 text-primary flex-shrink-0" />
+                    <CardHeader className="pb-1 flex flex-row items-start gap-2 space-y-0 p-2">
+                        <div className="p-1.5 rounded-lg bg-primary/10 group-hover:bg-primary/20 transition-colors">
+                            <MessageSquare className="h-4 w-4 text-primary flex-shrink-0" />
                         </div>
                         <div className="flex-1">
-                            <CardTitle className="text-lg font-semibold group-hover:text-primary leading-tight">
+                            <CardTitle className="text-base font-semibold group-hover:text-primary leading-tight">
                                 {category.name}
                             </CardTitle>
                             {category.description && (
-                                <CardDescription className="text-sm pt-1 line-clamp-2">
+                                <CardDescription className="text-xs pt-0.5 line-clamp-2">
                                     {category.description}
                                 </CardDescription>
                             )}
                         </div>
                     </CardHeader>
-                    <CardContent className="pt-0 pl-16 p-4">
-                        <div className="text-xs text-muted-foreground flex items-center space-x-4">
+                    <CardContent className="pt-0 pl-10 p-2">
+                        <div className="text-xs text-muted-foreground flex items-center space-x-3">
                             <span className="flex items-center gap-1" title="Topics">
                                 <MessageSquare className="h-3.5 w-3.5" />
                                 {category.topicCount} Topics
@@ -64,9 +64,9 @@ function renderForumCard(category: Category, siteSettings: any) {
                 </Link>
 
                 {/* Last Post Section */}
-                <div className="p-4 text-xs text-muted-foreground">
+                <div className="p-2 text-xs text-muted-foreground">
                     {category.lastPost ? (
-                        <div className="flex items-start gap-3">
+                        <div className="flex items-start gap-2">
                             <Link href={`/users/${category.lastPost.authorUsername}`} className="flex-shrink-0 block" title={`View ${category.lastPost.authorUsername}'s profile`}>
                                 <Avatar className="h-8 w-8 border border-border/50">
                                     <AvatarImage src={category.lastPost.authorAvatarUrl || `https://avatar.vercel.sh/${category.lastPost.authorUsername}.png?size=32`} alt={category.lastPost.authorUsername} data-ai-hint="user avatar small"/>
@@ -125,14 +125,14 @@ export async function CategoryList({ categories }: CategoryListProps) {
                     </div>
                     
                     {/* Forums Container */}
-                    <div className="p-4">
+                    <div className="p-3">
                         {header.forums.length === 0 ? (
                             <div className="text-center py-8">
                                 <Folder className="h-12 w-12 text-muted-foreground/50 mx-auto mb-3" />
                                 <p className="text-muted-foreground text-sm">No forums in this category yet.</p>
                             </div>
                         ) : (
-                            <div className="space-y-3">
+                            <div className="space-y-2">
                                 {header.forums.map(f => renderForumCard(f, siteSettings))}
                             </div>
                         )}
@@ -148,8 +148,8 @@ export async function CategoryList({ categories }: CategoryListProps) {
                             <h3 className="text-lg font-semibold text-foreground">Ungrouped Forums</h3>
                         </div>
                     </div>
-                    <div className="p-4">
-                        <div className="space-y-3">
+                    <div className="p-2">
+                        <div className="space-y-1">
                             {orphans.map(f => renderForumCard(f, siteSettings))}
                         </div>
                     </div>
