@@ -11,7 +11,8 @@ Welcome to the ForumLite documentation! This comprehensive guide covers all aspe
 
 ### Features
 - [SEO Implementation](./features/seo.md) - Complete SEO guide and implementation
-- [Admin Panel](./features/admin-panel.md) - Admin interface documentation
+- [Admin Panel](./features/admin-panel.md) - Comprehensive admin interface documentation
+- [Admin Quick Reference](./features/admin-quick-reference.md) - Quick reference guide for administrators
 - [User Management](./features/user-management.md) - User roles and permissions
 - [Forum Features](./features/forum-features.md) - Categories, topics, and posts
 - [Events System](./features/events.md) - Events and webinars management

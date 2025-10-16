@@ -1,473 +1,328 @@
 # Admin Panel Documentation
 
-This guide covers the ForumLite admin panel, including all administrative features, user management, and system configuration options.
-
-## 📋 Table of Contents
-
-- [Overview](#overview)
-- [Accessing the Admin Panel](#accessing-the-admin-panel)
-- [Dashboard](#dashboard)
-- [User Management](#user-management)
-- [Category Management](#category-management)
-- [Event Management](#event-management)
-- [Site Settings](#site-settings)
-- [SEO Settings](#seo-settings)
-- [Security Features](#security-features)
-- [Troubleshooting](#troubleshooting)
-
-## 🎯 Overview
-
-The ForumLite admin panel provides comprehensive administrative control over your forum. It includes user management, content moderation, system configuration, and analytics.
-
-### Admin Panel Features
-
-- **User Management**: Create, edit, and manage user accounts
-- **Content Management**: Manage categories, topics, and posts
-- **Event Management**: Create and manage events and webinars
-- **Site Configuration**: Customize forum settings and appearance
-- **SEO Management**: Configure search engine optimization
-- **Analytics**: View forum statistics and activity
-
-## 🔐 Accessing the Admin Panel
-
-### Admin Access
-
-1. **First User**: The first registered user automatically becomes an admin
-2. **Manual Promotion**: Existing admins can promote users to admin role
-3. **Direct Access**: Navigate to `/admin` in your browser
-
-### Admin Panel URL
-
-```
-http://localhost:3000/admin
-```
-
-### Navigation Structure
-
-```
-Admin Panel
-├── Dashboard
-├── User Management
-├── Category Management
-├── Event Management
-├── Site Settings
-└── SEO Settings
-```
-
-## 📊 Dashboard
-
-The admin dashboard provides an overview of forum activity and key metrics.
-
-### Dashboard Widgets
-
-#### Forum Statistics
-
-| Metric | Description |
-|--------|-------------|
-| Total Users | Number of registered users |
-| Active Users | Users active in the last 30 days |
-| Total Topics | Number of discussion topics |
-| Total Posts | Number of posts and replies |
-| Categories | Number of forum categories |
-| Events | Upcoming and past events |
-
-#### Recent Activity
-
-- **New Users**: Recently registered users
-- **Recent Topics**: Latest discussion topics
-- **Recent Posts**: Latest posts and replies
-- **System Events**: Admin actions and system events
-
-#### Quick Actions
-
-- **Create Category**: Add new forum category
-- **Create Event**: Schedule new event
-- **User Management**: Manage user accounts
-- **Site Settings**: Configure forum settings
-
-### Version & Helpful Links (New)
-
-- **Version & Updates**: Shows the currently deployed application version. Automatic update checks will be added in a future release.
-- **Helpful Links**: If configured in Site Settings, quick links to your documentation and community support are displayed.
-
-## 👥 User Management
-
-### User List
-
-Access user management at `/admin/users`.
-
-#### User Table Columns
-
-| Column | Description |
-|--------|-------------|
-| Username | User's login username |
-| Email | User's email address |
-| Display Name | Public display name |
-| Role | User role (user/moderator/admin) |
-| Status | Account status (active/inactive) |
-| Joined | Registration date |
-| Last Login | Last login timestamp |
-| Actions | Available actions |
-
-#### User Actions
-
-| Action | Description | Permission Required |
-|--------|-------------|-------------------|
-| View Profile | View user's public profile | Admin |
-| Edit User | Modify user details | Admin |
-| Change Role | Promote/demote user | Admin |
-| Activate/Deactivate | Enable/disable account | Admin |
-| Delete User | Remove user account | Admin |
-| Reset Password | Send password reset email | Admin |
-
-### User Creation
-
-#### Create New User
-
-1. Click "Add User" button
-2. Fill in user details:
-   - Username (required, unique)
-   - Email (required, unique)
-   - Password (required)
-   - Display Name (optional)
-   - Role (user/moderator/admin)
-3. Click "Create User"
-
-#### Bulk User Operations
-
-- **Import Users**: Upload CSV file with user data
-- **Export Users**: Download user list as CSV
-- **Bulk Actions**: Select multiple users for batch operations
-
-### User Roles
-
-#### Role Hierarchy
-
-| Role | Permissions |
-|------|-------------|
-| **User** | Create topics, post replies, send messages |
-| **Moderator** | User permissions + moderate content, manage topics |
-| **Admin** | All permissions + user management, site settings |
-
-#### Role Management
-
-- **Promote User**: Upgrade user role
-- **Demote User**: Downgrade user role
-- **Custom Roles**: Create custom permission sets (future feature)
-
-## 📁 Category Management
-
-### Category List
-
-Access category management at `/admin/categories`.
-
-#### Category Operations
-
-| Action | Description |
-|--------|-------------|
-| Create Category | Add new forum category |
-| Edit Category | Modify category details |
-| Delete Category | Remove category (with topics) |
-| Reorder Categories | Change display order |
-| Category Statistics | View topic/post counts |
-
-### Creating Categories and Forums (New Hierarchy)
-
-#### Forum Types
-
-- **Category (header)**: Non-clickable grouping header shown on the homepage. Cannot contain topics directly and cannot have a parent.
-- **Forum (posting area)**: Clickable board where topics are created. Must have a parent Category.
-
-#### Create Form (Two-step)
-
-1) Select Forum Type:
-- Category (header)
-- Forum (posting area)
-
-2) Configure Details:
-
-| Field | Applies To | Required | Description |
-|-------|------------|----------|-------------|
-| Name | Category & Forum | ✅ | Display name |
-| Type | Category & Forum | ✅ | 'category' or 'forum' |
-| Parent Category | Forum only | ✅ | Select a Category header |
-| Description | Category & Forum | ❌ | Optional blurb |
-
-Validation rules:
-- If Type is Forum: Parent is required and must be a Category.
-- If Type is Category: Parent must be None.
-
-#### Admin List Columns (Updated)
-
-- Name, Type (CATEGORY/FORUM), Parent, Description, Topics, Posts, Created Date, Actions
-
-### Category Statistics
-
-Each category displays:
-- For Forums: **Topic Count**, **Post Count**, **Last Activity**
-- For Category headers: aggregated counts across child forums
-- **Growth Rate**: Activity trends
-
-## 📅 Event Management
-
-### Event List
-
-Access event management at `/admin/events`.
-
-#### Event Operations
-
-| Action | Description |
-|--------|-------------|
-| Create Event | Schedule new event |
-| Edit Event | Modify event details |
-| Delete Event | Remove event |
-| Duplicate Event | Copy existing event |
-| Event Analytics | View attendance data |
-
-### Creating Events
-
-#### Event Form Fields
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| Title | Text | ✅ | Event title |
-| Description | Rich Text | ❌ | Event description |
-| Start Date | DateTime | ✅ | Event start time |
-| End Date | DateTime | ✅ | Event end time |
-| Location | Text | ❌ | Event location |
-| Max Attendees | Number | ❌ | Attendance limit |
-| Public Event | Boolean | ❌ | Visible to all users |
-
-#### Event Types
-
-- **Webinar**: Online presentation
-- **Workshop**: Interactive session
-- **Conference**: Multi-session event
-- **Meetup**: Community gathering
-
-### Event Widget Configuration
-
-Configure the events widget display:
-
-| Setting | Options | Description |
-|---------|---------|-------------|
-| Widget Position | Above/Below categories | Where to display |
-| Detail Level | Full/Summary | Information shown |
-| Item Count | 1-10 | Number of events |
-| Widget Title | Custom text | Widget heading |
-
-## ⚙️ Site Settings
-
-### General Settings
-
-Access site settings at `/admin/site-settings`.
-
-#### Basics (Core Settings) (New)
-
-Configure the essential identity and behavior of your forum:
-
-| Setting | Key | Type | Default | Description |
-|---------|-----|------|---------|-------------|
-| Welcome Banner | `core_welcome_banner` | string | "The simple, modern platform for community discussions." | Banner text shown at the top of the homepage for logged-out users |
-| Censor Words | `core_censor_words` | multi-line string | "" | List of word replacement rules. One per line or comma-separated. Format: `word=****`. Example: `foo=bar` replaces whole-word "foo" with "bar" |
-| Discussion Sorting | `core_discussion_sorting` | enum | `latest` | Default category topic sorting: `latest` (last activity), `newest` (creation date), or `top` (most posts) |
-| Allow Signups | `core_allow_signups` | boolean | `true` | When `false`, registration is disabled. Visiting `/register` redirects to `/?error=registration_disabled` and the homepage displays an alert |
-
-Notes:
-- Censoring is currently applied client-side on topic pages for post content (best-effort). Server-side sanitization can be added later.
-- "Top" sorting uses the topic's post count as the ranking metric.
-
-| Setting | Type | Description |
-|---------|------|-------------|
-| Site Name | Text | Forum name |
-| Site Description | Textarea | Forum description |
-| Default Language | Select | Primary language |
-| Timezone | Select | Server timezone |
-| Date Format | Select | Date display format |
-| Time Format | Select | 12h/24h format |
-
-#### Helpful Links (Footer & Dashboard) (New)
-
-| Setting | Key | Type | Default | Where it appears |
-|---------|-----|------|---------|-------------------|
-| Documentation URL | `links_docs_url` | URL | "" | Footer and Admin Dashboard "Helpful Links" |
-| Community URL | `links_community_url` | URL | "" | Footer and Admin Dashboard "Helpful Links" |
-
-When these are set, the footer displays quick access icons and the Admin Dashboard shows links under "Helpful Links".
-
-#### User Registration
-
-| Setting | Type | Description |
-|---------|------|-------------|
-| Registration Enabled | Boolean | Allow new registrations |
-| Email Verification | Boolean | Require email verification |
-| Admin Approval | Boolean | Require admin approval |
-| Min Password Length | Number | Password requirements |
-
-#### Content Settings
-
-| Setting | Type | Description |
-|---------|------|-------------|
-| Max Post Length | Number | Character limit |
-| Allow File Uploads | Boolean | Enable file uploads |
-| Max File Size | Number | Upload size limit |
-| Allowed File Types | Text | MIME types |
-
-### Events Widget Settings
-
-Configure the events widget:
-
-| Setting | Type | Default | Description |
-|---------|------|---------|-------------|
-| Widget Enabled | Boolean | true | Show events widget |
-| Widget Position | Select | above_categories | Display location |
-| Detail Level | Select | full | Information shown |
-| Item Count | Number | 3 | Events to display |
-| Widget Title | Text | "Upcoming Events" | Widget heading |
-
-## 🔍 SEO Settings
-
-Access SEO settings at `/admin/seo`.
-
-### Basic SEO
-
-| Setting | Type | Character Limit | Description |
-|---------|------|-----------------|-------------|
-| Site Title | Text | 60 | Main SEO title |
-| Site Description | Textarea | 160 | Meta description |
-| Keywords | Text | 200 | SEO keywords |
-
-### Social Media
-
-| Setting | Type | Description |
-|---------|------|-------------|
-| Open Graph Image | URL | Social sharing image |
-| Twitter Handle | Text | Twitter username |
-
-### Analytics
-
-| Setting | Type | Description |
-|---------|------|-------------|
-| Google Analytics ID | Text | GA4 measurement ID |
-| Google Search Console | Text | Verification code |
-| Bing Webmaster Tools | Text | Verification code |
-
-### Advanced SEO
-
-| Setting | Type | Description |
-|---------|------|-------------|
-| Robots.txt | Textarea | Custom robots.txt |
-| Sitemap Enabled | Boolean | Generate XML sitemap |
-
-## 🔒 Security Features
-
-### Access Control
-
-#### Admin Authentication
-
-- **Session Management**: Secure admin sessions
-- **Two-Factor Authentication**: Optional 2FA (future feature)
-- **IP Restrictions**: Limit admin access by IP (future feature)
-
-#### Permission System
-
-- **Role-Based Access**: Different permission levels
-- **Action Logging**: Track admin actions
-- **Audit Trail**: Complete activity history
-
-### Security Settings
-
-| Setting | Type | Description |
-|---------|------|-------------|
-| Session Timeout | Number | Admin session duration |
-| Login Attempts | Number | Max failed login attempts |
-| Password Policy | Text | Password requirements |
-| Content Moderation | Boolean | Enable moderation |
-
-### Activity Logging
-
-The admin panel logs all administrative actions:
-
-- **User Management**: User creation, modification, deletion
-- **Content Changes**: Category, topic, post modifications
-- **Settings Changes**: Configuration updates
-- **Security Events**: Login attempts, permission changes
-
-## 🔧 Troubleshooting
+## Overview
+
+The ForumLite admin panel provides comprehensive management tools for forum administrators. It features a modern, responsive interface with role-based access control and extensive configuration options.
+
+## Access Control
+
+- **Admin Access**: Only users with `isAdmin: true` can access the admin panel
+- **Route Protection**: All admin routes are protected by middleware that redirects unauthorized users
+- **Session Management**: Admin status is verified on each request
+
+## Admin Panel Structure
+
+### Navigation Menu
+
+The admin panel features a sidebar navigation with the following sections:
+
+1. **Dashboard** - Overview and statistics
+2. **User Management** - User administration and permissions
+3. **Category Management** - Forum category organization
+4. **Event Management** - Events and webinars
+5. **Site Settings** - Core forum configuration
+6. **SEO Settings** - Search engine optimization
+7. **Appearance** - Visual customization
+8. **Permissions** - User groups and access control
+
+## Feature Documentation
+
+### 1. Dashboard (`/admin`)
+
+**Purpose**: Central hub providing forum statistics and quick access to management tools.
+
+**Features**:
+- **Statistics Overview**:
+  - Total Users count with link to user management
+  - Total Categories count with link to category management
+  - Total Topics count
+  - Total Posts count
+- **Version Information**: Current application version display
+- **Quick Actions**: Direct links to common administrative tasks
+- **Helpful Links**: Configurable documentation and community links
+
+**Data Sources**:
+- `getTotalUserCount()` - User statistics
+- `getTotalCategoryCount()` - Category statistics
+- `getTotalTopicCount()` - Topic statistics
+- `getTotalPostCount()` - Post statistics
+- `getAllSiteSettings()` - Site configuration
+
+### 2. User Management (`/admin/users`)
+
+**Purpose**: Comprehensive user administration with role management and group assignments.
+
+**Features**:
+- **User List View**:
+  - Avatar display with profile links
+  - Username with profile navigation
+  - Email addresses
+  - Join dates (formatted)
+  - Role badges (Admin/User)
+  - Group memberships display
+- **User Actions**:
+  - **Promote/Demote Admin**: Toggle admin status with confirmation
+  - **Manage Groups**: Navigate to user group management
+  - **Delete User**: Permanent user deletion with confirmation dialog
+- **Safety Features**:
+  - Admins cannot delete their own accounts
+  - Confirmation dialogs for destructive actions
+  - Loading states during operations
+
+**Components**:
+- `UserActions.tsx` - Dropdown menu with user management options
+- Real-time updates via server actions
+- Toast notifications for operation feedback
+
+### 3. Category Management (`/admin/categories`)
+
+**Purpose**: Organize forum structure through category creation and management.
+
+**Features**:
+- **Category Creation**:
+  - Name and description fields
+  - Parent category selection for hierarchical structure
+  - Category type specification
+- **Category List**:
+  - Hierarchical display with parent relationships
+  - Topic and post counts per category
+  - Creation date tracking
+  - Category type indicators
+- **Category Actions**:
+  - **Edit Category**: Inline editing with modal dialog
+  - **Delete Category**: Permanent deletion with confirmation
+- **Data Validation**:
+  - Name length requirements (3-100 characters)
+  - Description length limits (255 characters)
+  - Unique name validation
+
+**Components**:
+- `CategoryForm.tsx` - Category creation form
+- `CategoryActions.tsx` - Category management actions
+- Hierarchical category display
+
+### 4. Event Management (`/admin/events`)
+
+**Purpose**: Manage community events and webinars with scheduling and details.
+
+**Features**:
+- **Event Creation**:
+  - Title and description
+  - Event type (Event/Webinar)
+  - Date and time scheduling
+  - Optional registration links
+- **Event List**:
+  - Chronological display
+  - Type badges (Event/Webinar)
+  - Date and time formatting
+  - Link management
+- **Event Actions**:
+  - **Edit Event**: Full event modification
+  - **Delete Event**: Permanent removal with confirmation
+- **Widget Integration**:
+  - Events automatically appear in homepage widget
+  - Configurable display settings
+
+**Components**:
+- `EventForm.tsx` - Event creation and editing
+- `EventActions.tsx` - Event management actions
+- Date/time validation and formatting
+
+### 5. Site Settings (`/admin/site-settings`)
+
+**Purpose**: Configure core forum functionality and behavior.
+
+**Features**:
+- **Events Widget Configuration**:
+  - Enable/disable widget display
+  - Position control (above/below categories)
+  - Detail level selection (full/compact)
+  - Item count configuration (1-10 events)
+  - Custom widget title
+- **External Links**:
+  - Documentation URL configuration
+  - Community URL setup
+- **Core Settings**:
+  - Welcome banner customization
+  - Content censorship word list
+  - Default discussion sorting (latest/newest/top)
+  - User registration control (allow/deny signups)
+
+**Validation**:
+- URL format validation for external links
+- Character limits for text fields
+- Boolean validation for toggles
+
+### 6. SEO Settings (`/admin/seo`)
+
+**Purpose**: Optimize forum for search engines and social media sharing.
+
+**Features**:
+- **Basic SEO**:
+  - Site title (60 character limit)
+  - Meta description (160 character limit)
+  - Keywords configuration
+- **Social Media Integration**:
+  - Open Graph image URL
+  - Twitter handle configuration
+- **Analytics & Tracking**:
+  - Google Analytics ID integration
+- **Search Engine Verification**:
+  - Google Search Console verification
+  - Bing Webmaster Tools verification
+- **Advanced Settings**:
+  - Custom robots.txt content
+  - XML sitemap generation toggle
+  - Friendly URL structure toggle
+
+**SEO Features**:
+- Automatic meta tag generation
+- Sitemap.xml generation at `/sitemap.xml`
+- Robots.txt serving at `/robots.txt`
+- Social media preview optimization
+
+### 7. Appearance (`/admin/appearance`)
+
+**Purpose**: Customize visual elements and branding.
+
+**Features**:
+- **Logo Management**:
+  - Logo upload with preview
+  - Base64 encoding for storage
+  - File size validation (2MB limit)
+  - Image format validation
+- **Favicon Management**:
+  - Favicon upload and preview
+  - Multiple format support
+- **Custom HTML/JS**:
+  - Header injection for analytics scripts
+  - Footer injection for widgets
+- **Custom CSS**:
+  - CSS override system
+  - Theme customization support
+
+**File Handling**:
+- Client-side image preview
+- Base64 encoding for storage
+- File type and size validation
+
+### 8. Permissions (`/admin/permissions`)
+
+**Purpose**: Manage user groups and access control permissions.
+
+**Features**:
+- **Group Management**:
+  - Create custom user groups
+  - Delete non-system groups
+  - System group protection
+- **Permission Grid**:
+  - Global permissions management
+  - Moderation permissions control
+  - Allow/Deny permission states
+- **Group Members**:
+  - View group membership
+  - Member count display
+  - System group explanations
+
+**Permission Types**:
+- **Global Permissions**: Site-wide access control
+- **Moderation Permissions**: Content moderation rights
+
+**Components**:
+- `PermissionsForm.tsx` - Comprehensive permission management
+- Real-time permission updates
+- Group membership visualization
+
+## Technical Implementation
+
+### Server Actions
+
+All admin functionality uses Next.js Server Actions for secure, server-side processing:
+
+- `toggleAdminStatus()` - User role management
+- `deleteUserAction()` - User deletion
+- `updateCategoryAction()` - Category management
+- `deleteCategoryAction()` - Category deletion
+- `createEventAction()` - Event creation
+- `updateEventAction()` - Event modification
+- `deleteEventAction()` - Event deletion
+- `updateSiteSettingsAction()` - Site configuration
+- `updateSEOSettingsAction()` - SEO configuration
+- `updateAppearanceSettingsAction()` - Appearance customization
+- `createGroupAction()` - Group creation
+- `deleteGroupAction()` - Group deletion
+- `setGroupPermissionAction()` - Permission management
+
+### Data Validation
+
+All forms use Zod schema validation:
+- Input sanitization
+- Type checking
+- Length validation
+- Format validation (URLs, emails, etc.)
+- Required field validation
+
+### Error Handling
+
+- Comprehensive error catching and logging
+- User-friendly error messages
+- Toast notifications for feedback
+- Graceful degradation for failed operations
+
+### Security Features
+
+- Admin privilege verification on all actions
+- CSRF protection via Server Actions
+- Input sanitization and validation
+- SQL injection prevention
+- XSS protection through React
+
+## Usage Guidelines
+
+### Best Practices
+
+1. **Regular Backups**: Always backup before major configuration changes
+2. **Test Changes**: Test appearance and SEO changes in development first
+3. **Monitor Performance**: Watch for performance impact of custom CSS/JS
+4. **User Communication**: Inform users of significant changes
+5. **Permission Audits**: Regularly review user permissions and groups
+
+### Common Tasks
+
+1. **Adding New Users**: Use User Management to promote users to admin
+2. **Organizing Content**: Create categories with clear hierarchy
+3. **Event Planning**: Schedule events with proper descriptions and links
+4. **SEO Optimization**: Configure meta tags and verification codes
+5. **Branding**: Upload logos and customize appearance
+6. **Access Control**: Set up user groups with appropriate permissions
+
+## Troubleshooting
 
 ### Common Issues
 
-#### Admin Panel Not Accessible
+1. **Permission Denied**: Ensure user has admin status
+2. **Upload Failures**: Check file size and format requirements
+3. **SEO Not Working**: Verify meta tag configuration and sitemap generation
+4. **Events Not Showing**: Check widget configuration and event dates
+5. **Custom CSS Issues**: Validate CSS syntax and specificity
 
-**Problem**: Cannot access `/admin` URL.
+### Support
 
-**Solutions**:
-1. Verify user has admin role
-2. Check if user is logged in
-3. Clear browser cache and cookies
-4. Check server logs for errors
+For technical issues:
+1. Check browser console for errors
+2. Verify server logs for backend issues
+3. Test with default settings to isolate problems
+4. Review validation error messages
+5. Check database connectivity and permissions
 
-#### Settings Not Saving
+## Future Enhancements
 
-**Problem**: Changes in admin panel not persisting.
-
-**Solutions**:
-1. Check database connection
-2. Verify user permissions
-3. Check for validation errors
-4. Review server logs
-
-#### User Management Issues
-
-**Problem**: Cannot create or edit users.
-
-**Solutions**:
-1. Verify admin permissions
-2. Check for duplicate usernames/emails
-3. Validate input data
-4. Check database constraints
-
-### Debug Mode
-
-Enable debug mode for troubleshooting:
-
-```env
-# .env file
-DEBUG=true
-LOG_LEVEL=debug
-```
-
-### Admin Logs
-
-Check admin panel logs:
-
-```bash
-# View admin activity logs
-tail -f logs/admin.log
-
-# Check for errors
-grep -i error logs/admin.log
-```
-
-### Performance Issues
-
-#### Slow Admin Panel
-
-**Solutions**:
-1. Optimize database queries
-2. Enable caching
-3. Reduce data loading
-4. Use pagination
-
-#### Memory Issues
-
-**Solutions**:
-1. Increase server memory
-2. Optimize data queries
-3. Implement data pagination
-4. Use database indexing
-
----
-
-**Last Updated**: December 2024  
-**Version**: 1.0.0
+Planned features for future releases:
+- Bulk user operations
+- Advanced analytics dashboard
+- Theme marketplace integration
+- Advanced permission scoping
+- Automated backup system
+- Multi-language admin interface
+- Advanced moderation tools
+- Performance monitoring dashboard
