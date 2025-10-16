@@ -7,9 +7,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { allPermissions, globalPermissions, moderationPermissions } from "@/lib/permissions";
-import { createGroupAction, deleteGroupAction, getGroupPermissionsAction, setGroupPermissionAction } from "@/lib/actions/admin";
+import { createGroupAction, deleteGroupAction, getGroupPermissionsAction, setGroupPermissionAction, getGroupUsersAction } from "@/lib/actions/admin";
 import { useActionState } from "react";
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
+import { Users } from "lucide-react";
 
 interface Props {
   initialGroups: Group[];
@@ -20,6 +22,7 @@ export function PermissionsForm({ initialGroups, initialPermissions }: Props) {
   const [groups, setGroups] = useState<Group[]>(initialGroups);
   const [newGroupName, setNewGroupName] = useState("");
   const [current, setCurrent] = useState<Record<string, Record<string, boolean>>>(initialPermissions || {}); // groupId -> perm -> allowed
+  const [groupUsers, setGroupUsers] = useState<Record<string, any[]>>({}); // groupId -> users
 
   const [setPermState, setPermAction, setPermPending] = useActionState(setGroupPermissionAction, { success: false } as any);
   const [createGroupState, createGroupActionFn, createGroupPending] = useActionState(createGroupAction, { success: false } as any);
@@ -62,6 +65,22 @@ export function PermissionsForm({ initialGroups, initialPermissions }: Props) {
       }));
     }
   }, [setPermState]);
+
+  // Load group users
+  useEffect(() => {
+    (async () => {
+      const usersMap: Record<string, any[]> = {};
+      for (const group of groups) {
+        try {
+          const res = await getGroupUsersAction(group.id);
+          if (res.success) {
+            usersMap[group.id] = (res as any).users || [];
+          }
+        } catch {}
+      }
+      setGroupUsers(usersMap);
+    })();
+  }, [groups]);
 
   return (
     <div className="space-y-6">
@@ -133,6 +152,49 @@ export function PermissionsForm({ initialGroups, initialPermissions }: Props) {
                 </div>
               ))}
             </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="border shadow-sm">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Users className="h-5 w-5" />
+            Group Members
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {groups.map((group) => {
+              const users = groupUsers[group.id] || [];
+              return (
+                <div key={group.id} className="border rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-semibold flex items-center gap-2">
+                      {group.name}
+                      {group.isSystem && <Badge variant="secondary" className="text-xs">System</Badge>}
+                    </h3>
+                    <Badge variant="outline">{users.length} member{users.length !== 1 ? 's' : ''}</Badge>
+                  </div>
+                  {users.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {users.map((user: any) => (
+                        <Badge key={user.id} variant="outline" className="text-xs">
+                          {user.username}
+                        </Badge>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      {group.isSystem 
+                        ? "System groups are automatically assigned based on user status"
+                        : "No users assigned to this group"
+                      }
+                    </p>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </CardContent>
       </Card>

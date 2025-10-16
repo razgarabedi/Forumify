@@ -11,6 +11,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { notFound } from 'next/navigation';
 import { format } from 'date-fns';
 import { Separator } from '@/components/ui/separator';
+import { generateFriendlyUrl } from '@/lib/seo';
 
 interface TopicPageProps {
     params: { topicId: string };
@@ -34,7 +35,7 @@ export default async function TopicPage({ params }: TopicPageProps) {
             <div>
                  {topic.category && (
                      <Button variant="outline" size="sm" asChild className="mb-4">
-                        <Link href={`/categories/${topic.category?.slug ?? topic.categoryId}`}>
+                        <Link href={generateFriendlyUrl('category', topic.category, siteSettings)}>
                             <ArrowLeft className="mr-2 h-4 w-4" /> Back to {topic.category.name}
                         </Link>
                     </Button>

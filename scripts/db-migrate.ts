@@ -76,10 +76,19 @@ async function runMigrations() {
         category_id UUID NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
         author_id UUID REFERENCES users(id) ON DELETE SET NULL,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-        last_activity TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        last_activity TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        pinned BOOLEAN DEFAULT FALSE
       );
     `);
     console.log('✅ Topics table created/verified');
+
+    // Add pinned column to existing topics table if it doesn't exist
+    try {
+      await client.query(`ALTER TABLE topics ADD COLUMN IF NOT EXISTS pinned BOOLEAN DEFAULT FALSE`);
+      console.log('✅ Pinned column added to topics table');
+    } catch (error) {
+      console.log('ℹ️  Pinned column already exists or error adding it:', error);
+    }
 
     // Create posts table (align with runtime schema)
     await client.query(`

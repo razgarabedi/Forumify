@@ -79,7 +79,8 @@ CREATE TABLE topics (
     category_id UUID NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
     author_id UUID REFERENCES users(id) ON DELETE SET NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    last_activity TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    last_activity TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    pinned BOOLEAN DEFAULT FALSE
 );
 ```
 

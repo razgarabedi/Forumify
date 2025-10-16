@@ -18,10 +18,12 @@ import {
     togglePostReaction as dbTogglePostReaction,
     getPostsByTopic as dbGetPostsByTopic, // Import db version
     getCategoryBySlug, 
-    getCategoryById
+    getCategoryById,
+    getAllSiteSettings
 } from "@/lib/db"; // Changed from placeholder-data to db
 import { getCurrentUser } from "./auth";
 import { parseMentions } from "@/lib/utils"; 
+import { checkPermissionForUser, query } from "@/lib/db";
 import type { ActionResponse, ReactionType, Post } from "@/lib/types";
 
 // --- Schemas ---
@@ -183,7 +185,13 @@ export async function createTopic(prevState: ActionResponse | undefined, formDat
         revalidatePath('/');
         revalidatePath('/notifications', 'layout'); 
 
-        redirect(`/topics/${newTopic.id}`);
+        // Get site settings to determine URL format
+        const siteSettings = await getAllSiteSettings();
+        const topicUrl = siteSettings.seo_friendly_urls_enabled 
+            ? `/topics/${newTopic.slug || newTopic.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')}`
+            : `/topics/${newTopic.id}`;
+        
+        redirect(topicUrl);
         // Note: redirect will throw an error, so this part might not be reached in happy path.
         // Return type is ActionResponse, but redirect interrups.
         // For consistency, we can return a success object before redirect, but Next.js handles it.
@@ -396,4 +404,22 @@ export async function toggleReactionAction(prevState: ActionResponse | undefined
     console.error("Toggle Reaction Error:", error);
     return { success: false, message: error.message || "Failed to update reaction." };
   }
+}
+
+// --- Topic Pinning ---
+export async function togglePinTopic(prevState: ActionResponse | undefined, formData: FormData): Promise<ActionResponse> {
+    const user = await getCurrentUser();
+    if (!user) return { success: false, message: 'Unauthorized' };
+    const topicId = String(formData.get('topicId') || '');
+    const pin = String(formData.get('pin') || 'false').toLowerCase() === 'true';
+    if (!topicId) return { success: false, message: 'Missing topicId' };
+    const canPin = await checkPermissionForUser(user.id, 'pin_topics');
+    if (!canPin) return { success: false, message: 'Permission denied' };
+    try {
+        await query('UPDATE topics SET pinned = $1 WHERE id = $2::uuid', [pin, topicId]);
+        revalidatePath('/');
+        return { success: true, message: pin ? 'Topic pinned' : 'Topic unpinned' };
+    } catch (e: any) {
+        return { success: false, message: e.message || 'Failed to update pin' };
+    }
 }

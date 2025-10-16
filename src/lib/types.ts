@@ -1,4 +1,6 @@
 
+import type { Group } from './permissions';
+
 export type User = {
   id: string;
   username: string;
@@ -16,6 +18,7 @@ export type User = {
   postCount?: number; // Denormalized, can be calculated
   points?: number; // Points accumulated from post reactions
   language?: 'en' | 'de'; // User's preferred language
+  groups?: Group[]; // User's assigned groups
 };
 
 export type CategoryLastPostInfo = {
@@ -51,6 +54,7 @@ export type Topic = {
   authorId: string;
   createdAt: Date;
   lastActivity: Date;
+  pinned?: boolean;
   postCount?: number; // Optional: denormalized count
   author?: User; // Optional: include author details
   category?: Pick<Category, 'id' | 'name' | 'description' | 'createdAt' | 'slug'>; // Optional: include category details

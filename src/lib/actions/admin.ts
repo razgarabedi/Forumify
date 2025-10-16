@@ -12,6 +12,10 @@ import {
     updateEvent as dbUpdateEvent,
     deleteEvent as dbDeleteEvent,
     updateSiteSetting as dbUpdateSiteSetting,
+    assignUserToGroup as dbAssignUserToGroup,
+    removeUserFromGroup as dbRemoveUserFromGroup,
+    getUserGroups as dbGetUserGroups,
+    getGroupUsers as dbGetGroupUsers,
 } from '@/lib/db';
 import { z } from 'zod';
 import { getGroups as dbGetGroups, createGroup as dbCreateGroup, deleteGroup as dbDeleteGroup, getGroupPermissions as dbGetGroupPermissions, setGroupPermission as dbSetGroupPermission } from '@/lib/db';
@@ -495,5 +499,50 @@ export async function setGroupPermissionAction(prev: ActionResponse | undefined,
     return { success: true, message: 'Permission updated', groupId, permission, allowed, scopeType, scopeId };
   } catch (error: any) {
     return { success: false, message: error.message || 'Failed to set permission' };
+  }
+}
+
+// --- User-Group Assignment Actions ---
+export async function assignUserToGroupAction(userId: string, groupId: string): Promise<ActionResponse> {
+  try {
+    await checkAdmin();
+    await dbAssignUserToGroup(userId, groupId);
+    revalidatePath('/admin/users');
+    revalidatePath('/admin/permissions');
+    return { success: true, message: 'User assigned to group successfully' };
+  } catch (error: any) {
+    return { success: false, message: error.message || 'Failed to assign user to group' };
+  }
+}
+
+export async function removeUserFromGroupAction(userId: string, groupId: string): Promise<ActionResponse> {
+  try {
+    await checkAdmin();
+    await dbRemoveUserFromGroup(userId, groupId);
+    revalidatePath('/admin/users');
+    revalidatePath('/admin/permissions');
+    return { success: true, message: 'User removed from group successfully' };
+  } catch (error: any) {
+    return { success: false, message: error.message || 'Failed to remove user from group' };
+  }
+}
+
+export async function getUserGroupsAction(userId: string): Promise<ActionResponse> {
+  try {
+    await checkAdmin();
+    const groups = await dbGetUserGroups(userId);
+    return { success: true, message: 'ok', groups };
+  } catch (error: any) {
+    return { success: false, message: error.message || 'Failed to fetch user groups' };
+  }
+}
+
+export async function getGroupUsersAction(groupId: string): Promise<ActionResponse> {
+  try {
+    await checkAdmin();
+    const users = await dbGetGroupUsers(groupId);
+    return { success: true, message: 'ok', users };
+  } catch (error: any) {
+    return { success: false, message: error.message || 'Failed to fetch group users' };
   }
 }

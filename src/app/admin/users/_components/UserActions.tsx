@@ -4,8 +4,8 @@ import { useState } from 'react';
 import type { User } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, Trash2, ShieldCheck, ShieldOff } from 'lucide-react';
-import { toggleAdminStatus, deleteUserAction } from '@/lib/actions/admin'; // Create these actions
+import { MoreHorizontal, Trash2, ShieldCheck, ShieldOff, Users } from 'lucide-react';
+import { toggleAdminStatus, deleteUserAction, assignUserToGroupAction, removeUserFromGroupAction, getUserGroupsAction } from '@/lib/actions/admin';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -93,6 +93,10 @@ export function UserActions({ user }: UserActionsProps) {
              <DropdownMenuItem onClick={handleToggleAdmin} disabled={isToggleLoading}>
                 {isToggleLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : (user.isAdmin ? <ShieldOff className="mr-2 h-4 w-4"/> : <ShieldCheck className="mr-2 h-4 w-4"/>) }
                 {isToggleLoading ? 'Updating...' : (user.isAdmin ? 'Demote to User' : 'Promote to Admin')}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => window.location.href = `/admin/users/${user.id}/groups`}>
+                <Users className="mr-2 h-4 w-4" />
+                Manage Groups
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <AlertDialogTrigger asChild>

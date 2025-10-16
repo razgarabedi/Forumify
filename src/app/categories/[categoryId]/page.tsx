@@ -8,6 +8,7 @@ import { ArrowLeft } from 'lucide-react';
 import { notFound } from 'next/navigation';
 import { Separator } from '@/components/ui/separator';
 import { CreateTopicControl } from './_components/CreateTopicControl';
+import { generateFriendlyUrl } from '@/lib/seo';
 
 interface CategoryPageProps {
     params: { categoryId: string };
@@ -21,6 +22,9 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
         ? (await getCategoryBySlug(categoryId)) || (await getCategoryById(categoryId))
         : await getCategoryById(categoryId);
     const topics = await getTopicsByCategorySorted(category?.id || categoryId, siteSettings.core_discussion_sorting || 'latest');
+
+    // Fetch parent category if it exists
+    const parentCategory = category?.parentId ? await getCategoryById(category.parentId) : null;
 
     if (!category) {
         notFound();
@@ -36,8 +40,8 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
                 </Button>
                 <div className="flex-1 text-center sm:text-left">
                     <h1 className="text-2xl sm:text-3xl font-bold">{category.name}</h1>
-                    {category.parentId && (
-                        <p className="text-xs text-muted-foreground mt-1">Subcategory of <Link className="underline" href={`/categories/${category.parentId}`}>parent</Link></p>
+                    {parentCategory && (
+                        <p className="text-xs text-muted-foreground mt-1">Subcategory of <Link className="underline" href={generateFriendlyUrl('category', parentCategory, siteSettings)}>{parentCategory.name}</Link></p>
                     )}
                     {category.description && (
                         <p className="text-muted-foreground mt-1 text-sm sm:text-base">{category.description}</p>

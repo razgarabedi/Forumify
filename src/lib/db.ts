@@ -87,7 +87,17 @@ const mapDbRowToUser = async (row: any): Promise<User> => {
 export const getAllUsers = async (): Promise<User[]> => {
   try {
     const result = await query('SELECT id, username, email, password_hash, is_admin, created_at, about_me, location, website_url, social_media_url, signature, last_active, avatar_url, points, language FROM users ORDER BY created_at DESC');
-    return Promise.all(result.rows.map(mapDbRowToUser));
+    const users = await Promise.all(result.rows.map(mapDbRowToUser));
+    
+    // Load groups for each user
+    const usersWithGroups = await Promise.all(
+      users.map(async (user) => {
+        user.groups = await getUserGroups(user.id);
+        return user;
+      })
+    );
+    
+    return usersWithGroups;
   } catch (error: any) {
     console.error("[DB Error] getAllUsers: Error querying database.", error.message);
     throw error;
@@ -497,6 +507,7 @@ const mapDbRowToTopic = async (row: any): Promise<Topic> => {
         authorId: row.author_id,     
         createdAt: new Date(row.created_at),
         lastActivity: new Date(row.last_activity),
+        pinned: row.pinned || false,
         postCount: parseInt(row.post_count, 10) || 0,
         author,
         category,
@@ -509,14 +520,14 @@ const mapDbRowToTopic = async (row: any): Promise<Topic> => {
 export const getTopics = async (): Promise<Topic[]> => {
     try {
         const result = await query(`
-            SELECT t.id, t.title, t.slug, t.category_id, t.author_id, t.created_at, t.last_activity,
+            SELECT t.id, t.title, t.slug, t.category_id, t.author_id, t.created_at, t.last_activity, t.pinned,
                    u.id as author_id_fk, u.username as author_username, u.avatar_url as author_avatar_url, u.email as author_email, u.created_at as author_created_at, u.points as author_points, u.is_admin as author_is_admin, u.location as author_location,
                    c.id as category_id_fk, c.name as category_name, c.slug as category_slug, c.description as category_description, c.created_at as category_created_at,
                    (SELECT COUNT(*) FROM posts p WHERE p.topic_id = t.id) as post_count
             FROM topics t
             LEFT JOIN users u ON t.author_id = u.id
             LEFT JOIN categories c ON t.category_id = c.id
-            ORDER BY t.last_activity DESC
+            ORDER BY t.pinned DESC, t.last_activity DESC
         `);
         return Promise.all(result.rows.map(mapDbRowToTopic));
     } catch (error: any) {
@@ -535,7 +546,7 @@ export const getTopicsByCategorySorted = async (categoryId: string, sortBy: 'lat
         if (sortBy === 'newest') orderBy = 't.created_at DESC';
         if (sortBy === 'top') orderBy = 'post_count DESC NULLS LAST';
         const result = await query(`
-            SELECT t.id, t.title, t.slug, t.category_id, t.author_id, t.created_at, t.last_activity,
+            SELECT t.id, t.title, t.slug, t.category_id, t.author_id, t.created_at, t.last_activity, t.pinned,
                    u.id as author_id_fk, u.username as author_username, u.avatar_url as author_avatar_url, u.email as author_email, u.created_at as author_created_at, u.points as author_points, u.is_admin as author_is_admin, u.location as author_location,
                    c.id as category_id_fk, c.name as category_name, c.slug as category_slug, c.description as category_description, c.created_at as category_created_at,
                    (SELECT COUNT(*) FROM posts p WHERE p.topic_id = t.id) as post_count
@@ -543,7 +554,7 @@ export const getTopicsByCategorySorted = async (categoryId: string, sortBy: 'lat
             LEFT JOIN users u ON t.author_id = u.id
             LEFT JOIN categories c ON t.category_id = c.id
             WHERE t.category_id = $1 OR t.category_id IN (SELECT id FROM categories WHERE parent_id = $1)
-            ORDER BY ${orderBy}
+            ORDER BY t.pinned DESC, ${orderBy}
         `, [categoryId]);
         return Promise.all(result.rows.map(mapDbRowToTopic));
     } catch (error: any) {
@@ -555,7 +566,7 @@ export const getTopicsByCategorySorted = async (categoryId: string, sortBy: 'lat
 export const getTopicById = async (id: string): Promise<Topic | null> => {
     try {
         const topicRes = await query(`
-            SELECT t.id, t.title, t.slug, t.category_id, t.author_id, t.created_at, t.last_activity,
+            SELECT t.id, t.title, t.slug, t.category_id, t.author_id, t.created_at, t.last_activity, t.pinned,
                    u.id as author_id_fk, u.username as author_username, u.avatar_url as author_avatar_url, u.email as author_email, u.created_at as author_created_at, u.points as author_points, u.is_admin as author_is_admin, u.location as author_location,
                    c.id as category_id_fk, c.name as category_name, c.slug as category_slug, c.description as category_description, c.created_at as category_created_at,
                    (SELECT COUNT(*) FROM posts p_count WHERE p_count.topic_id = t.id) as post_count,
@@ -578,7 +589,7 @@ export const getTopicById = async (id: string): Promise<Topic | null> => {
 export const getTopicBySlug = async (slug: string): Promise<Topic | null> => {
   try {
     const result = await query(`
-      SELECT t.id, t.title, t.slug, t.category_id, t.author_id, t.created_at, t.last_activity,
+      SELECT t.id, t.title, t.slug, t.category_id, t.author_id, t.created_at, t.last_activity, t.pinned,
              u.id as author_id_fk, u.username as author_username, u.avatar_url as author_avatar_url, u.email as author_email, u.created_at as author_created_at, u.points as author_points, u.is_admin as author_is_admin, u.location as author_location,
              c.id as category_id_fk, c.name as category_name, c.slug as category_slug, c.description as category_description, c.created_at as category_created_at,
              (SELECT COUNT(*) FROM posts p WHERE p.topic_id = t.id) as post_count
@@ -1345,19 +1356,87 @@ export const setGroupPermission = async (groupId: string, permission: Permission
   }
 };
 
+// User-Group Assignment Functions
+export const assignUserToGroup = async (userId: string, groupId: string): Promise<void> => {
+  try {
+    await query('INSERT INTO user_group_assignments (user_id, group_id) VALUES ($1::uuid, $2::uuid) ON CONFLICT (user_id, group_id) DO NOTHING', [userId, groupId]);
+  } catch (error: any) {
+    console.error('[DB Error] assignUserToGroup:', error.message);
+    throw error;
+  }
+};
+
+export const removeUserFromGroup = async (userId: string, groupId: string): Promise<void> => {
+  try {
+    await query('DELETE FROM user_group_assignments WHERE user_id = $1::uuid AND group_id = $2::uuid', [userId, groupId]);
+  } catch (error: any) {
+    console.error('[DB Error] removeUserFromGroup:', error.message);
+    throw error;
+  }
+};
+
+export const getUserGroups = async (userId: string): Promise<Group[]> => {
+  try {
+    const result = await query(`
+      SELECT ug.* FROM user_groups ug
+      INNER JOIN user_group_assignments uga ON ug.id = uga.group_id
+      WHERE uga.user_id = $1::uuid
+      ORDER BY ug.is_system DESC, ug.name ASC
+    `, [userId]);
+    return result.rows.map(mapDbRowToGroup);
+  } catch (error: any) {
+    console.error('[DB Error] getUserGroups:', error.message);
+    throw error;
+  }
+};
+
+export const getGroupUsers = async (groupId: string): Promise<User[]> => {
+  try {
+    const result = await query(`
+      SELECT u.* FROM users u
+      INNER JOIN user_group_assignments uga ON u.id = uga.user_id
+      WHERE uga.group_id = $1::uuid
+      ORDER BY u.username ASC
+    `, [groupId]);
+    return Promise.all(result.rows.map(mapDbRowToUser));
+  } catch (error: any) {
+    console.error('[DB Error] getGroupUsers:', error.message);
+    throw error;
+  }
+};
+
 export const checkPermissionForUser = async (userId: string | null, permission: PermissionKey, scopeType: PermissionScopeType = 'global', scopeId?: string | null): Promise<boolean> => {
   try {
-    // Simple mapping: admins always allowed; members if logged; guests otherwise
     if (userId) {
       const user = await findUserById(userId);
       if (user?.isAdmin) return true;
-      const membersRes = await query("SELECT id FROM user_groups WHERE name = 'Members' LIMIT 1");
-      const membersId = membersRes.rows[0]?.id;
-      if (!membersId) return false;
-      const normalizedScopeId = scopeType === 'global' ? '' : (scopeId ?? '');
-      const permRes = await query('SELECT allowed FROM group_permissions WHERE group_id = $1::uuid AND permission = $2 AND scope_type = $3 AND scope_id = $4', [membersId, permission, scopeType, normalizedScopeId]);
-      return permRes.rows[0]?.allowed ?? false;
+      
+      // Get user's assigned groups
+      const userGroups = await getUserGroups(userId);
+      
+      // Check permissions for each group
+      for (const group of userGroups) {
+        const normalizedScopeId = scopeType === 'global' ? '' : (scopeId ?? '');
+        const permRes = await query('SELECT allowed FROM group_permissions WHERE group_id = $1::uuid AND permission = $2 AND scope_type = $3 AND scope_id = $4', [group.id, permission, scopeType, normalizedScopeId]);
+        if (permRes.rows[0]?.allowed === true) {
+          return true;
+        }
+      }
+      
+      // Fallback to Members group if user has no specific group assignments
+      if (userGroups.length === 0) {
+        const membersRes = await query("SELECT id FROM user_groups WHERE name = 'Members' LIMIT 1");
+        const membersId = membersRes.rows[0]?.id;
+        if (membersId) {
+          const normalizedScopeId = scopeType === 'global' ? '' : (scopeId ?? '');
+          const permRes = await query('SELECT allowed FROM group_permissions WHERE group_id = $1::uuid AND permission = $2 AND scope_type = $3 AND scope_id = $4', [membersId, permission, scopeType, normalizedScopeId]);
+          return permRes.rows[0]?.allowed ?? false;
+        }
+      }
+      
+      return false;
     } else {
+      // Guest user - check Guests group
       const guestsRes = await query("SELECT id FROM user_groups WHERE name = 'Guests' LIMIT 1");
       const guestsId = guestsRes.rows[0]?.id;
       if (!guestsId) return false;
@@ -1407,6 +1486,7 @@ async function initializeDatabase() {
         console.log(`Note: parent_id index may already exist: ${error instanceof Error ? error.message : String(error)}`);
     }
     await client.query(`CREATE TABLE IF NOT EXISTS topics (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), title TEXT NOT NULL, slug TEXT, category_id UUID NOT NULL REFERENCES categories(id) ON DELETE CASCADE, author_id UUID REFERENCES users(id) ON DELETE SET NULL, created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP, last_activity TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP); CREATE INDEX IF NOT EXISTS idx_topics_category_id ON topics(category_id); CREATE INDEX IF NOT EXISTS idx_topics_author_id ON topics(author_id);`);
+    try { await client.query(`ALTER TABLE topics ADD COLUMN IF NOT EXISTS pinned BOOLEAN DEFAULT FALSE`); } catch {}
     await client.query(`CREATE TABLE IF NOT EXISTS posts (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), content TEXT NOT NULL, topic_id UUID NOT NULL REFERENCES topics(id) ON DELETE CASCADE, author_id UUID REFERENCES users(id) ON DELETE SET NULL, created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMPTZ, image_url TEXT); CREATE INDEX IF NOT EXISTS idx_posts_topic_id ON posts(topic_id); CREATE INDEX IF NOT EXISTS idx_posts_author_id ON posts(author_id);`);
     await client.query(`CREATE TABLE IF NOT EXISTS reactions (id SERIAL PRIMARY KEY, post_id UUID NOT NULL REFERENCES posts(id) ON DELETE CASCADE, user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE, type TEXT NOT NULL, created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP, UNIQUE (post_id, user_id)); CREATE INDEX IF NOT EXISTS idx_reactions_post_id ON reactions(post_id); CREATE INDEX IF NOT EXISTS idx_reactions_user_id ON reactions(user_id);`);
     await client.query(`CREATE TABLE IF NOT EXISTS notifications (id TEXT PRIMARY KEY, type TEXT NOT NULL, recipient_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE, sender_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE, post_id UUID REFERENCES posts(id) ON DELETE CASCADE, topic_id UUID REFERENCES topics(id) ON DELETE CASCADE, topic_title TEXT, topic_slug TEXT, conversation_id TEXT, reaction_type TEXT, created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP, is_read BOOLEAN DEFAULT FALSE, message TEXT); CREATE INDEX IF NOT EXISTS idx_notifications_recipient_user_id ON notifications(recipient_user_id);`);
@@ -1417,6 +1497,7 @@ async function initializeDatabase() {
     // Groups and Permissions
     await client.query(`CREATE TABLE IF NOT EXISTS user_groups (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), name TEXT UNIQUE NOT NULL, is_system BOOLEAN DEFAULT FALSE, created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP);`);
     await client.query(`CREATE TABLE IF NOT EXISTS group_permissions (group_id UUID REFERENCES user_groups(id) ON DELETE CASCADE, permission TEXT NOT NULL, allowed BOOLEAN NOT NULL, scope_type TEXT NOT NULL DEFAULT 'global', scope_id TEXT NOT NULL DEFAULT '', PRIMARY KEY (group_id, permission, scope_type, scope_id));`);
+    await client.query(`CREATE TABLE IF NOT EXISTS user_group_assignments (user_id UUID REFERENCES users(id) ON DELETE CASCADE, group_id UUID REFERENCES user_groups(id) ON DELETE CASCADE, assigned_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (user_id, group_id));`);
     // Ensure existing installations have non-null scope_id set to '' and constraint applied
     try { await client.query(`UPDATE group_permissions SET scope_id = '' WHERE scope_id IS NULL`); } catch {}
     try { await client.query(`ALTER TABLE group_permissions ALTER COLUMN scope_id SET DEFAULT ''`); } catch {}

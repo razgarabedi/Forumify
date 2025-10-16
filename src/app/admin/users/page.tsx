@@ -34,6 +34,7 @@ export default async function AdminUsersPage() {
               <TableHead>Email</TableHead>
               <TableHead className="whitespace-nowrap">Joined Date</TableHead>
               <TableHead>Role</TableHead>
+              <TableHead>Groups</TableHead>
               <TableHead className="text-right px-3">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -62,6 +63,23 @@ export default async function AdminUsersPage() {
                     <Badge variant="secondary">User</Badge>
                   )}
                 </TableCell>
+                <TableCell>
+                  <div className="flex flex-wrap gap-1">
+                    {user.groups && user.groups.length > 0 ? (
+                      user.groups.map((group) => (
+                        <Badge 
+                          key={group.id} 
+                          variant={group.isSystem ? "secondary" : "outline"}
+                          className="text-xs"
+                        >
+                          {group.name}
+                        </Badge>
+                      ))
+                    ) : (
+                      <span className="text-xs text-muted-foreground">No groups</span>
+                    )}
+                  </div>
+                </TableCell>
                 <TableCell className="text-right px-3">
                   <UserActions user={user} />
                 </TableCell>
@@ -69,7 +87,7 @@ export default async function AdminUsersPage() {
             ))}
             {users.length === 0 && (
                 <TableRow>
-                    <TableCell colSpan={6} className="text-center text-muted-foreground h-24">
+                    <TableCell colSpan={7} className="text-center text-muted-foreground h-24">
                         No users found.
                     </TableCell>
                 </TableRow>
