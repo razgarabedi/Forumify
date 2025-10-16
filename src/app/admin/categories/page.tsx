@@ -16,13 +16,14 @@ import { CategoryActions } from "./_components/CategoryActions";
 
 export default async function AdminCategoriesPage() {
   const categories = await getCategories();
+  const idToName = new Map(categories.map(c => [c.id, c.name] as const));
 
   return (
     <div className="space-y-6">
       <h1 className="text-3xl font-bold">Category Management</h1>
       <p className="text-muted-foreground">Create, view, and manage forum categories.</p>
 
-      <CategoryForm />
+      <CategoryForm categories={categories} />
 
        <h2 className="text-xl font-semibold mt-8 pt-4 border-t">Existing Categories</h2>
        <div className="border rounded-lg shadow-sm overflow-x-auto">
@@ -31,6 +32,8 @@ export default async function AdminCategoriesPage() {
             <TableHeader>
                 <TableRow>
                 <TableHead>Name</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead>Parent</TableHead>
                 <TableHead>Description</TableHead>
                 <TableHead className="w-[100px] text-center">Topics</TableHead>
                 <TableHead className="w-[100px] text-center">Posts</TableHead>
@@ -42,6 +45,8 @@ export default async function AdminCategoriesPage() {
                 {categories.map((category) => (
                 <TableRow key={category.id}>
                     <TableCell className="font-medium">{category.name}</TableCell>
+                    <TableCell className="uppercase text-xs tracking-wide">{category.type}</TableCell>
+                    <TableCell>{category.parentId ? (idToName.get(category.parentId) || '-') : '-'}</TableCell>
                     <TableCell className="text-muted-foreground max-w-xs truncate" title={category.description || ''}>
                         {category.description || '-'}
                     </TableCell>

@@ -164,7 +164,7 @@ GOOGLE_ANALYTICS_ID="G-XXXXXXXXXX"
 
 | Variable | Required | Description | Example |
 |----------|----------|-------------|---------|
-| `DATABASE_URL` | ✅ | PostgreSQL connection string | `postgresql://user:pass@localhost:5432/db` |
+| `DATABASE_URL` | ✅ | PostgreSQL connection string (required, no fallback) | `postgresql://user:pass@localhost:5432/db` |
 | `NEXT_PUBLIC_BASE_URL` | ✅ | Public URL of your application | `http://localhost:3000` |
 | `NEXTAUTH_SECRET` | ✅ | Secret key for authentication | Random 32+ character string |
 | `NEXTAUTH_URL` | ✅ | URL for NextAuth.js | `http://localhost:3000` |
@@ -246,14 +246,14 @@ npm run dev
 2. You should see the ForumLite homepage
 3. Click "Register" to create your first user account
 
-### 3. Create Admin Account
+### 3. Admin Account
 
-The first registered user automatically becomes an admin:
+On seed, a default admin is created for local development:
 
-1. Go to `http://localhost:3000/register`
-2. Fill in the registration form
-3. Complete the registration
-4. You'll be redirected to the homepage as an admin
+- Email: `admin@forumlite.com`
+- Password: `admin123`
+
+For production, change these credentials immediately and enable proper hashing.
 
 ### 4. Access Admin Panel
 

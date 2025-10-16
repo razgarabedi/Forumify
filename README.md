@@ -214,7 +214,7 @@ Your PostgreSQL server is now running, and you have a database and user ready fo
     # .gitignore
     .env.local
     ```
-*   **If `DATABASE_URL` is not set or invalid:** The application will fall back to using in-memory placeholder data (`src/lib/placeholder-data.ts`). This data is **not persistent** and will be lost on server restarts. This fallback is primarily for initial development or demonstration if a database is not immediately available. **For production, a valid `DATABASE_URL` is required.**
+*   **Important:** `DATABASE_URL` is required. The app no longer supports placeholder or in-memory fallback. Ensure a valid PostgreSQL connection string is set before running the app.
 
 ### 3. Database Schema Initialization
 
@@ -511,7 +511,7 @@ Refer to `src/lib/db.ts` for the exact `CREATE TABLE IF NOT EXISTS` statements u
 │   ├── lib/            # Core logic, utilities, actions
 │   │   ├── actions/    # Server Actions (auth, forums, admin, notifications, privateMessages)
 │   │   ├── db.ts       # PostgreSQL database interaction functions
-│   │   ├── placeholder-data.ts # In-memory data store (used as fallback if DB fails)
+│   │   ├── placeholder-data.ts # (legacy) in-memory data store (not used)
 │   │   ├── types.ts    # TypeScript type definitions
 │   │   └── utils.ts    # Utility functions (e.g., cn for classnames, parseMentions)
 │   └── ai/             # Genkit AI integration files (if used)

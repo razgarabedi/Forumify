@@ -33,8 +33,11 @@ export type Category = {
   id: string;
   name: string;
   slug: string; // Added slug field
+  type: ForumType; // 'category' header or 'forum' posting area
   description?: string;
   createdAt: Date;
+  parentId?: string | null; // Parent category for hierarchy (null for top-level)
+  children?: Category[]; // Optional nested children when fetched hierarchically
   topicCount: number;
   postCount: number;
   lastPost?: CategoryLastPostInfo | null;
@@ -62,6 +65,8 @@ export type Reaction = {
   username: string;
   type: ReactionType;
 };
+
+export type ForumType = 'category' | 'forum';
 
 export type Post = {
   id: string;

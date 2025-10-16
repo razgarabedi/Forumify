@@ -12,9 +12,13 @@ import {
     deletePost as dbDeletePost,
     findUserByUsername, 
     createNotification, 
-    getTopicByIdSimple, 
+    getTopicByIdSimple,
+    getTopicBySlug,
+    getTopicById,
     togglePostReaction as dbTogglePostReaction,
-    getPostsByTopic as dbGetPostsByTopic // Import db version
+    getPostsByTopic as dbGetPostsByTopic, // Import db version
+    getCategoryBySlug, 
+    getCategoryById
 } from "@/lib/db"; // Changed from placeholder-data to db
 import { getCurrentUser } from "./auth";
 import { parseMentions } from "@/lib/utils"; 
@@ -24,6 +28,19 @@ import type { ActionResponse, ReactionType, Post } from "@/lib/types";
 const CategorySchema = z.object({
     name: z.string().min(3, { message: "Category name must be at least 3 characters." }).max(100),
     description: z.string().max(255).optional(),
+    type: z.enum(['category','forum']),
+    parentId: z.string().optional().nullable(),
+}).superRefine((data, ctx) => {
+    if (data.type === 'forum') {
+        const isValid = !!data.parentId && data.parentId !== 'none' && z.string().uuid().safeParse(data.parentId).success;
+        if (!isValid) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['parentId'], message: 'Forum must have a parent Category.' });
+        }
+    } else {
+        if (data.parentId && data.parentId !== 'none') {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['parentId'], message: 'Category cannot have a parent.' });
+        }
+    }
 });
 
 const TopicSchema = z.object({
@@ -61,6 +78,8 @@ export async function createCategory(prevState: ActionResponse | undefined, form
     const validatedFields = CategorySchema.safeParse({
         name: formData.get("name"),
         description: formData.get("description"),
+        type: formData.get("type"),
+        parentId: formData.get("parentId"),
     });
 
     if (!validatedFields.success) {
@@ -71,10 +90,11 @@ export async function createCategory(prevState: ActionResponse | undefined, form
         };
     }
 
-    const { name, description } = validatedFields.data;
+    const { name, description, parentId, type } = validatedFields.data;
+    const finalParentId = type === 'forum' ? (parentId as string) : null;
 
     try {
-        const newCategory = await dbCreateCategory({ name, description });
+        const newCategory = await dbCreateCategory({ name, description, type, parentId: finalParentId });
         revalidatePath("/"); 
         revalidatePath("/admin/categories"); 
         return { message: `Category "${newCategory.name}" created successfully.`, success: true };
@@ -109,10 +129,27 @@ export async function createTopic(prevState: ActionResponse | undefined, formDat
 
     const { title, categoryId, firstPostContent, firstPostImageUrl } = validatedFields.data;
 
+    // Resolve category identifier (UUID or slug) to a UUID for DB operations
+    let resolvedCategoryId = categoryId;
+    const categoryIdLooksUuid = z.string().uuid().safeParse(categoryId).success;
+    if (!categoryIdLooksUuid) {
+        const bySlug = await getCategoryBySlug(categoryId);
+        if (bySlug) {
+            resolvedCategoryId = bySlug.id;
+        } else {
+            const byId = await getCategoryById(categoryId).catch(() => null);
+            if (byId) {
+                resolvedCategoryId = byId.id;
+            } else {
+                return { message: "Invalid or unknown category.", success: false };
+            }
+        }
+    }
+
     try {
         const newTopic = await dbCreateTopic({
             title,
-            categoryId,
+            categoryId: resolvedCategoryId,
             authorId: user.id,
             firstPostContent,
             firstPostImageUrl: firstPostImageUrl === "" ? undefined : firstPostImageUrl,
@@ -194,13 +231,29 @@ export async function submitPost(prevState: ActionResponse | undefined, formData
 
     try {
         let savedPost: Post | null;
+        // Resolve topic identifier (UUID or slug) to a UUID for DB operations
+        let resolvedTopicId = topicId;
+        const topicIdLooksUuid = z.string().uuid().safeParse(topicId).success;
+        if (!topicIdLooksUuid) {
+            const bySlug = await getTopicBySlug(topicId);
+            if (bySlug) {
+                resolvedTopicId = bySlug.id;
+            } else {
+                const byId = await getTopicById(topicId).catch(() => null);
+                if (byId) {
+                    resolvedTopicId = byId.id;
+                } else {
+                    return { message: "Invalid or unknown topic.", success: false };
+                }
+            }
+        }
         if (postId) {
             savedPost = await dbUpdatePost(postId, content, user.id, removeImage ? null : finalImageUrl);
             if (!savedPost) {
                  return { message: "Error: Failed to update post. Post not found or permission denied.", success: false };
             }
         } else {
-            savedPost = await dbCreatePost({ content, topicId, authorId: user.id, imageUrl: finalImageUrl });
+            savedPost = await dbCreatePost({ content, topicId: resolvedTopicId, authorId: user.id, imageUrl: finalImageUrl });
         }
 
         if (!savedPost) { // Double check after operations
@@ -209,7 +262,7 @@ export async function submitPost(prevState: ActionResponse | undefined, formData
 
         const mentionedUsernames = parseMentions(savedPost.content);
         const uniqueMentionedUserIds = new Set<string>();
-        const topicForNotification = await getTopicByIdSimple(topicId);
+        const topicForNotification = await getTopicByIdSimple(resolvedTopicId);
 
         if (mentionedUsernames.length > 0 && topicForNotification) {
             for (const username of mentionedUsernames) {

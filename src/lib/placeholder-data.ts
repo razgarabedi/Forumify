@@ -286,26 +286,28 @@ export const getCategoryById = async (id: string): Promise<Category | null> => {
     return { ...categoryData, topicCount, postCount, lastPost, createdAt: new Date(categoryData.createdAt) };
 }
 
-export const createCategory = async (categoryData: Pick<Category, 'name' | 'description'>): Promise<Category> => {
+export const createCategory = async (categoryData: Pick<Category, 'name' | 'description' | 'type'> & { parentId?: string | null }): Promise<Category> => {
     await new Promise(resolve => setTimeout(resolve, 50));
     const slug = generateSlug(categoryData.name);
     const newCategoryData: Omit<Category, 'topicCount' | 'postCount' | 'lastPost'> = {
         id: uuidv4(),
         name: categoryData.name,
         slug: slug,
+        type: categoryData.type,
         description: categoryData.description,
+        parentId: categoryData.parentId ?? null,
         createdAt: new Date(),
     };
     categories.push(newCategoryData);
     return { ...newCategoryData, topicCount: 0, postCount: 0, lastPost: null, createdAt: new Date(newCategoryData.createdAt) };
 }
 
-export const updateCategory = async (categoryId: string, data: { name: string; description?: string }): Promise<Category | null> => {
+export const updateCategory = async (categoryId: string, data: { name: string; description?: string; parentId?: string | null; type?: 'category' | 'forum' }): Promise<Category | null> => {
     await new Promise(resolve => setTimeout(resolve, 50));
     const catIndex = categories.findIndex(c => c.id === categoryId);
     if (catIndex === -1) return null;
     const newSlug = generateSlug(data.name);
-    categories[catIndex] = { ...categories[catIndex], ...data, slug: newSlug };
+    categories[catIndex] = { ...categories[catIndex], ...data, parentId: data.parentId ?? null, slug: newSlug, type: data.type ?? categories[catIndex].type };
     return getCategoryById(categoryId);
 }
 
@@ -899,9 +901,9 @@ export const initializePlaceholderData = () => {
     };
     users = [adminUserPlaceholder];
 
-    const generalCatData: Omit<Category, 'topicCount' | 'postCount' | 'lastPost'> = { id: 'cat1-placeholder-fallback', name: 'General Discussion (Fallback)', slug: 'general-discussion-fallback', description: 'Talk about anything (fallback).', createdAt: new Date('2023-01-10T09:00:00Z') };
-    const introCatData: Omit<Category, 'topicCount' | 'postCount' | 'lastPost'> = { id: 'cat2-placeholder-fallback', name: 'Introductions (Fallback)', slug: 'introductions-fallback', description: 'Introduce yourself (fallback).', createdAt: new Date('2023-01-10T09:01:00Z') };
-    const techCatData: Omit<Category, 'topicCount' | 'postCount' | 'lastPost'> = { id: 'cat3-placeholder-fallback', name: 'Tech Help (Fallback)', slug: 'tech-help-fallback', description: 'Get tech help (fallback).', createdAt: new Date('2023-01-10T09:02:00Z') };
+    const generalCatData: Omit<Category, 'topicCount' | 'postCount' | 'lastPost'> = { id: 'cat1-placeholder-fallback', name: 'General Discussion (Fallback)', slug: 'general-discussion-fallback', type: 'forum', description: 'Talk about anything (fallback).', parentId: null, createdAt: new Date('2023-01-10T09:00:00Z') };
+    const introCatData: Omit<Category, 'topicCount' | 'postCount' | 'lastPost'> = { id: 'cat2-placeholder-fallback', name: 'Introductions (Fallback)', slug: 'introductions-fallback', type: 'forum', description: 'Introduce yourself (fallback).', parentId: null, createdAt: new Date('2023-01-10T09:01:00Z') };
+    const techCatData: Omit<Category, 'topicCount' | 'postCount' | 'lastPost'> = { id: 'cat3-placeholder-fallback', name: 'Tech Help (Fallback)', slug: 'tech-help-fallback', type: 'forum', description: 'Get tech help (fallback).', parentId: null, createdAt: new Date('2023-01-10T09:02:00Z') };
     categories = [generalCatData, introCatData, techCatData];
 
     const welcomeTopicPlaceholder: Topic = {

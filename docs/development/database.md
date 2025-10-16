@@ -29,7 +29,7 @@ ForumLite uses PostgreSQL as its primary database. The schema is designed for sc
 
 ### Core Tables
 
-#### Users Table
+#### Users Table (runtime)
 
 ```sql
 CREATE TABLE users (
@@ -37,26 +37,30 @@ CREATE TABLE users (
     username VARCHAR(20) UNIQUE NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
-    display_name VARCHAR(50),
-    avatar_url TEXT,
-    bio TEXT,
-    role VARCHAR(20) DEFAULT 'user' CHECK (role IN ('user', 'moderator', 'admin')),
-    is_active BOOLEAN DEFAULT true,
-    email_verified BOOLEAN DEFAULT false,
-    last_login TIMESTAMP WITH TIME ZONE,
+    is_admin BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    about_me TEXT,
+    location TEXT,
+    website_url TEXT,
+    social_media_url TEXT,
+    signature TEXT,
+    last_active TIMESTAMP WITH TIME ZONE,
+    avatar_url TEXT,
+    points INTEGER DEFAULT 0,
+    language TEXT DEFAULT 'en'
 );
 ```
 
-#### Categories Table
+#### Categories Table (runtime)
 
 ```sql
 CREATE TABLE categories (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(100) NOT NULL,
+    type VARCHAR(20) NOT NULL DEFAULT 'forum' CHECK (type IN ('category','forum')),
     description TEXT,
     slug VARCHAR(100) UNIQUE NOT NULL,
+    parent_id UUID REFERENCES categories(id) ON DELETE SET NULL,
     topic_count INTEGER DEFAULT 0,
     post_count INTEGER DEFAULT 0,
     last_activity TIMESTAMP WITH TIME ZONE,
@@ -65,60 +69,50 @@ CREATE TABLE categories (
 );
 ```
 
-#### Topics Table
+#### Topics Table (runtime)
 
 ```sql
 CREATE TABLE topics (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     title VARCHAR(200) NOT NULL,
-    content TEXT NOT NULL,
-    author_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    slug VARCHAR(255),
     category_id UUID NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
-    post_count INTEGER DEFAULT 0,
-    view_count INTEGER DEFAULT 0,
-    is_pinned BOOLEAN DEFAULT false,
-    is_locked BOOLEAN DEFAULT false,
-    last_activity TIMESTAMP WITH TIME ZONE,
+    author_id UUID REFERENCES users(id) ON DELETE SET NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    last_activity TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 ```
 
-#### Posts Table
+#### Posts Table (runtime)
 
 ```sql
 CREATE TABLE posts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     content TEXT NOT NULL,
-    author_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     topic_id UUID NOT NULL REFERENCES topics(id) ON DELETE CASCADE,
-    parent_id UUID REFERENCES posts(id) ON DELETE CASCADE,
-    is_edited BOOLEAN DEFAULT false,
+    author_id UUID REFERENCES users(id) ON DELETE SET NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    updated_at TIMESTAMP WITH TIME ZONE,
+    image_url TEXT
 );
 ```
 
-#### Events Table
+#### Events Table (runtime)
 
 ```sql
 CREATE TABLE events (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     title VARCHAR(200) NOT NULL,
+    type VARCHAR(50) NOT NULL,
+    date DATE NOT NULL,
+    time TEXT NOT NULL,
     description TEXT,
-    start_date TIMESTAMP WITH TIME ZONE NOT NULL,
-    end_date TIMESTAMP WITH TIME ZONE NOT NULL,
-    location VARCHAR(255),
-    max_attendees INTEGER,
-    current_attendees INTEGER DEFAULT 0,
-    is_public BOOLEAN DEFAULT true,
-    created_by UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    link TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 ```
 
-#### Site Settings Table
+#### Site Settings Table (runtime)
 
 ```sql
 CREATE TABLE site_settings (
@@ -134,28 +128,41 @@ CREATE TABLE site_settings (
 ```sql
 CREATE TABLE notifications (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    type VARCHAR(50) NOT NULL,
-    title VARCHAR(200) NOT NULL,
-    message TEXT,
-    data JSONB,
-    is_read BOOLEAN DEFAULT false,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    type TEXT NOT NULL,
+    recipient_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    sender_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    post_id UUID REFERENCES posts(id) ON DELETE CASCADE,
+    topic_id UUID REFERENCES topics(id) ON DELETE CASCADE,
+    topic_title TEXT,
+    topic_slug TEXT,
+    conversation_id TEXT,
+    reaction_type TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    is_read BOOLEAN DEFAULT FALSE,
+    message TEXT
 );
 ```
 
-#### Private Messages Table
+#### Conversations & Private Messages (runtime)
 
 ```sql
+CREATE TABLE conversations (
+    id TEXT PRIMARY KEY,
+    participant_ids TEXT[] NOT NULL,
+    subject TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    last_message_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    last_message_snippet TEXT,
+    last_message_sender_id TEXT REFERENCES users(id) ON DELETE SET NULL
+);
+
 CREATE TABLE private_messages (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    conversation_id UUID NOT NULL,
+    conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
     sender_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    recipient_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    subject VARCHAR(200),
     content TEXT NOT NULL,
-    is_read BOOLEAN DEFAULT false,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    read_by TEXT[] DEFAULT '{}'
 );
 ```
 

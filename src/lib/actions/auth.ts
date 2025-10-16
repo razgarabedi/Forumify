@@ -7,6 +7,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { 
     findUserByEmail, 
+    findUserByUsername,
     createUser, 
     findUserById, 
     getAllUsers,
@@ -141,6 +142,12 @@ export async function register(prevState: ActionResponse | undefined, formData: 
   const { username, email, password } = validatedFields.data;
 
   try {
+    // Pre-check username uniqueness for a clearer message
+    const existingByUsername = await findUserByUsername(username);
+    if (existingByUsername) {
+      return { message: "This username is already taken.", success: false };
+    }
+
     const existingUser = await findUserByEmail(email);
     if (existingUser) {
       return { message: "An account with this email already exists.", success: false };
@@ -168,7 +175,23 @@ export async function register(prevState: ActionResponse | undefined, formData: 
     revalidatePath('/', 'layout');
     return { message: `Registration successful! Welcome, ${newUser.username}!${isFirstUser ? ' You have been granted admin privileges.' : ''}`, success: true, user: newUser };
 
-  } catch (error) {
+  } catch (error: any) {
+    // Map database unique constraint errors to friendly messages
+    if (error?.code === 'USERNAME_TAKEN' || (typeof error?.message === 'string' && error.message.includes('USERNAME_TAKEN'))) {
+      return { message: "This username is already taken.", success: false };
+    }
+    if (error?.code === 'EMAIL_TAKEN' || (typeof error?.message === 'string' && error.message.includes('EMAIL_TAKEN'))) {
+      return { message: "An account with this email already exists.", success: false };
+    }
+    if (error?.code === '23505') {
+      const constraint = error?.constraint as string | undefined;
+      if (constraint === 'users_username_key') {
+        return { message: "This username is already taken.", success: false };
+      }
+      if (constraint === 'users_email_key') {
+        return { message: "An account with this email already exists.", success: false };
+      }
+    }
     console.error("Registration error:", error);
     return { message: "An unexpected error occurred during registration.", success: false };
   }

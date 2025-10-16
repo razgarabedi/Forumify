@@ -114,7 +114,7 @@ export default async function Home() {
 
       {eventsWidgetPosition === 'above_categories' && renderEventsWidget()}
 
-      {user?.isAdmin && !pageError && <CategoryForm />}
+      {user?.isAdmin && !pageError && <CategoryForm categories={categories} />}
 
       <div>
          <h2 className="text-xl sm:text-2xl font-semibold mb-4 border-b pb-2 text-foreground">Forum Categories</h2>

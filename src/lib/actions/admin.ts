@@ -62,9 +62,10 @@ export async function deleteUserAction(targetUserId: string): Promise<ActionResp
 const UpdateCategorySchema = z.object({
     name: z.string().min(3, { message: "Category name must be at least 3 characters." }).max(100),
     description: z.string().max(255).optional(),
+    parentId: z.string().uuid().optional().nullable(),
 });
 
-export async function updateCategoryAction(categoryId: string, data: { name: string; description?: string }): Promise<ActionResponse> {
+export async function updateCategoryAction(categoryId: string, data: { name: string; description?: string; parentId?: string | null }): Promise<ActionResponse> {
      try {
         await checkAdmin();
         const validatedData = UpdateCategorySchema.parse(data);

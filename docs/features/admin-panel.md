@@ -166,30 +166,41 @@ Access category management at `/admin/categories`.
 | Reorder Categories | Change display order |
 | Category Statistics | View topic/post counts |
 
-### Creating Categories
+### Creating Categories and Forums (New Hierarchy)
 
-#### Category Form Fields
+#### Forum Types
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| Name | Text | ✅ | Category display name |
-| Description | Textarea | ❌ | Category description |
-| Slug | Text | ✅ | URL-friendly identifier |
-| Order | Number | ❌ | Display order |
+- **Category (header)**: Non-clickable grouping header shown on the homepage. Cannot contain topics directly and cannot have a parent.
+- **Forum (posting area)**: Clickable board where topics are created. Must have a parent Category.
 
-#### Category Settings
+#### Create Form (Two-step)
 
-- **Public Access**: Allow all users to view
-- **Posting Permissions**: Control who can create topics
-- **Moderation**: Enable content moderation
-- **Archived**: Hide from main listing
+1) Select Forum Type:
+- Category (header)
+- Forum (posting area)
+
+2) Configure Details:
+
+| Field | Applies To | Required | Description |
+|-------|------------|----------|-------------|
+| Name | Category & Forum | ✅ | Display name |
+| Type | Category & Forum | ✅ | 'category' or 'forum' |
+| Parent Category | Forum only | ✅ | Select a Category header |
+| Description | Category & Forum | ❌ | Optional blurb |
+
+Validation rules:
+- If Type is Forum: Parent is required and must be a Category.
+- If Type is Category: Parent must be None.
+
+#### Admin List Columns (Updated)
+
+- Name, Type (CATEGORY/FORUM), Parent, Description, Topics, Posts, Created Date, Actions
 
 ### Category Statistics
 
 Each category displays:
-- **Topic Count**: Number of topics
-- **Post Count**: Number of posts
-- **Last Activity**: Most recent post
+- For Forums: **Topic Count**, **Post Count**, **Last Activity**
+- For Category headers: aggregated counts across child forums
 - **Growth Rate**: Activity trends
 
 ## 📅 Event Management

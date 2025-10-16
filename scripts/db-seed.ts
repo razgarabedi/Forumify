@@ -32,66 +32,47 @@ async function seedDatabase() {
     }
 
     // Create default admin user
-    const hashedPassword = await bcrypt.hash('admin123', 10);
+    const hashedPassword = 'admin123'; // plaintext to match current login comparison
     const adminUser = await client.query(`
-      INSERT INTO users (username, email, password_hash, display_name, role, is_active, email_verified)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      INSERT INTO users (username, email, password_hash, is_admin, created_at, last_active)
+      VALUES ($1, $2, $3, $4, NOW(), NOW())
       RETURNING id
-    `, ['admin', 'admin@forumify.local', hashedPassword, 'Administrator', 'admin', true, true]);
+    `, ['admin', 'admin@forumlite.com', hashedPassword, true]);
     
     console.log('✅ Default admin user created (username: admin, password: admin123)');
 
-    // Create default categories
-    const categories = [
-      {
-        name: 'General Discussion',
-        description: 'General forum discussions and conversations',
-        slug: 'general-discussion'
-      },
-      {
-        name: 'Introductions',
-        description: 'New member introductions and welcome messages',
-        slug: 'introductions'
-      },
-      {
-        name: 'Help & Support',
-        description: 'Technical help, support, and assistance',
-        slug: 'help-support'
-      },
-      {
-        name: 'Announcements',
-        description: 'Important announcements and updates',
-        slug: 'announcements'
-      }
+    // Create default hierarchy: headers and forums
+    const headerGeneral = await client.query(`
+      INSERT INTO categories (name, description, slug, type)
+      VALUES ($1, $2, $3, 'category') RETURNING id
+    `, ['Community', 'Top-level community sections', 'community']);
+    const headerSupport = await client.query(`
+      INSERT INTO categories (name, description, slug, type)
+      VALUES ($1, $2, $3, 'category') RETURNING id
+    `, ['Support', 'Get help and support', 'support']);
+
+    const forums = [
+      { name: 'General Discussion', desc: 'General forum discussions and conversations', slug: 'general-discussion', parent: headerGeneral.rows[0].id },
+      { name: 'Introductions', desc: 'New member introductions and welcome messages', slug: 'introductions', parent: headerGeneral.rows[0].id },
+      { name: 'Help & Support', desc: 'Technical help, support, and assistance', slug: 'help-support', parent: headerSupport.rows[0].id },
+      { name: 'Announcements', desc: 'Important announcements and updates', slug: 'announcements', parent: headerGeneral.rows[0].id }
     ];
 
-    for (const category of categories) {
+    for (const f of forums) {
       await client.query(`
-        INSERT INTO categories (name, description, slug)
-        VALUES ($1, $2, $3)
-      `, [category.name, category.description, category.slug]);
+        INSERT INTO categories (name, description, slug, type, parent_id)
+        VALUES ($1, $2, $3, 'forum', $4)
+      `, [f.name, f.desc, f.slug, f.parent]);
     }
-    console.log('✅ Default categories created');
+    console.log('✅ Default categories and forums created');
 
     // Create default site settings
     const defaultSettings = [
-      ['site_name', 'ForumLite'],
-      ['site_description', 'A modern community discussion forum'],
-      ['default_language', 'en'],
-      ['timezone', 'UTC'],
-      ['date_format', 'YYYY-MM-DD'],
-      ['time_format', '24h'],
-      ['registration_enabled', 'true'],
-      ['email_verification_required', 'false'],
-      ['admin_approval_required', 'false'],
-      ['min_password_length', '8'],
-      ['max_username_length', '20'],
       ['events_widget_enabled', 'true'],
       ['events_widget_position', 'above_categories'],
       ['events_widget_detail_level', 'full'],
       ['events_widget_item_count', '3'],
       ['events_widget_title', 'Upcoming Events & Webinars'],
-      // SEO Defaults
       ['seo_site_title', 'ForumLite - Community Discussion Forum'],
       ['seo_site_description', 'Join our community forum for engaging discussions, helpful topics, and connecting with like-minded people.'],
       ['seo_site_keywords', 'forum, community, discussion, topics, posts, social'],
@@ -122,12 +103,12 @@ async function seedDatabase() {
       },
       {
         title: 'How to use this forum',
-        content: 'This forum is designed to be user-friendly and intuitive. Here are some tips to get the most out of your experience:\n\n1. **Browse Categories**: Explore different categories to find topics that interest you.\n2. **Create Topics**: Start new discussions by creating topics in relevant categories.\n3. **Reply to Posts**: Engage with the community by replying to existing topics.\n4. **Use Markdown**: Format your posts using Markdown syntax for better readability.\n5. **Be Respectful**: Follow community guidelines and treat others with respect.',
+        content: 'This forum is designed to be user-friendly and intuitive. Here are some tips to get the most out of your experience.',
         category_slug: 'help-support'
       },
       {
         title: 'Introduce yourself here!',
-        content: 'Welcome to our community! Please take a moment to introduce yourself to other members. Tell us about your interests, background, or anything you\'d like to share.',
+        content: 'Welcome to our community! Please take a moment to introduce yourself to other members.',
         category_slug: 'introductions'
       }
     ];
@@ -135,26 +116,30 @@ async function seedDatabase() {
     for (const topic of sampleTopics) {
       const categoryResult = await client.query('SELECT id FROM categories WHERE slug = $1', [topic.category_slug]);
       if (categoryResult.rows.length > 0) {
+        // Insert topic and first post separately (align with runtime)
+        const t = await client.query(`
+          INSERT INTO topics (title, slug, category_id, author_id, created_at, last_activity)
+          VALUES ($1, $2, $3, $4, NOW(), NOW()) RETURNING id
+        `, [topic.title, `${topic.category_slug}-${topic.title}`.toLowerCase().replace(/\s+/g,'-').slice(0,200), categoryResult.rows[0].id, adminUser.rows[0].id]);
         await client.query(`
-          INSERT INTO topics (title, content, author_id, category_id)
-          VALUES ($1, $2, $3, $4)
-        `, [topic.title, topic.content, adminUser.rows[0].id, categoryResult.rows[0].id]);
+          INSERT INTO posts (content, topic_id, author_id, created_at)
+          VALUES ($1, $2, $3, NOW())
+        `, [topic.content, t.rows[0].id, adminUser.rows[0].id]);
       }
     }
     console.log('✅ Sample topics created');
 
     // Create sample event
-    const sampleEvent = await client.query(`
-      INSERT INTO events (title, description, start_date, end_date, location, is_public, created_by)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
+    await client.query(`
+      INSERT INTO events (title, type, date, time, description, link)
+      VALUES ($1, $2, $3, $4, $5, $6)
     `, [
       'Welcome Webinar',
+      'event',
+      new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      '18:00',
       'Join us for a welcome webinar to learn about the forum features and community guidelines.',
-      new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
-      new Date(Date.now() + 7 * 24 * 60 * 60 * 1000 + 60 * 60 * 1000), // 1 hour duration
-      'Online',
-      true,
-      adminUser.rows[0].id
+      '#'
     ]);
     console.log('✅ Sample event created');
 

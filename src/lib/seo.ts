@@ -259,8 +259,9 @@ export async function generateSitemapData(
     },
   ];
 
-  // Add categories
-  categories.forEach((category) => {
+  // Add categories (flatten parent/children)
+  const flatCategories = Array.isArray(categories) ? categories.flatMap((c: any) => [c, ...(c.children || [])]) : [];
+  flatCategories.forEach((category: any) => {
     const categoryUrl = siteSettings.seo_friendly_urls_enabled 
       ? generateFriendlyUrl('category', category, siteSettings)
       : `/categories/${category.id}`;

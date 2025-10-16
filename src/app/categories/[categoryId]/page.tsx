@@ -36,6 +36,9 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
                 </Button>
                 <div className="flex-1 text-center sm:text-left">
                     <h1 className="text-2xl sm:text-3xl font-bold">{category.name}</h1>
+                    {category.parentId && (
+                        <p className="text-xs text-muted-foreground mt-1">Subcategory of <Link className="underline" href={`/categories/${category.parentId}`}>parent</Link></p>
+                    )}
                     {category.description && (
                         <p className="text-muted-foreground mt-1 text-sm sm:text-base">{category.description}</p>
                     )}

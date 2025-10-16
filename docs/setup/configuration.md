@@ -35,7 +35,7 @@ NEXTAUTH_SECRET="your-32-character-secret-key"
 
 | Variable | Required | Type | Default | Description |
 |----------|----------|------|---------|-------------|
-| `DATABASE_URL` | ✅ | string | - | PostgreSQL connection string |
+| `DATABASE_URL` | ✅ | string | - | PostgreSQL connection string (required, no fallback) |
 | `NEXT_PUBLIC_BASE_URL` | ✅ | string | - | Public URL of your application |
 | `NEXTAUTH_URL` | ✅ | string | - | URL for NextAuth.js authentication |
 | `NEXTAUTH_SECRET` | ✅ | string | - | Secret key for JWT signing |
