@@ -174,3 +174,4 @@
 - **Appearance**: `/admin/appearance`
 - **Permissions**: `/admin/permissions`
 - **Back to Forum**: Click "Back to Forum" in admin sidebar
+
