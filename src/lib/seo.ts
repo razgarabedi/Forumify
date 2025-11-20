@@ -60,7 +60,7 @@ export function generatePageMetadata(
   const siteTitle = siteSettings.seo_site_title || 'Rexerium Forum - Light Forum Solution';
   const siteDescription = siteSettings.seo_site_description || 'Conversations Made Simple. A simple, efficient platform for community building.';
   const siteKeywords = siteSettings.seo_site_keywords || 'forum, community, discussion';
-  const defaultOgImage = siteSettings.seo_og_image || `${baseUrl}/og-default.png`;
+  const defaultOgImage = siteSettings.seo_og_image || siteSettings.appearance_logo_url || `${baseUrl}/logo.png`;
   const twitterHandle = siteSettings.seo_twitter_handle;
 
   const fullTitle = title.includes(siteTitle) ? title : `${title} | ${siteTitle}`;

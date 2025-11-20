@@ -247,120 +247,39 @@ yarn dev
 
 This command starts the Next.js development server, typically on `http://localhost:9002` (as configured in `package.json`). Open this URL in your web browser to view the application. The database tables will be initialized automatically on the first run if they don't exist (assuming `DATABASE_URL` is correctly set).
 
-## Production Deployment with Nginx
+## Production Deployment
 
-For production, you'll want to build the Next.js application and run it as a standalone server, often behind a reverse proxy like Nginx.
+For production deployment, we recommend using Ubuntu with Nginx as a reverse proxy and PM2 as a process manager.
 
-### 1. Build the Application
+### Quick Start
+
+For a complete, step-by-step deployment guide, see: **[Ubuntu Deployment Guide with Nginx and PM2](./docs/deployment/ubuntu-nginx-pm2.md)**
+
+This comprehensive guide covers:
+- Server setup and prerequisites
+- PostgreSQL database configuration
+- Application installation and configuration
+- PM2 process manager setup
+- Nginx reverse proxy configuration
+- SSL/HTTPS setup with Let's Encrypt
+- Maintenance and troubleshooting
+
+### Quick Commands
+
+**Build the application:**
 ```bash
 npm run build
 ```
-This creates an optimized production build in the `.next` directory.
 
-### 2. Start the Production Server
+**Start with PM2:**
 ```bash
-npm start
-```
-This command starts the Next.js production server, typically listening on port 3000 by default (or port 9002 if `package.json`'s `start` script is `next start -p 9002`). Note the port it's running on.
-
-### 3. Install Nginx (on Ubuntu)
-If you don't have Nginx installed:
-```bash
-sudo apt update
-sudo apt install nginx
-```
-Start and enable Nginx:
-```bash
-sudo systemctl start nginx
-sudo systemctl enable nginx
+pm2 start ecosystem.config.js
+pm2 save
+pm2 startup
 ```
 
-### 4. Configure Nginx as a Reverse Proxy
-Create a new Nginx server block configuration file for your application. For example, `/etc/nginx/sites-available/forumlite`:
-```bash
-sudo nano /etc/nginx/sites-available/forumlite
-```
-
-Paste the following configuration, adjusting `server_name` to your domain (or IP address) and `proxy_pass` to the port your Next.js app is running on (e.g., `http://localhost:9002`):
-
-```nginx
-server {
-    listen 80;
-    listen [::]:80;
-
-    server_name your_domain.com www.your_domain.com; # Replace with your domain or IP
-
-    # Path for SSL certificates (if using Let's Encrypt, this will be added later)
-    # ssl_certificate /etc/letsencrypt/live/your_domain.com/fullchain.pem;
-    # ssl_certificate_key /etc/letsencrypt/live/your_domain.com/privkey.pem;
-    # include /etc/letsencrypt/options-ssl-nginx.conf;
-    # ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
-
-    # Logging
-    access_log /var/log/nginx/forumlite.access.log;
-    error_log /var/log/nginx/forumlite.error.log;
-
-    location / {
-        proxy_pass http://localhost:9002; # Adjust port if your Next.js app runs on a different one
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_cache_bypass $http_upgrade;
-    }
-
-    # Optional: Specific handling for Next.js static assets for better caching
-    location /_next/static {
-        proxy_cache_bypass 1;
-        proxy_no_cache 1;
-        expires off;
-        proxy_pass http://localhost:9002/_next/static; # Adjust port
-    }
-}
-```
-
-### 5. Enable the Nginx Site and Test Configuration
-*   Create a symbolic link to enable the site:
-    ```bash
-    sudo ln -s /etc/nginx/sites-available/forumlite /etc/nginx/sites-enabled/
-    ```
-*   Test the Nginx configuration for syntax errors:
-    ```bash
-    sudo nginx -t
-    ```
-    If it shows "syntax is ok" and "test is successful", proceed.
-
-### 6. Reload Nginx
-```bash
-sudo systemctl reload nginx
-```
-
-### 7. Configure Firewall (if using ufw)
-Allow HTTP and HTTPS traffic:
-```bash
-sudo ufw allow 'Nginx Full'
-```
-
-### 8. (Recommended) Setup SSL with Let's Encrypt
-For a production site, you should use HTTPS.
-*   Install Certbot:
-    ```bash
-    sudo apt install certbot python3-certbot-nginx
-    ```
-*   Obtain and install an SSL certificate:
-    ```bash
-    sudo certbot --nginx -d your_domain.com -d www.your_domain.com
-    ```
-    Follow the prompts. Certbot will automatically update your Nginx configuration for SSL.
-*   Certbot will also set up automatic renewal. You can test renewal with:
-    ```bash
-    sudo certbot renew --dry-run
-    ```
-
-Your Rexerium Forum application should now be accessible via your domain, served by Nginx with the Next.js application running in the background. Consider using a process manager like PM2 to keep your `npm start` process running reliably.
+**Basic Nginx configuration:**
+See the [deployment guide](./docs/deployment/ubuntu-nginx-pm2.md) for complete Nginx configuration with SSL support.
 
 ## Getting Started
 

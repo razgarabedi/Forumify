@@ -1,5 +1,10 @@
 # Rexerium Forum Documentation
 
+## Quick Links
+
+- [Installation Guide](setup/installation.md)
+- [Ubuntu Deployment (Nginx + PM2)](deployment/ubuntu-nginx-pm2.md)
+
 Welcome to the Rexerium Forum documentation! This comprehensive guide covers all aspects of the forum application, from setup and configuration to advanced features and customization.
 
 ## 📚 Documentation Index

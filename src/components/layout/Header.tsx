@@ -7,6 +7,7 @@ import { getUnreadPrivateMessageCountAction } from '@/lib/actions/privateMessage
 import { LogIn, LogOut, UserPlus, Home, ShieldCheck, Settings, User as UserIcon, Settings2, MessageSquare } from 'lucide-react'; // Added MessageSquare
 import { HeaderNotificationDropdown } from './HeaderNotificationDropdown'; 
 import { getAllSiteSettings } from '@/lib/db';
+import { Logo } from './Logo';
 
 export async function Header() {
   const user = await getCurrentUser();
@@ -23,13 +24,7 @@ export async function Header() {
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-14 max-w-5xl items-center px-4 sm:px-6 lg:px-8">
         <Link href="/" className="mr-6 flex items-center space-x-2">
-          {siteSettings.appearance_logo_url ? (
-            <img src={siteSettings.appearance_logo_url} alt="Logo" className="h-6 w-auto" />
-          ) : (
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6 text-primary">
-               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-            </svg>
-          )}
+          <Logo customLogoUrl={siteSettings.appearance_logo_url} />
           <span className="font-bold hidden sm:inline-block">Rexerium Forum</span>
         </Link>
         <nav className="hidden md:flex flex-1 items-center space-x-4 sm:space-x-6 text-sm font-medium">

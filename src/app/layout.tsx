@@ -20,24 +20,55 @@ const geistSans = Geist({
 });
 
 export async function generateMetadata(): Promise<Metadata> {
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:9002';
+  
   try {
     const siteSettings = await getAllSiteSettings();
-    return generatePageMetadata(
+    const logoUrl = siteSettings.appearance_logo_url || '/logo.png';
+    const faviconUrl = siteSettings.appearance_favicon_url || '/logo.png';
+    
+    const metadata = generatePageMetadata(
       {
         title: siteSettings.seo_site_title || 'Rexerium Forum - Light Forum Solution',
         description: siteSettings.seo_site_description || 'Conversations Made Simple. A simple, efficient platform for community building.',
         keywords: siteSettings.seo_site_keywords,
-        ogImage: siteSettings.seo_og_image,
+        ogImage: siteSettings.seo_og_image || logoUrl,
         ogType: 'website',
         canonicalUrl: '/',
       },
       siteSettings
     );
+    
+    // Set metadataBase for resolving relative URLs in Open Graph and Twitter images
+    metadata.metadataBase = new URL(baseUrl);
+    
+    // Add favicon/icons to metadata
+    // Next.js will use /icon route or /logo.png from public folder
+    metadata.icons = {
+      icon: [
+        { url: faviconUrl.startsWith('http') ? faviconUrl : `${baseUrl}${faviconUrl}`, type: 'image/png' },
+        { url: '/icon', type: 'image/png' }, // Route handler fallback
+        { url: '/logo.png', type: 'image/png' }, // Direct file fallback
+      ],
+      shortcut: faviconUrl.startsWith('http') ? faviconUrl : `${baseUrl}${faviconUrl}`,
+      apple: logoUrl.startsWith('http') ? logoUrl : `${baseUrl}${logoUrl}`,
+    };
+    
+    return metadata;
   } catch (error) {
     // Fallback metadata if database is unavailable
     return {
+      metadataBase: new URL(baseUrl),
       title: 'Rexerium Forum - Light Forum Solution',
       description: 'Conversations Made Simple. A simple, efficient platform for community building.',
+      icons: {
+        icon: [
+          { url: '/logo.png', type: 'image/png' },
+          { url: '/icon', type: 'image/png' },
+        ],
+        shortcut: '/logo.png',
+        apple: '/logo.png',
+      },
     };
   }
 }
