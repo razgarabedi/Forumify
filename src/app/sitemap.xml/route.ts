@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { getAllSiteSettings, getCategories, getTopics, getAllUsers } from '@/lib/db';
 import { generateSitemapData } from '@/lib/seo';
 
+// Mark route as dynamic
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   try {
     const siteSettings = await getAllSiteSettings();

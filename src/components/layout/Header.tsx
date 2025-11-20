@@ -21,13 +21,13 @@ export async function Header() {
   }
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container flex h-14 max-w-5xl items-center px-4 sm:px-6 lg:px-8">
-        <Link href="/" className="mr-6 flex items-center space-x-2">
+    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 relative">
+      <div className="container flex h-14 max-w-5xl items-center justify-between px-4 sm:px-6 lg:px-8 relative">
+        <Link href="/" className="flex items-center space-x-2 flex-shrink-0">
           <Logo customLogoUrl={siteSettings.appearance_logo_url} />
           <span className="font-bold hidden sm:inline-block">Rexerium Forum</span>
         </Link>
-        <nav className="hidden md:flex flex-1 items-center space-x-4 sm:space-x-6 text-sm font-medium">
+        <nav className="hidden md:flex items-center justify-center space-x-4 sm:space-x-6 text-sm font-medium mx-6 absolute left-1/2 transform -translate-x-1/2">
           <Link
             href="/"
             className="transition-colors hover:text-primary text-foreground/80 flex items-center gap-1"
@@ -77,41 +77,77 @@ export async function Header() {
            )}
         </nav>
 
-        <div className="flex flex-shrink-0 items-center justify-end space-x-2">
-          {user ? (
-            <>
-             {user.isAdmin && (
-                 <span className="text-xs font-semibold text-destructive hidden sm:flex items-center mr-2 border border-destructive/50 rounded px-1.5 py-0.5 bg-destructive/10">
-                    <ShieldCheck className="h-3.5 w-3.5 mr-1" /> Admin
-                 </span>
-             )}
-             
-             <HeaderNotificationDropdown user={user} initialUnreadCount={initialUnreadNotifCount} useFriendlyUrls={siteSettings.seo_friendly_urls_enabled} />
+        <div className="flex md:hidden flex-shrink-0 items-center space-x-2">
+        {user ? (
+          <>
+           {user.isAdmin && (
+               <span className="text-xs font-semibold text-destructive hidden sm:flex items-center border border-destructive/50 rounded px-1.5 py-0.5 bg-destructive/10">
+                  <ShieldCheck className="h-3.5 w-3.5 mr-1" /> Admin
+               </span>
+           )}
+           
+           <HeaderNotificationDropdown user={user} initialUnreadCount={initialUnreadNotifCount} useFriendlyUrls={siteSettings.seo_friendly_urls_enabled} />
 
-              <span className="text-sm font-medium mr-2 hidden md:inline">
-                Welcome, {user.username}
-              </span>
-              <form action={logout}>
-                <Button variant="outline" size="sm" type="submit">
-                   <LogOut className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">Logout</span>
-                </Button>
-              </form>
-            </>
-          ) : (
-            <>
-              <Button variant="outline" size="sm" asChild>
-                <Link href="/login">
-                  <LogIn className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">Login</span>
-                </Link>
+            <span className="text-sm font-medium hidden md:inline">
+              Welcome, {user.username}
+            </span>
+            <form action={logout}>
+              <Button variant="outline" size="sm" type="submit">
+                 <LogOut className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">Logout</span>
               </Button>
-              <Button variant="default" size="sm" asChild className="bg-accent text-accent-foreground hover:bg-accent/90">
-                <Link href="/register">
-                   <UserPlus className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">Register</span>
-                </Link>
-              </Button>
-            </>
-          )}
+            </form>
+          </>
+        ) : (
+          <>
+            <Button variant="outline" size="sm" asChild>
+              <Link href="/login">
+                <LogIn className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">Login</span>
+              </Link>
+            </Button>
+            <Button variant="default" size="sm" asChild className="bg-accent text-accent-foreground hover:bg-accent/90">
+              <Link href="/register">
+                 <UserPlus className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">Register</span>
+              </Link>
+            </Button>
+          </>
+        )}
         </div>
+      </div>
+      
+      <div className="hidden md:flex flex-shrink-0 items-center space-x-2 absolute right-0 top-0 h-14 px-4 sm:px-6 lg:px-8">
+        {user ? (
+          <>
+           {user.isAdmin && (
+               <span className="text-xs font-semibold text-destructive hidden sm:flex items-center border border-destructive/50 rounded px-1.5 py-0.5 bg-destructive/10">
+                  <ShieldCheck className="h-3.5 w-3.5 mr-1" /> Admin
+               </span>
+           )}
+           
+           <HeaderNotificationDropdown user={user} initialUnreadCount={initialUnreadNotifCount} useFriendlyUrls={siteSettings.seo_friendly_urls_enabled} />
+
+            <span className="text-sm font-medium hidden md:inline">
+              Welcome, {user.username}
+            </span>
+            <form action={logout}>
+              <Button variant="outline" size="sm" type="submit">
+                 <LogOut className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">Logout</span>
+              </Button>
+            </form>
+          </>
+        ) : (
+          <>
+            <Button variant="outline" size="sm" asChild>
+              <Link href="/login">
+                <LogIn className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">Login</span>
+              </Link>
+            </Button>
+            <Button variant="default" size="sm" asChild className="bg-accent text-accent-foreground hover:bg-accent/90">
+              <Link href="/register">
+                 <UserPlus className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">Register</span>
+              </Link>
+            </Button>
+          </>
+        )}
       </div>
     </header>
   );

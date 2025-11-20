@@ -2,6 +2,8 @@ import { getAllSiteSettings } from "@/lib/db";
 import { SEOForm } from "./_components/SEOForm";
 import { Search, AlertTriangle } from "lucide-react";
 
+export const dynamic = 'force-dynamic';
+
 export const metadata = {
   title: 'SEO Settings - Admin Panel',
 };

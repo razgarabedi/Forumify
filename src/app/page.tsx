@@ -13,6 +13,9 @@ import { EventsWidget } from '@/components/widgets/EventsWidget'; // Import the 
 import { generatePageMetadata, generateStructuredData } from '@/lib/seo';
 import type { Metadata } from 'next';
 
+// Mark page as dynamic since it uses database queries
+export const dynamic = 'force-dynamic';
+
 export async function generateMetadata(): Promise<Metadata> {
   try {
     const siteSettings = await getAllSiteSettings();

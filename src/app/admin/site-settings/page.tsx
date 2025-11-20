@@ -3,6 +3,8 @@ import { getAllSiteSettings } from "@/lib/db";
 import { SiteSettingsForm } from "./_components/SiteSettingsForm";
 import { Cog, AlertTriangle } from "lucide-react";
 
+export const dynamic = 'force-dynamic';
+
 export const metadata = {
   title: 'Site Settings - Admin Panel',
 };

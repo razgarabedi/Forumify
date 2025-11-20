@@ -48,13 +48,25 @@ const nextConfig: NextConfig = {
       'refractor/core': 'refractor/lib/core.js',
     },
   },
-  webpack: (config) => {
+  webpack: (config, { isServer }) => {
     // Ensure refractor subpath imports resolve correctly in bundler
     config.resolve = config.resolve || {};
     config.resolve.alias = {
       ...(config.resolve.alias || {}),
       'refractor/core': require.resolve('refractor/lib/core.js'),
     };
+    
+    // Suppress warnings about refractor default export from react-syntax-highlighter
+    // These warnings are expected and don't affect functionality
+    config.ignoreWarnings = [
+      ...(config.ignoreWarnings || []),
+      {
+        module: /node_modules\/react-syntax-highlighter/,
+      },
+      /Attempted import error.*refractor/,
+      /does not contain a default export/,
+    ];
+    
     return config;
   },
 };

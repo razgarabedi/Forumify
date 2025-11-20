@@ -2,6 +2,8 @@ import { getAllSiteSettings } from "@/lib/db";
 import { AlertTriangle, Paintbrush } from "lucide-react";
 import { AppearanceForm } from "./_components/AppearanceForm";
 
+export const dynamic = 'force-dynamic';
+
 export const metadata = {
   title: 'Appearance - Admin Panel',
 };
