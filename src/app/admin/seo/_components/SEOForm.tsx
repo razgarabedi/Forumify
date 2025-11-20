@@ -101,7 +101,7 @@ export function SEOForm({ initialSettings }: SEOFormProps) {
                 key="seo_site_title"
                 defaultValue={getDefaultValue('seo_site_title')}
                 disabled={isPending}
-                placeholder="ForumLite - Community Discussion Forum"
+                placeholder="Rexerium Forum - Light Forum Solution"
                 aria-describedby="title-error"
               />
               <p className="text-xs text-muted-foreground">Recommended: 50-60 characters</p>
@@ -117,7 +117,7 @@ export function SEOForm({ initialSettings }: SEOFormProps) {
                 key="seo_site_description"
                 defaultValue={getDefaultValue('seo_site_description')}
                 disabled={isPending}
-                placeholder="Join our community forum for engaging discussions, helpful topics, and connecting with like-minded people."
+                placeholder="Conversations Made Simple. A simple, efficient platform for community building. Perfect for small communities, startups, open-source projects, and niche groups."
                 aria-describedby="description-error"
                 rows={3}
               />

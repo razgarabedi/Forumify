@@ -46,7 +46,7 @@ export function RegisterForm() {
         <Card className="w-full max-w-md mx-auto shadow-lg border border-border"> {/* Added border */}
             <CardHeader className="pb-4"> {/* Adjusted padding */}
                 <CardTitle className="text-2xl flex items-center"><UserPlus className="mr-2 h-5 w-5"/> Register</CardTitle>
-                <CardDescription>Create your ForumLite account.</CardDescription>
+                <CardDescription>Create your Rexerium Forum account.</CardDescription>
             </CardHeader>
             <form action={formAction}>
                 {/* Moved CardContent inside form */}

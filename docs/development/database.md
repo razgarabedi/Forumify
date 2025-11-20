@@ -1,6 +1,6 @@
 # Database Documentation
 
-This document provides comprehensive information about ForumLite's database schema, relationships, and data management.
+This document provides comprehensive information about Rexerium Forum's database schema, relationships, and data management.
 
 ## 📋 Table of Contents
 
@@ -15,7 +15,7 @@ This document provides comprehensive information about ForumLite's database sche
 
 ## 🎯 Overview
 
-ForumLite uses PostgreSQL as its primary database. The schema is designed for scalability, performance, and data integrity.
+Rexerium Forum uses PostgreSQL as its primary database. The schema is designed for scalability, performance, and data integrity.
 
 ### Database Features
 
@@ -135,7 +135,7 @@ The application initializes and reads the following keys:
 | `events_widget_detail_level` | enum | `full` | `full` or `compact` |
 | `events_widget_item_count` | number | `3` | 1-10 |
 | `events_widget_title` | string | "Upcoming Events & Webinars" | Widget heading |
-| `seo_site_title` | string | "ForumLite - Community Discussion Forum" | SEO title |
+| `seo_site_title` | string | "Rexerium Forum - Light Forum Solution" | SEO title |
 | `seo_site_description` | string | "Join our community..." | Meta description |
 | `seo_site_keywords` | string | "forum, community, ..." | Keywords |
 | `seo_og_image` | string | "" | Image URL |
@@ -389,7 +389,7 @@ GROUP BY u.id, u.username, u.created_at;
 
 ### Migration System
 
-ForumLite uses a custom migration system for database schema changes:
+Rexerium Forum uses a custom migration system for database schema changes:
 
 ```typescript
 // Migration example

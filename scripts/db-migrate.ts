@@ -3,7 +3,7 @@
 /**
  * Database Migration Script
  * 
- * This script handles database migrations for ForumLite.
+ * This script handles database migrations for Rexerium Forum.
  * It creates tables and applies schema changes.
  */
 

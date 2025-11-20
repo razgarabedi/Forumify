@@ -2,7 +2,7 @@
 
 ## Overview
 
-The ForumLite admin panel provides comprehensive management tools for forum administrators. It features a modern, responsive interface with role-based access control and extensive configuration options.
+The Rexerium Forum admin panel provides comprehensive management tools for forum administrators. It features a modern, responsive interface with role-based access control and extensive configuration options.
 
 ## Access Control
 

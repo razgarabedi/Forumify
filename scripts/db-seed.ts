@@ -3,7 +3,7 @@
 /**
  * Database Seeding Script
  * 
- * This script seeds the database with initial data for ForumLite.
+ * This script seeds the database with initial data for Rexerium Forum.
  * It creates default categories, settings, and sample content.
  */
 
@@ -73,8 +73,8 @@ async function seedDatabase() {
       ['events_widget_detail_level', 'full'],
       ['events_widget_item_count', '3'],
       ['events_widget_title', 'Upcoming Events & Webinars'],
-      ['seo_site_title', 'ForumLite - Community Discussion Forum'],
-      ['seo_site_description', 'Join our community forum for engaging discussions, helpful topics, and connecting with like-minded people.'],
+      ['seo_site_title', 'Rexerium Forum - Light Forum Solution'],
+      ['seo_site_description', 'Conversations Made Simple. A simple, efficient platform for community building. Perfect for small communities, startups, open-source projects, and niche groups.'],
       ['seo_site_keywords', 'forum, community, discussion, topics, posts, social'],
       ['seo_og_image', ''],
       ['seo_twitter_handle', ''],
@@ -97,8 +97,8 @@ async function seedDatabase() {
     // Create sample topics
     const sampleTopics = [
       {
-        title: 'Welcome to ForumLite!',
-        content: 'Welcome to our community forum! This is a sample topic to get you started. Feel free to introduce yourself and start participating in discussions.',
+        title: 'Welcome to Rexerium Forum!',
+        content: 'Welcome to Rexerium Forum! This is your community space for open discussions. Feel free to explore and start conversations!',
         category_slug: 'announcements'
       },
       {

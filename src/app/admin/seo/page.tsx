@@ -25,8 +25,8 @@ export default async function AdminSEOPage() {
         multilingual_enabled: false,
         default_language: 'en',
         // SEO Defaults
-        seo_site_title: "ForumLite - Community Discussion Forum",
-        seo_site_description: "Join our community forum for engaging discussions, helpful topics, and connecting with like-minded people.",
+        seo_site_title: "Rexerium Forum - Light Forum Solution",
+        seo_site_description: "Conversations Made Simple. A simple, efficient platform for community building. Perfect for small communities, startups, open-source projects, and niche groups.",
         seo_site_keywords: "forum, community, discussion, topics, posts, social",
         seo_og_image: "",
         seo_twitter_handle: "",

@@ -1,7 +1,17 @@
 
-# ForumLite
+# Rexerium Forum (Light Forum Solution)
 
-ForumLite is a lightweight forum application built using Next.js, TypeScript, Tailwind CSS, ShadCN UI components, and PostgreSQL for persistence. It demonstrates core forum functionalities including user authentication, category and topic management, posting, an admin panel, user profiles, rich content features, a notification system, private messaging, and an events/webinars system.
+Rexerium Forum is a lightweight forum application built using Next.js, TypeScript, Tailwind CSS, ShadCN UI components, and PostgreSQL for persistence. It provides simple, efficient community building with core forum functionalities including user authentication, category and topic management, posting, an admin panel, user profiles, rich content features, a notification system, private messaging, and an events/webinars system.
+
+**Tagline:** "Conversations Made Simple."
+
+**Positioning:** Simple, efficient community building.
+
+**Core Value:** Evolution + openness in discussions.
+
+**Voice:** Friendly, straightforward, inclusive.
+
+**Audience:** Small communities, startups, open-source projects, niche groups.
 
 ## Features
 
@@ -189,7 +199,7 @@ If you're on Ubuntu, follow these steps to install and set up PostgreSQL:
     ```
     Then type `exit` to return to your regular user.
 
-Your PostgreSQL server is now running, and you have a database and user ready for ForumLite.
+Your PostgreSQL server is now running, and you have a database and user ready for Rexerium Forum.
 
 ### 2. Configure Environment Variables
 
@@ -350,13 +360,13 @@ For a production site, you should use HTTPS.
     sudo certbot renew --dry-run
     ```
 
-Your ForumLite application should now be accessible via your domain, served by Nginx with the Next.js application running in the background. Consider using a process manager like PM2 to keep your `npm start` process running reliably.
+Your Rexerium Forum application should now be accessible via your domain, served by Nginx with the Next.js application running in the background. Consider using a process manager like PM2 to keep your `npm start` process running reliably.
 
 ## Getting Started
 
 1.  **Register the First User (Admin):** Navigate to the registration page (`/register`). The first account created will automatically have administrative privileges.
 2.  **Default Admin Credentials (if DB was initialized empty):** If the database was empty upon first application start and the automatic schema initialization created the default admin user, you can log in with:
-    *   **Email:** `admin@forumlite.com`
+    *   **Email:** `admin@rexerium.com`
     *   **Password:** `password123`
     *   It is **highly recommended** to change this password immediately after logging in.
 3.  **Explore:**
@@ -521,4 +531,4 @@ Refer to `src/lib/db.ts` for the exact `CREATE TABLE IF NOT EXISTS` statements u
 └── tsconfig.json       # TypeScript configuration
 ```
 
-This README provides a comprehensive overview of the ForumLite application, its features, setup instructions, and key considerations.
+This README provides a comprehensive overview of the Rexerium Forum application, its features, setup instructions, and key considerations.

@@ -8,7 +8,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 
 export const metadata = {
-  title: 'Account Settings - ForumLite',
+  title: 'Account Settings - Rexerium Forum',
 };
 
 export default async function SettingsPage() {

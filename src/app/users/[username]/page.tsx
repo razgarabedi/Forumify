@@ -22,7 +22,7 @@ export async function generateMetadata({ params }: UserProfilePageProps) {
   const decodedUsername = decodeURIComponent(username);
   const user = await findUserByUsername(decodedUsername);
   return {
-    title: user ? `${user.username}'s Profile - ForumLite` : 'User Not Found',
+    title: user ? `${user.username}'s Profile - Rexerium Forum` : 'User Not Found',
   };
 }
 

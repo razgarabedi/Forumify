@@ -30,9 +30,9 @@ export async function Header() {
                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
             </svg>
           )}
-          <span className="font-bold hidden sm:inline-block">ForumLite</span>
+          <span className="font-bold hidden sm:inline-block">Rexerium Forum</span>
         </Link>
-        <nav className="flex flex-1 items-center space-x-4 sm:space-x-6 text-sm font-medium">
+        <nav className="hidden md:flex flex-1 items-center space-x-4 sm:space-x-6 text-sm font-medium">
           <Link
             href="/"
             className="transition-colors hover:text-primary text-foreground/80 flex items-center gap-1"

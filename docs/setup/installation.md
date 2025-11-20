@@ -1,6 +1,6 @@
 # Installation & Setup Guide
 
-This guide will walk you through the complete installation and setup process for ForumLite.
+This guide will walk you through the complete installation and setup process for Rexerium Forum.
 
 ## 📋 Table of Contents
 
@@ -14,7 +14,7 @@ This guide will walk you through the complete installation and setup process for
 
 ## 🔧 Prerequisites
 
-Before installing ForumLite, ensure you have the following installed:
+Before installing Rexerium Forum, ensure you have the following installed:
 
 ### Required Software
 
@@ -191,7 +191,7 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 
 ### Automatic Database Initialization
 
-ForumLite will automatically create the necessary database tables on first run:
+Rexerium Forum will automatically create the necessary database tables on first run:
 
 ```bash
 # Start the development server
@@ -243,7 +243,7 @@ npm run dev
 ### 2. Access the Application
 
 1. Open your browser and navigate to `http://localhost:3000`
-2. You should see the ForumLite homepage
+2. You should see the Rexerium Forum homepage
 3. Click "Register" to create your first user account
 
 ### 3. Admin Account

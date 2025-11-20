@@ -11,7 +11,7 @@ import { redirect } from 'next/navigation';
 import { SubmitButton } from '@/components/SubmitButton'; 
 
 export const metadata = {
-  title: 'Notifications - ForumLite',
+  title: 'Notifications - Rexerium Forum',
 };
 
 export default async function NotificationsPage() {

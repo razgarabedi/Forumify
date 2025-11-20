@@ -46,7 +46,7 @@ export function LoginForm() {
         <Card className="w-full max-w-md mx-auto shadow-lg border border-border"> {/* Added border */}
             <CardHeader className="pb-4"> {/* Adjusted padding */}
                 <CardTitle className="text-2xl flex items-center"><LogIn className="mr-2 h-5 w-5"/> Login</CardTitle>
-                <CardDescription>Access your ForumLite account.</CardDescription>
+                <CardDescription>Access your Rexerium Forum account.</CardDescription>
             </CardHeader>
             <form action={formAction}>
                  {/* Moved CardContent inside form */}

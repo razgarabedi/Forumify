@@ -1,6 +1,6 @@
 # Configuration Guide
 
-This guide covers all configuration options available in ForumLite, including environment variables, database settings, and application customization.
+This guide covers all configuration options available in Rexerium Forum, including environment variables, database settings, and application customization.
 
 ## 📋 Table of Contents
 
@@ -111,7 +111,7 @@ Configure these settings through the admin panel at `/admin/site-settings`:
 
 | Setting | Type | Default | Description |
 |---------|------|---------|-------------|
-| `site_name` | string | "ForumLite" | Name of your forum |
+| `site_name` | string | "Rexerium Forum" | Name of your forum |
 | `site_description` | string | "Community Discussion Forum" | Site description |
 | `default_language` | string | "en" | Default language (en/de) |
 | `timezone` | string | "UTC" | Default timezone |
@@ -147,7 +147,7 @@ Configure these settings through the admin panel at `/admin/site-settings`:
 
 | Setting | Type | Default | Description |
 |---------|------|---------|-------------|
-| `seo_site_title` | string | "ForumLite - Community Forum" | SEO title |
+| `seo_site_title` | string | "Rexerium Forum - Light Forum Solution" | SEO title |
 | `seo_site_description` | string | "Join our community..." | Meta description |
 | `seo_site_keywords` | string | "forum, community" | SEO keywords |
 | `seo_og_image` | string | "" | Open Graph image URL |
@@ -267,7 +267,7 @@ SMTP_PORT="587"
 SMTP_SECURE="false"  # true for port 465
 SMTP_USER="your-email@gmail.com"
 SMTP_PASS="your-app-password"
-SMTP_FROM="ForumLite <noreply@yourdomain.com>"
+SMTP_FROM="Rexerium Forum <noreply@yourdomain.com>"
 ```
 
 ### Email Templates

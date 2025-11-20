@@ -9,7 +9,7 @@ import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
 
 export const metadata = {
-  title: 'Admin Panel - ForumLite',
+  title: 'Admin Panel - Rexerium Forum',
 };
 
 interface AdminLayoutProps {

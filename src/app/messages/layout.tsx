@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation';
 import { MessageSquare } from 'lucide-react';
 
 export const metadata = {
-  title: 'Private Messages - ForumLite',
+  title: 'Private Messages - Rexerium Forum',
 };
 
 interface MessagesLayoutProps {

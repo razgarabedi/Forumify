@@ -57,8 +57,8 @@ export function generatePageMetadata(
     noFollow = false,
   } = seoData;
 
-  const siteTitle = siteSettings.seo_site_title || 'ForumLite';
-  const siteDescription = siteSettings.seo_site_description || 'Community Discussion Forum';
+  const siteTitle = siteSettings.seo_site_title || 'Rexerium Forum - Light Forum Solution';
+  const siteDescription = siteSettings.seo_site_description || 'Conversations Made Simple. A simple, efficient platform for community building.';
   const siteKeywords = siteSettings.seo_site_keywords || 'forum, community, discussion';
   const defaultOgImage = siteSettings.seo_og_image || `${baseUrl}/og-default.png`;
   const twitterHandle = siteSettings.seo_twitter_handle;
@@ -130,8 +130,8 @@ export function generateStructuredData(
 ): StructuredData[] {
   const structuredData: StructuredData[] = [];
 
-  const siteTitle = siteSettings.seo_site_title || 'ForumLite';
-  const siteDescription = siteSettings.seo_site_description || 'Community Discussion Forum';
+  const siteTitle = siteSettings.seo_site_title || 'Rexerium Forum - Light Forum Solution';
+  const siteDescription = siteSettings.seo_site_description || 'Conversations Made Simple. A simple, efficient platform for community building.';
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:9002';
 
   // Website/Organization structured data

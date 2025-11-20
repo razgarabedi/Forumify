@@ -360,8 +360,8 @@ export async function updateSEOSettingsAction(prevState: ActionResponse | undefi
             seo_friendly_urls_enabled 
         } = validatedFields.data;
 
-        await dbUpdateSiteSetting('seo_site_title', seo_site_title || "ForumLite - Community Discussion Forum");
-        await dbUpdateSiteSetting('seo_site_description', seo_site_description || "Join our community forum for engaging discussions, helpful topics, and connecting with like-minded people.");
+        await dbUpdateSiteSetting('seo_site_title', seo_site_title || "Rexerium Forum - Light Forum Solution");
+        await dbUpdateSiteSetting('seo_site_description', seo_site_description || "Conversations Made Simple. A simple, efficient platform for community building. Perfect for small communities, startups, open-source projects, and niche groups.");
         await dbUpdateSiteSetting('seo_site_keywords', seo_site_keywords || "forum, community, discussion, topics, posts, social");
         await dbUpdateSiteSetting('seo_og_image', seo_og_image || "");
         await dbUpdateSiteSetting('seo_twitter_handle', seo_twitter_handle || "");

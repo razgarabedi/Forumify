@@ -38,6 +38,7 @@ interface PostProps {
     post: PostType;
     currentUser: User | null;
     onEdit: (post: PostType) => void;
+    onDelete?: (postId: string) => void;
     isFirstPost?: boolean;
 }
 
@@ -93,7 +94,7 @@ const processChildrenForMentions = (children: React.ReactNode): React.ReactNode 
 };
 
 
-export function Post({ post, currentUser, onEdit, isFirstPost = false }: PostProps) {
+export function Post({ post, currentUser, onEdit, onDelete, isFirstPost = false }: PostProps) {
     const { toast } = useToast();
     const [isDeleting, setIsDeleting] = useState(false);
 
@@ -106,6 +107,10 @@ export function Post({ post, currentUser, onEdit, isFirstPost = false }: PostPro
             const result = await deletePost(post.id, post.topicId);
             if (result.success) {
                 toast({ title: "Success", description: "Post deleted successfully." });
+                // Call the onDelete callback to update the UI immediately
+                if (onDelete) {
+                    onDelete(post.id);
+                }
             } else {
                  throw new Error(result.message || "Failed to delete post.");
             }
@@ -230,9 +235,59 @@ export function Post({ post, currentUser, onEdit, isFirstPost = false }: PostPro
              isFirstPost && "border-primary/30 bg-primary/5"
          )}>
             <div className="flex flex-col sm:flex-row">
+                {/* Mobile: Compact profile section - horizontal layout with avatar, username, badge on left, posts and points on right */}
                 <div className={cn(
-                    "sm:w-[200px] lg:w-[220px] p-3 sm:p-4 border-b sm:border-b-0 sm:border-r border-border flex-shrink-0",
-                    isFirstPost ? "bg-primary/10" : "bg-card sm:bg-muted/30"
+                    "sm:hidden p-3 border-b border-border flex-shrink-0",
+                    isFirstPost ? "bg-primary/10" : "bg-card"
+                )}>
+                    {post.author && (
+                        <Link href={`/users/${post.author.username}`} className="flex items-center justify-between gap-2.5 group" title={`View ${post.author.username}'s profile`}>
+                            <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                                <Avatar className="h-12 w-12 border border-border shadow-sm flex-shrink-0">
+                                    <AvatarImage src={post.author.avatarUrl || `https://avatar.vercel.sh/${post.author.username}.png?size=48`} alt={post.author.username} data-ai-hint="user avatar"/>
+                                    <AvatarFallback className="text-base">{post.author.username?.charAt(0)?.toUpperCase() || 'U'}</AvatarFallback>
+                                </Avatar>
+                                <div className="flex items-center gap-2 flex-wrap min-w-0">
+                                    <p className="text-sm font-semibold text-primary group-hover:underline truncate">
+                                        {post.author.username}
+                                    </p>
+                                    {post.author.isAdmin ? (
+                                        <span className="text-xs text-destructive flex items-center gap-1 flex-shrink-0">
+                                            <ShieldCheck className="h-3 w-3" /> Admin
+                                        </span>
+                                    ) : (
+                                        <span className="text-xs text-muted-foreground flex items-center gap-1 flex-shrink-0">
+                                            <UserIconLucide className="h-3 w-3" /> User
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-3 flex-shrink-0">
+                                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                    <MessageSquare className="h-3.5 w-3.5" />
+                                    <span>{post.author.postCount ?? 0}</span>
+                                </div>
+                                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                    <Star className="h-3.5 w-3.5" />
+                                    <span>{post.author.points ?? 0}</span>
+                                </div>
+                            </div>
+                        </Link>
+                    )}
+                    {!post.author && (
+                        <div className="flex items-center gap-2.5">
+                            <Avatar className="h-12 w-12 border border-border shadow-sm flex-shrink-0">
+                                <AvatarFallback className="text-base">?</AvatarFallback>
+                            </Avatar>
+                            <p className="text-sm font-semibold text-muted-foreground">Unknown User</p>
+                        </div>
+                    )}
+                </div>
+                
+                {/* Desktop: Full profile section */}
+                <div className={cn(
+                    "hidden sm:block sm:w-[200px] lg:w-[220px] p-3 sm:p-4 sm:border-r border-border flex-shrink-0",
+                    isFirstPost ? "bg-primary/10" : "bg-muted/30"
                 )}>
                     {post.author && (
                         <>

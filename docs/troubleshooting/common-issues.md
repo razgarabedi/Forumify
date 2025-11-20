@@ -1,6 +1,6 @@
 # Common Issues & Troubleshooting
 
-This guide covers frequently encountered problems and their solutions in ForumLite.
+This guide covers frequently encountered problems and their solutions in Rexerium Forum.
 
 ## 📋 Table of Contents
 

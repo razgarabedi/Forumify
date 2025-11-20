@@ -1,6 +1,6 @@
 # SEO Implementation Guide
 
-This comprehensive guide covers the SEO (Search Engine Optimization) implementation in ForumLite, including setup, configuration, and best practices.
+This comprehensive guide covers the SEO (Search Engine Optimization) implementation in Rexerium Forum, including setup, configuration, and best practices.
 
 ## 📋 Table of Contents
 
@@ -16,7 +16,7 @@ This comprehensive guide covers the SEO (Search Engine Optimization) implementat
 
 ## 🎯 Overview
 
-ForumLite includes a comprehensive SEO system that helps improve your forum's visibility in search engines. The implementation includes:
+Rexerium Forum includes a comprehensive SEO system that helps improve your forum's visibility in search engines. The implementation includes:
 
 - Dynamic meta tags generation
 - Structured data (JSON-LD)
@@ -63,7 +63,7 @@ ForumLite includes a comprehensive SEO system that helps improve your forum's vi
 
 | Setting | Description | Character Limit | Example |
 |---------|-------------|-----------------|---------|
-| Site Title | Main title for your forum | 60 | "ForumLite - Community Discussion Forum" |
+| Site Title | Main title for your forum | 60 | "Rexerium Forum - Light Forum Solution" |
 | Site Description | Meta description for search engines | 160 | "Join our community forum for engaging discussions..." |
 | Keywords | Comma-separated keywords | 200 | "forum, community, discussion, topics" |
 
@@ -146,7 +146,7 @@ CREATE TABLE site_settings (
 {
   "@context": "https://schema.org",
   "@type": "WebSite",
-  "name": "ForumLite",
+      "name": "Rexerium Forum",
   "description": "Community Discussion Forum",
   "url": "https://yourforum.com",
   "potentialAction": {
@@ -194,7 +194,7 @@ CREATE TABLE site_settings (
   "datePublished": "2024-01-01T00:00:00Z",
   "isPartOf": {
     "@type": "WebSite",
-    "name": "ForumLite",
+      "name": "Rexerium Forum",
     "url": "https://yourforum.com"
   }
 }

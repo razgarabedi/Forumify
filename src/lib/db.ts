@@ -563,7 +563,10 @@ export const getTopicsByCategorySorted = async (categoryId: string, sortBy: 'lat
     }
 };
 
-export const getTopicById = async (id: string): Promise<Topic | null> => {
+export const getTopicById = async (id: string, retries: number = 3): Promise<Topic | null> => {
+    let lastError: any = null;
+    
+    for (let attempt = 0; attempt < retries; attempt++) {
     try {
         const topicRes = await query(`
             SELECT t.id, t.title, t.slug, t.category_id, t.author_id, t.created_at, t.last_activity, t.pinned,
@@ -580,9 +583,36 @@ export const getTopicById = async (id: string): Promise<Topic | null> => {
         if (topicRes.rows.length === 0) return null;
         return mapDbRowToTopic(topicRes.rows[0]);
     } catch (error: any) {
+            lastError = error;
+            // Check if it's a deadlock error
+            const isDeadlock = error.message?.includes('deadlock') || 
+                              error.message?.includes('Deadlock') || 
+                              error.message?.includes('Verklemmung') ||
+                              error.code === '40P01';
+            
+            if (isDeadlock && attempt < retries - 1) {
+                // Exponential backoff: wait longer for each retry
+                const delay = Math.min(100 * Math.pow(2, attempt), 1000);
+                console.warn(`[DB Warning] getTopicById deadlock detected for ${id}, retrying in ${delay}ms (attempt ${attempt + 1}/${retries})`);
+                await new Promise(resolve => setTimeout(resolve, delay));
+                continue;
+            }
+            
+            // If not a deadlock or all retries exhausted, throw immediately
+            if (!isDeadlock) {
         console.error(`[DB Error] getTopicById for ${id}: Error querying database.`, error.message);
         throw error;
     }
+        }
+    }
+    
+    // If we exhausted all retries, throw the last error
+    if (lastError) {
+        console.error(`[DB Error] getTopicById for ${id}: All retries exhausted after deadlock.`, lastError.message);
+        throw lastError;
+    }
+    
+    return null;
 };
 
 // Resolve topic by slug
@@ -1214,8 +1244,8 @@ export const getAllSiteSettings = async (): Promise<SiteSettings> => {
         multilingual_enabled: false,
         default_language: 'en',
         // SEO Defaults
-        seo_site_title: "ForumLite - Community Discussion Forum",
-        seo_site_description: "Join our community forum for engaging discussions, helpful topics, and connecting with like-minded people.",
+        seo_site_title: "Rexerium Forum - Light Forum Solution",
+        seo_site_description: "Conversations Made Simple. A simple, efficient platform for community building. Perfect for small communities, startups, open-source projects, and niche groups.",
         seo_site_keywords: "forum, community, discussion, topics, posts, social",
         seo_og_image: "",
         seo_twitter_handle: "",
@@ -1229,7 +1259,7 @@ export const getAllSiteSettings = async (): Promise<SiteSettings> => {
         links_docs_url: "",
         links_community_url: "",
         // Core settings defaults
-        core_welcome_banner: "The simple, modern platform for community discussions.",
+        core_welcome_banner: "Conversations Made Simple. Build your community with ease.",
         core_censor_words: "",
         core_discussion_sorting: 'latest',
         core_allow_signups: true,
@@ -1514,8 +1544,8 @@ async function initializeDatabase() {
         ['multilingual_enabled', false],
         ['default_language', 'en'],
         // SEO Defaults
-        ['seo_site_title', "ForumLite - Community Discussion Forum"],
-        ['seo_site_description', "Join our community forum for engaging discussions, helpful topics, and connecting with like-minded people."],
+        ['seo_site_title', "Rexerium Forum - Light Forum Solution"],
+        ['seo_site_description', "Conversations Made Simple. A simple, efficient platform for community building. Perfect for small communities, startups, open-source projects, and niche groups."],
         ['seo_site_keywords', "forum, community, discussion, topics, posts, social"],
         ['seo_og_image', ""],
         ['seo_twitter_handle', ""],
@@ -1529,7 +1559,7 @@ async function initializeDatabase() {
         ['links_docs_url', ''],
         ['links_community_url', ''],
         // Core
-        ['core_welcome_banner', 'The simple, modern platform for community discussions.'],
+        ['core_welcome_banner', 'Conversations Made Simple. Build your community with ease.'],
         ['core_censor_words', ''],
         ['core_discussion_sorting', 'latest'],
         ['core_allow_signups', true],
@@ -1553,7 +1583,7 @@ async function initializeDatabase() {
     const usersCountRes = await client.query('SELECT COUNT(*) FROM users');
     if (parseInt(usersCountRes.rows[0].count, 10) === 0) {
         console.log("No users found in DB, attempting to create initial admin user...");
-        await createUser({ username: "admin", email: "admin@forumlite.com", password: "password123", isAdmin: true, lastActive: new Date(), aboutMe: "Default administrator account."});
+        await createUser({ username: "admin", email: "admin@rexerium.com", password: "password123", isAdmin: true, lastActive: new Date(), aboutMe: "Default administrator account."});
 
         let generalCat = await getCategoryByNameInternal("General Discussion", client);
         if (!generalCat) generalCat = await createCategoryInternal({name: 'General Discussion', description: 'Talk about anything.'}, client);
@@ -1564,11 +1594,11 @@ async function initializeDatabase() {
         let techCat = await getCategoryByNameInternal("Technical Help", client);
         if(!techCat) techCat = await createCategoryInternal({name: 'Technical Help', description: 'Get help with technical issues.'}, client);
 
-        const adminUser = await findUserByEmail("admin@forumlite.com");
+        const adminUser = await findUserByEmail("admin@rexerium.com");
         if (adminUser && generalCat) {
-            const welcomeTopicExists = await getTopicByTitleAndCategoryInternal("Welcome to ForumLite!", generalCat.id, client);
+            const welcomeTopicExists = await getTopicByTitleAndCategoryInternal("Welcome to Rexerium Forum!", generalCat.id, client);
             if (!welcomeTopicExists) {
-                await createTopicInternal({ title: "Welcome to ForumLite!", categoryId: generalCat.id, authorId: adminUser.id, firstPostContent: "This is the first topic on ForumLite. Feel free to look around and start discussions!" }, client);
+                await createTopicInternal({ title: "Welcome to Rexerium Forum!", categoryId: generalCat.id, authorId: adminUser.id, firstPostContent: "Welcome to Rexerium Forum! This is your community space for open discussions. Feel free to explore and start conversations!" }, client);
             }
         }
         if (adminUser && techCat) {

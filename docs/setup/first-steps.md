@@ -1,6 +1,6 @@
 # First Steps Guide
 
-This guide will help you get started with ForumLite after installation, including initial configuration and basic usage.
+This guide will help you get started with Rexerium Forum after installation, including initial configuration and basic usage.
 
 ## 📋 Table of Contents
 

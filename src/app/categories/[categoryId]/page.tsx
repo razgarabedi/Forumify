@@ -1,5 +1,5 @@
 
-import { getTopicsByCategory, getTopicsByCategorySorted, getCategoryById, getCategoryBySlug, getAllSiteSettings } from '@/lib/db'; // Changed from placeholder-data
+import { getTopicsByCategory, getTopicsByCategorySorted, getCategoryById, getCategoryBySlug, getAllSiteSettings, checkPermissionForUser } from '@/lib/db'; // Changed from placeholder-data
 import { TopicList } from '@/components/forums/TopicList';
 import { getCurrentUser } from '@/lib/actions/auth';
 import Link from 'next/link';
@@ -55,7 +55,11 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
 
             <div>
                  <h2 className="text-xl sm:text-2xl font-semibold mb-4">Topics</h2>
-                <TopicList topics={topics} />
+                <TopicList 
+                    topics={topics} 
+                    canPin={user ? await checkPermissionForUser(user.id, 'pin_topics') : false}
+                    siteSettings={siteSettings}
+                />
             </div>
         </div>
     );
@@ -68,6 +72,6 @@ export async function generateMetadata({ params }: CategoryPageProps) {
     ? (await getCategoryBySlug(categoryId)) || (await getCategoryById(categoryId))
     : await getCategoryById(categoryId);
   return {
-    title: category ? `${category.name} - ForumLite` : 'Category Not Found',
+    title: category ? `${category.name} - Rexerium Forum` : 'Category Not Found',
   };
 }

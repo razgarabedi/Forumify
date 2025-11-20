@@ -21,8 +21,8 @@ let siteSettings: Partial<SiteSettings> = {
     multilingual_enabled: false,
     default_language: 'en',
     // SEO Defaults
-    seo_site_title: "ForumLite - Community Discussion Forum",
-    seo_site_description: "Join our community forum for engaging discussions, helpful topics, and connecting with like-minded people.",
+    seo_site_title: "Rexerium Forum - Light Forum Solution",
+    seo_site_description: "Conversations Made Simple. A simple, efficient platform for community building. Perfect for small communities, startups, open-source projects, and niche groups.",
     seo_site_keywords: "forum, community, discussion, topics, posts, social",
     seo_og_image: "",
     seo_twitter_handle: "",
@@ -847,8 +847,8 @@ export const getAllSiteSettings = async (): Promise<SiteSettings> => {
         multilingual_enabled: false,
         default_language: 'en',
         // SEO Defaults
-        seo_site_title: "ForumLite - Community Discussion Forum",
-        seo_site_description: "Join our community forum for engaging discussions, helpful topics, and connecting with like-minded people.",
+        seo_site_title: "Rexerium Forum - Light Forum Solution",
+        seo_site_description: "Conversations Made Simple. A simple, efficient platform for community building. Perfect for small communities, startups, open-source projects, and niche groups.",
         seo_site_keywords: "forum, community, discussion, topics, posts, social",
         seo_og_image: "",
         seo_twitter_handle: "",
@@ -894,7 +894,7 @@ export const initializePlaceholderData = () => {
     console.warn("Placeholder data arrays are empty. Initializing with defaults.");
 
     const adminUserPlaceholder: User = {
-        id: 'admin-user-placeholder-fallback', username: "admin", email: "admin@forumlite.com",
+        id: 'admin-user-placeholder-fallback', username: "admin", email: "admin@rexerium.com",
         password: "password123", isAdmin: true, createdAt: new Date('2023-01-01T10:00:00Z'), lastActive: new Date(),
         aboutMe: "Default administrator account for placeholder data.", points: 0, postCount: 0,
         avatarUrl: 'https://avatar.vercel.sh/admin.png?size=128', language: 'en',
@@ -907,9 +907,9 @@ export const initializePlaceholderData = () => {
     categories = [generalCatData, introCatData, techCatData];
 
     const welcomeTopicPlaceholder: Topic = {
-        id: 'topic1-placeholder-fallback', title: "Welcome to ForumLite (Fallback)", slug: generateSlug(`${generalCatData.name} Welcome to ForumLite (Fallback)`), categoryId: generalCatData.id,
+        id: 'topic1-placeholder-fallback', title: "Welcome to Rexerium Forum (Fallback)", slug: generateSlug(`${generalCatData.name} Welcome to Rexerium Forum (Fallback)`), categoryId: generalCatData.id,
         authorId: adminUserPlaceholder.id, createdAt: new Date('2023-01-10T10:00:00Z'), lastActivity: new Date('2023-01-10T10:05:00Z'), postCount: 1,
-        firstPostContentSnippet: "This is the first topic on ForumLite. Feel free to look around and start discussions!",
+        firstPostContentSnippet: "Welcome to Rexerium Forum! This is your community space for open discussions. Feel free to explore and start conversations!",
         firstPostImageUrl: undefined,
     };
     const techTopicPlaceholder: Topic = {
@@ -939,8 +939,8 @@ export const initializePlaceholderData = () => {
         multilingual_enabled: false,
         default_language: 'en',
         // SEO Defaults
-        seo_site_title: "ForumLite - Community Discussion Forum",
-        seo_site_description: "Join our community forum for engaging discussions, helpful topics, and connecting with like-minded people.",
+        seo_site_title: "Rexerium Forum - Light Forum Solution",
+        seo_site_description: "Conversations Made Simple. A simple, efficient platform for community building. Perfect for small communities, startups, open-source projects, and niche groups.",
         seo_site_keywords: "forum, community, discussion, topics, posts, social",
         seo_og_image: "",
         seo_twitter_handle: "",
@@ -978,8 +978,8 @@ export const _resetPlaceholderData = () => {
         multilingual_enabled: false,
         default_language: 'en',
         // SEO Defaults
-        seo_site_title: "ForumLite - Community Discussion Forum",
-        seo_site_description: "Join our community forum for engaging discussions, helpful topics, and connecting with like-minded people.",
+        seo_site_title: "Rexerium Forum - Light Forum Solution",
+        seo_site_description: "Conversations Made Simple. A simple, efficient platform for community building. Perfect for small communities, startups, open-source projects, and niche groups.",
         seo_site_keywords: "forum, community, discussion, topics, posts, social",
         seo_og_image: "",
         seo_twitter_handle: "",

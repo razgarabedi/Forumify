@@ -19,6 +19,8 @@ interface PostFormProps {
     topicId: string;
     editingPost?: Post | null;
     onEditCancel?: () => void;
+    onPostAdded?: (post: Post) => void;
+    onPostUpdated?: (post: Post) => void;
 }
 
 const initialState = {
@@ -28,7 +30,7 @@ const initialState = {
     post: null,
 };
 
-export function PostForm({ topicId, editingPost, onEditCancel }: PostFormProps) {
+export function PostForm({ topicId, editingPost, onEditCancel, onPostAdded, onPostUpdated }: PostFormProps) {
     const [state, formAction] = useActionState(submitPost, initialState);
     const { toast } = useToast();
     const formRef = useRef<HTMLFormElement>(null);
@@ -61,8 +63,31 @@ export function PostForm({ topicId, editingPost, onEditCancel }: PostFormProps) 
             setImagePreview(null);
             setImageFile(null);
             setRemoveCurrentImage(false);
-            if (isEditing && onEditCancel) {
-                onEditCancel();
+            if (isEditing) {
+                // Post was updated
+                if ((state as any).post && onPostUpdated) {
+                    onPostUpdated((state as any).post as Post);
+                } else if (onPostUpdated && editingPost) {
+                    // Fallback: if post not in response, trigger refresh
+                    onPostUpdated(editingPost);
+                }
+                if (onEditCancel) {
+                    onEditCancel();
+                }
+            } else {
+                // New post was added
+                if ((state as any).post && onPostAdded) {
+                    const newPost = (state as any).post as Post;
+                    onPostAdded(newPost);
+                    // Scroll to the new post after a brief delay
+                    setTimeout(() => {
+                        const postElement = document.getElementById(`post-${newPost.id}`);
+                        postElement?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }, 100);
+                } else if (onPostAdded) {
+                    // Fallback: if post not in response, trigger refresh
+                    onPostAdded(undefined);
+                }
             }
         }
     }, [state, toast, isEditing, onEditCancel]);

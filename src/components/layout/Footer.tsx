@@ -24,7 +24,7 @@ export async function Footer() {
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex flex-col sm:flex-row items-center gap-4">
             <p className="text-sm text-muted-foreground">
-              © {new Date().getFullYear()} ForumLite. All rights reserved.
+              © {new Date().getFullYear()} Rexerium Forum. All rights reserved.
             </p>
             
             {/* Social Media Links */}

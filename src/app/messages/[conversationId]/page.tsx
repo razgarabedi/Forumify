@@ -19,7 +19,7 @@ interface ConversationPageProps {
 export async function generateMetadata({ params }: ConversationPageProps) {
   const { conversationId } = await params;
   const currentUser = await getCurrentUser();
-  if (!currentUser) return { title: 'Private Message - ForumLite' };
+  if (!currentUser) return { title: 'Private Message - Rexerium Forum' };
 
   const conversation = await dbGetConversationById(conversationId);
 
@@ -32,7 +32,7 @@ export async function generateMetadata({ params }: ConversationPageProps) {
         if (conversation.subject) {
           title = `${conversation.subject} - Chat with ${otherParticipant.username}`;
         }
-        return { title: `${title} - ForumLite` };
+        return { title: `${title} - Rexerium Forum` };
       }
     }
   } else if (conversationId.startsWith('conv-')) { 
@@ -46,12 +46,12 @@ export async function generateMetadata({ params }: ConversationPageProps) {
       if (otherId) {
         const otherUser = await findUserById(otherId);
         if (otherUser) {
-          return { title: `Chat with ${otherUser.username} - ForumLite` };
+          return { title: `Chat with ${otherUser.username} - Rexerium Forum` };
         }
       }
     }
   }
-  return { title: 'Private Message - ForumLite' };
+  return { title: 'Private Message - Rexerium Forum' };
 }
 
 

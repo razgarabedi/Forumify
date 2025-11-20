@@ -1,6 +1,6 @@
 # API Documentation
 
-This document provides comprehensive information about ForumLite's API endpoints, data structures, and integration methods.
+This document provides comprehensive information about Rexerium Forum's API endpoints, data structures, and integration methods.
 
 ## 📋 Table of Contents
 
@@ -15,7 +15,7 @@ This document provides comprehensive information about ForumLite's API endpoints
 
 ## 🎯 Overview
 
-ForumLite provides a RESTful API for programmatic access to forum data and functionality. The API is built on Next.js App Router with server actions and follows REST conventions.
+Rexerium Forum provides a RESTful API for programmatic access to forum data and functionality. The API is built on Next.js App Router with server actions and follows REST conventions.
 
 ### Base URL
 
@@ -60,7 +60,7 @@ Error responses:
 
 ### Authentication Methods
 
-ForumLite uses session-based authentication with NextAuth.js:
+Rexerium Forum uses session-based authentication with NextAuth.js:
 
 1. **Session Cookies**: Automatic authentication via HTTP cookies
 2. **API Keys**: For programmatic access (optional)
@@ -730,7 +730,7 @@ function useTopics(categoryId?: string) {
 
 ### Official SDKs
 
-Currently, ForumLite doesn't provide official SDKs, but you can use the REST API with any HTTP client.
+Currently, Rexerium Forum doesn't provide official SDKs, but you can use the REST API with any HTTP client.
 
 ### Recommended Libraries
 

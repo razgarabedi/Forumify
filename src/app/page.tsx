@@ -18,8 +18,8 @@ export async function generateMetadata(): Promise<Metadata> {
     const siteSettings = await getAllSiteSettings();
     return generatePageMetadata(
       {
-        title: siteSettings.seo_site_title || 'ForumLite - Community Discussion Forum',
-        description: siteSettings.seo_site_description || 'Join our community forum for engaging discussions, helpful topics, and connecting with like-minded people.',
+        title: siteSettings.seo_site_title || 'Rexerium Forum - Light Forum Solution',
+        description: siteSettings.seo_site_description || 'Conversations Made Simple. A simple, efficient platform for community building. Perfect for small communities, startups, open-source projects, and niche groups.',
         keywords: siteSettings.seo_site_keywords,
         ogImage: siteSettings.seo_og_image,
         ogType: 'website',
@@ -29,8 +29,8 @@ export async function generateMetadata(): Promise<Metadata> {
     );
   } catch (error) {
     return {
-      title: 'ForumLite - Community Discussion Forum',
-      description: 'Join our community forum for engaging discussions, helpful topics, and connecting with like-minded people.',
+      title: 'Rexerium Forum - Light Forum Solution',
+      description: 'Conversations Made Simple. A simple, efficient platform for community building. Perfect for small communities, startups, open-source projects, and niche groups.',
     };
   }
 }
@@ -105,9 +105,9 @@ export default async function Home({ searchParams }: { searchParams?: Promise<{ 
          {typeof window === 'undefined' ? null : null}
          <Card className="bg-gradient-to-r from-primary/10 via-background to-background border border-primary/20 shadow-sm">
         <CardHeader>
-           <CardTitle className="text-2xl sm:text-3xl font-bold text-primary">Welcome to ForumLite!</CardTitle>
+           <CardTitle className="text-2xl sm:text-3xl font-bold text-primary">Welcome to Rexerium Forum</CardTitle>
            <CardDescription className="text-base text-foreground/80 mt-1">
-               {siteSettings.core_welcome_banner || 'The simple, modern platform for community discussions.'}
+               {siteSettings.core_welcome_banner || 'Conversations Made Simple. Build your community with ease.'}
             </CardDescription>
         </CardHeader>
           {!user && (

@@ -1,6 +1,6 @@
-# ForumLite Documentation
+# Rexerium Forum Documentation
 
-Welcome to the ForumLite documentation! This comprehensive guide covers all aspects of the forum application, from setup and configuration to advanced features and customization.
+Welcome to the Rexerium Forum documentation! This comprehensive guide covers all aspects of the forum application, from setup and configuration to advanced features and customization.
 
 ## 📚 Documentation Index
 

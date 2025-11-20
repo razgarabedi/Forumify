@@ -1,4 +1,4 @@
-# **App Name**: ForumLite
+# **App Name**: Rexerium Forum (Light Forum Solution)
 
 ## Core Features:
 

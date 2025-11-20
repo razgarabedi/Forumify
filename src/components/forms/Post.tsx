@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Edit, Trash2, Clock, UserCircle, ShieldCheck, Link as LinkIcon } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { deletePost } from '@/lib/actions/forums';
+import { useRouter } from 'next/navigation';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -49,6 +50,7 @@ const getYouTubeVideoId = (url: string): string | null => {
 
 export function Post({ post, currentUser, onEdit, isFirstPost = false }: PostProps) {
     const { toast } = useToast();
+    const router = useRouter();
     const [isDeleting, setIsDeleting] = useState(false); // Add loading state for delete
 
     const isAuthor = currentUser?.id === post.authorId;
@@ -60,7 +62,8 @@ export function Post({ post, currentUser, onEdit, isFirstPost = false }: PostPro
             const result = await deletePost(post.id, post.topicId);
             if (result.success) {
                 toast({ title: "Success", description: "Post deleted successfully." });
-                // Revalidation is handled by the action, parent component might need update if posts are stateful
+                // Refresh the page to update the post list
+                router.refresh();
             } else {
                  throw new Error(result.message || "Failed to delete post.");
             }
